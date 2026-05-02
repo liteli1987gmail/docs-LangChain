@@ -49,19 +49,19 @@ const store = new AzureCosmosDBNoSQLVectorStore(new OpenAIEmbeddings(), {
 });
 ```
 
-<信息>
+<Note>
 **When using Azure Managed Identity and role-based access control, you must ensure that the database and container have been created beforehand. RBAC does not provide permissions to create databases and containers. You can get more information about the permission model in the [Azure Cosmos DB documentation](https://learn.microsoft.com/azure/cosmos-db/how-to-setup-rbac#permission-model).**
 
 
-</信息>
+</Note>
 
 ### Security considerations when using filters
 
-<警告>
+<Warning>
 **Using filters with user-provided input can be a security risk if the data is not sanitized properly. Follow the recommendation below to prevent potential security issues.**
 
 
-</警告>
+</Warning>
 
 Allowing raw user input to be concatenated into SQL-like clauses - such as `WHERE ${userFilter}` - introduces a critical risk of SQL injection attacks, potentially exposing unintended data or compromising your system's integrity. To mitigate this, always use Azure Cosmos DB's parameterized query mechanism, passing in `@param` placeholders, which cleanly separates the query logic from user-provided input.
 
@@ -265,9 +265,9 @@ const results = await store.maxMarginalRelevanceSearch("machine learning", {
 
 ## Full-text and hybrid search (preview)
 
-<警告>
+<Warning>
 Full-text and hybrid search are preview features in Azure Cosmos DB. You need to configure your container with a full-text policy and appropriate indexing to use these features. See the [Azure Cosmos DB documentation](https://learn.microsoft.com/azure/cosmos-db/gen-ai/full-text-search) for setup instructions.
-</警告>
+</Warning>
 
 To use full-text or hybrid search, enable it when creating the store:
 

@@ -72,11 +72,11 @@ npx prisma migrate dev
 npm install @langchain/openai @langchain/community @langchain/core
 ```
 
-<警告>
+<Warning>
 **Table names and column names (in fields such as `tableName`, `vectorColumnName`, `columns` and `filter`) are passed into SQL queries directly without parametrisation.**
 
 该se fields must be sanitized beforehand to avoid SQL injection.
-</警告>
+</Warning>
 
 ```typescript
 import { PrismaVectorStore } from "@langchain/community/vectorstores/prisma";

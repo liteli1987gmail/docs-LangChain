@@ -24,9 +24,9 @@ Reduce costs and latency by caching static or repetitive prompt content (like sy
     For simpler use cases, you can also use [prompt caching](/oss/集成s/chat/anthropic#prompt-caching) on the chat model by passing `cache_control` at invocation time without middleware. 该 middleware is recommended when you need explicit control over cache breakpoints on system prompts and tool definitions.
 </Tip>
 
-<信息>
+<Note>
     Learn more about [Anthropic prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#cache-limitations) strategies and limitations.
-</信息>
+</Note>
 
 ```typescript
 import { createAgent, anthropicPromptCachingMiddleware } from "langchain";

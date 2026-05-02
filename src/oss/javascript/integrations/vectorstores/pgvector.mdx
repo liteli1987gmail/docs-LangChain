@@ -86,10 +86,10 @@ If you want to get automated tracing of your model calls you can also set your [
 
 To instantiate the vector store, call the `.initialize()` static method. This will automatically check for the presence of a table, given by `tableName` in the passed `config`. If it is not there, it will create it with the required columns.
 
-<警告>
+<Warning>
 **Security**: User-generated data such as usernames should not be used as input for table and column names.
 **This may lead to SQL Injection!**
-</警告>
+</Warning>
 
 ```typescript
 import {
