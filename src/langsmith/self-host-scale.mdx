@@ -19,10 +19,10 @@ sidebarTitle: 配置规模化
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | <Tooltip tip="在前端活跃查看追踪的用户数">并发前端用户</Tooltip> | 5 | 5 | 50 | 20 | 50 |
 | <Tooltip tip="通过 SDK 或 API 端点摄入的追踪数">每秒提交的追踪</Tooltip> | 10 | 1000 | 10 | 100 | 1000 |
-| **前端副本</Tooltip>**<br />（每个副本 500m CPU，1Gi） | 1（默认） | 4 | 2 | 2 | 4 |
-| **平台后端副本</Tooltip>**<br />（每个副本 1 CPU，2Gi） | 3（默认） | 20 | 3（默认） | 3（默认） | 20 |
-| **摄入队列副本</Tooltip>**<br />（每个副本 1 CPU，2Gi） | 3（默认） | 24 | 3（默认） | 6 | 24 |
-| **后端副本</Tooltip>**<br />（每个副本 1 CPU，2Gi） | 2（默认） | 5 | 40 | 16 | 50 |
+| **前端副本**</Tooltip><br />（每个副本 500m CPU，1Gi） | 1（默认） | 4 | 2 | 2 | 4 |
+| **平台后端副本**</Tooltip><br />（每个副本 1 CPU，2Gi） | 3（默认） | 20 | 3（默认） | 3（默认） | 20 |
+| **摄入队列副本**</Tooltip><br />（每个副本 1 CPU，2Gi） | 3（默认） | 24 | 3（默认） | 6 | 24 |
+| **后端副本**</Tooltip><br />（每个副本 1 CPU，2Gi） | 2（默认） | 5 | 40 | 16 | 50 |
 | **Redis 资源** | 8 Gi（默认） | 26 Gi 外部 | 8 Gi（默认） | 13Gi 外部 | 26 Gi 外部 |
 | **ClickHouse 资源** | 4 CPU<br />16 Gi（默认） | 10 CPU<br />32Gi 内存 | 8 CPU<br />每个副本 16 Gi | 16 CPU<br />24Gi 内存 | 14 CPU<br />每个副本 24 Gi |
 | **ClickHouse 设置** | 单实例 | 单实例 | 3 节点 <Tooltip tip="推荐用于高读取负载以防止性能下降。另一个选项是[托管 clickhouse](/langsmith/self-host-external-clickhouse#langsmith-managed-clickhouse)。">复制集群</Tooltip> | 单实例 | 3 节点 <Tooltip tip="推荐用于高读取负载以防止性能下降。另一个选项是[托管 clickhouse](/langsmith/self-host-external-clickhouse#langsmith-managed-clickhouse)。">复制集群</Tooltip> |
