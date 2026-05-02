@@ -1,122 +1,121 @@
 ---
-title: Tool integrations
-sidebarTitle: Tools
-description: Give your agents access to a wide range of tools and services.
+title: 工具集成
+sidebarTitle: 工具
+description: 为您的智能体提供对各种工具和服务的访问。
 mode: wide
 ---
 
-You can access a variety of tools in LangSmith Fleet. Use tool integrations and [MCP servers](/langsmith/fleet/remote-mcp-servers) to give your agents access to email, calendars, chat, project management, code hosting, spreadsheets/BI, search, social, and general web utilities.
+您可以在 LangSmith Fleet 中访问各种工具。使用工具集成和 [MCP 服务器](/langsmith/fleet/remote-mcp-servers) 让您的智能体访问电子邮件、日历、聊天、项目管理、代码托管、电子表格/BI、搜索、社交和通用网络实用程序。
 
-## Add a tool
+## 添加工具
 
-You can add a tool from the [Fleet > Integrations tab](https://smith.langchain.com/agents/tools) to make it available to all agents in the workspace or from the agent editor to add it to a specific agent.
+您可以从 [Fleet > 集成选项卡](https://smith.langchain.com/agents/tools)添加工具以使其对工作区中的所有智能体可用，或从智能体编辑器添加以将其添加到特定智能体。
 
 <Tabs>
-  <Tab title="From Fleet > Integrations">
-  To add a tool to all agents in the workspace:
+  <Tab title="从 Fleet > 集成">
+  添加工具到工作区中的所有智能体：
 
-    1. On the [Fleet > Integrations tab](https://smith.langchain.com/agents/tools), find the tool you want to add.
-    1. Click the **Connect**.
-    1. Follow the prompts to connect the tool to your agent.
+    1. 在 [Fleet > 集成选项卡](https://smith.langchain.com/agents/tools)上，找到您要添加的工具。
+    1. 点击**连接**。
+    1. 按照提示将工具连接到您的智能体。
 
   </Tab>
-  <Tab title="From the agent editor">
-    To add a tool to a specific agent:
+  <Tab title="从智能体编辑器">
+    添加工具到特定智能体：
 
-    1. In [Fleet](https://smith.langchain.com), select the agent to which you want to add the tool.
-    1. In the graph view, navigate to the **Toolbox** section and click **+ Add**.
-    1. Select the tool you want to add.
-    1. Click **Save Changes**.
+    1. 在 [Fleet](https://smith.langchain.com) 中，选择您要向其添加工具的智能体。
+    1. 在图表视图中，导航到**工具箱**部分并点击**+ 添加**。
+    1. 选择您要添加的工具。
+    1. 点击**保存更改**。
 
   </Tab>
 </Tabs>
 
-## Disconnect a tool
+## 断开工具连接
 
-To remove a tool from your agent:
+从智能体移除工具：
 
 <Steps>
-  <Step title="Select the agent">
-    In [Fleet](https://smith.langchain.com), select the agent from which you want to remove the tool.
+  <Step title="选择智能体">
+    在 [Fleet](https://smith.langchain.com) 中，选择您要从中移除工具的智能体。
   </Step>
-  <Step title="Remove the tool">
-    1. In the graph view, navigate to the **Toolbox** section and find the tool you want to remove.
-    1. Click the <Icon icon="trash"/> **Remove** icon for the tool.
-    1. Click **Save Changes**.
+  <Step title="移除工具">
+    1. 在图表视图中，导航到**工具箱**部分并找到您要移除的工具。
+    1. 点击该工具旁边的<Icon icon="trash"/>**移除**图标。
+    1. 点击**保存更改**。
   </Step>
 </Steps>
 
-## Built-in tools
+## 内置工具
 
-The following tools are a subset of the tools available in LangSmith Fleet. For the full up-to-date list, visit the [Fleet > Integrations tab](https://smith.langchain.com/agents/tools).
+以下工具是 LangSmith Fleet 中可用工具的子集。有关最新的完整列表，请访问 [Fleet > 集成选项卡](https://smith.langchain.com/agents/tools)。
 
 <CardGroup cols={3}>
   <Card title="Gmail" icon="brand-google">
-    Read, compose, and organize emails in your Gmail inbox.
+    在您的 Gmail 收件箱中读取、撰写和整理电子邮件。
   </Card>
   <Card title="Google BigQuery" icon="brand-google">
-    Run queries and analyze large datasets stored in Google BigQuery.
+    对存储在 Google BigQuery 中的大型数据集运行查询和分析。
   </Card>
   <Card title="Google Calendar" icon="brand-google">
-    View, create, and manage calendar events and meeting schedules.
+    查看、创建和管理日历事件和会议日程。
   </Card>
   <Card title="Google Docs" icon="brand-google">
-    Create, read, and edit documents in Google Docs.
+    在 Google Docs 中创建、读取和编辑文档。
   </Card>
   <Card title="Google Sheets" icon="brand-google">
-    Read, update, and analyze data in Google Sheets spreadsheets.
+    在 Google Sheets 电子表格中读取、更新和分析数据。
   </Card>
 </CardGroup>
 
 <CardGroup cols={3}>
   <Card title="Excel" icon="brand-windows">
-    Read, write, and analyze data in Microsoft Excel workbooks.
+    在 Microsoft Excel 工作簿中读取、写入和分析数据。
   </Card>
   <Card title="Outlook" icon="brand-windows">
-    Read, draft, and organize Outlook emails, meetings, and calendar events.
+    读取、起草和整理 Outlook 电子邮件、会议和日历事件。
   </Card>
   <Card title="PowerPoint" icon="brand-windows">
-    Search, read, and create Microsoft PowerPoint presentations.
+    搜索、读取和创建 Microsoft PowerPoint 演示文稿。
   </Card>
   <Card title="SharePoint" icon="brand-windows">
-    Browse, read, and manage documents and sites in Microsoft SharePoint.
+    在 Microsoft SharePoint 中浏览、读取和管理文档和网站。
   </Card>
   <Card title="Teams" icon="brand-windows">
-    Send and read messages, channels, and collaboration updates in Microsoft Teams.
+    在 Microsoft Teams 中发送和读取消息、频道和协作更新。
   </Card>
   <Card title="Word" icon="brand-windows">
-    Search, read, and manage Microsoft Word documents.
+    搜索、读取和管理 Microsoft Word 文档。
   </Card>
 </CardGroup>
 
 <CardGroup cols={3}>
   <Card title="Exa" icon="search">
-    Search the web using AI-powered semantic search for highly relevant results.
+    使用 AI 驱动的语义搜索在网络上搜索以获得高度相关的结果。
   </Card>
   <Card title="GitHub" icon="brand-github">
-    Browse repositories, manage issues and pull requests, and review code on GitHub.
+    在 GitHub 上浏览仓库、管理问题和管理拉取请求，以及审查代码。
   </Card>
   <Card title="Linear" icon="list-check">
-    Track issues, plan sprints, and coordinate team projects in Linear.
+    在 Linear 中跟踪问题、计划冲刺和协调团队项目。
   </Card>
   <Card title="LinkedIn" icon="brand-linkedin">
-    Create posts, manage your company page, and engage with your professional network.
+    创建帖子、管理您的公司页面并与您的专业网络互动。
   </Card>
   <Card title="Pylon" icon="messages">
-    View and respond to customer support conversations across channels.
+    跨频道查看和回复客户支持对话。
   </Card>
   <Card title="Slack" icon="brand-slack">
-    Send messages, manage channels, and automate notifications in Slack.
+    在 Slack 中发送消息、管理频道和自动化通知。
   </Card>
   <Card title="Tavily" icon="world-search">
-    Search the web and extract structured content from web pages.
+    在网络上搜索并从网页中提取结构化内容。
   </Card>
   <Card title="X" icon="brand-x">
-    Publish posts, monitor mentions, and engage with your audience on X.
+    在 X 上发布帖子、监控提及并与您的受众互动。
   </Card>
 </CardGroup>
 
 <Tip>
-You can also connect to remote MCP servers to give your agents access to additional tools. See [Remote MCP servers](/langsmith/fleet/remote-mcp-servers) for more information.
+您还可以连接到远程 MCP 服务器，让您的智能体访问其他工具。请参阅[远程 MCP 服务器](/langsmith/fleet/remote-mcp-servers)了解更多详细信息。
 </Tip>
-

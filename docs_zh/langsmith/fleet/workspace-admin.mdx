@@ -1,0 +1,72 @@
+---
+title:管理工作区管理
+sidebarTitle: 工作区管理员
+description: 为 Fleet 配置工作区级别的设置。
+---
+
+为 Fleet 代理和用户配置工作区密钥和管理支出限制。
+
+## 工作区密钥
+
+Fleet 使用[工作区密钥](/langsmith/set-up-hierarchy#configure-workspace-settings)来存储模型和工具的 API 密钥。以下密钥类型可用：
+
+- **必需的模型密钥**：OpenAI 或 Anthropic API 密钥是 Fleet 发出大型语言模型 API 调用所必需的。代理图加载此密钥 from workspace secrets for inference.
+- **Fleet 专用密钥**：以 `FLEET_` 为前缀的密钥在 Fleet 中优先于工作区密钥。这样，您可以更好地跟踪 Fleet 与使用相同密钥的 LangSmith 其他部分的用量。如果您同时拥有 `OPENAI_API_KEY` 和 `FLEET_OPENAI_API_KEY`，则将使用 `FLEET_OPENAI_API_KEY` 密钥。
+- **可选工具密钥**：为您启用的任何工具添加密钥。这些在运行时从工作区密钥中读取。
+  - `EXA_API_KEY`：Exa 搜索工具（通用 Web 和 LinkedIn 个人资料搜索）所需的密钥。
+  - `TAVILY_API_KEY`：Tavily Web 搜索所需的密钥。
+  - `TWITTER_API_KEY` 和 `TWITTER_API_KEY_SECRET`：Twitter/X 读取操作所需的密钥（仅限应用 bearer）。未启用发布/媒体上传。
+- **MCP 服务器配置**：Fleet 可以从一个或多个远程[模型上下文协议 (MCP)](https://modelcontextprotocol.io/) 服务器拉取工具。在您的[工作区](/langsmith/administration-overview#workspaces)设置中配置 MCP 服务器和标头。Fleet 自动发现工具并在调用它们时应用配置的标头。有关更多信息，请参阅[远程 MCP 服务器](/langsmith/fleet/remote-mcp-servers)页面。
+
+<Note icon="wand" iconType="regular">
+  Fleet 支持每个代理的自定义模型。请参阅[自定义模型](/langsmith/fleet/essentials#custom-models)获取更多信息。
+</Note>
+
+### 添加密钥
+
+要添加密钥：
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到<Icon icon="settings" /> **设置**然后转到**密钥**选项卡。
+1. 选择**添加密钥**并输入密钥**名称**（例如，`OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY`）和您的密钥作为**值**。
+
+    <Note>
+    确保密钥与环境变量名称匹配 your model provider expects.
+    </Note>
+
+1. 选择**保存密钥**。
+
+## 使用情况和支出限制
+
+**使用情况**页面让工作区管理员了解 Fleet 支出情况，并能够为代理和用户设置支出限制。此页面仅对具有 `fleet:read-admin-config` 权限的用户可见。
+
+### 查看当前支出
+
+**使用情况**页面显示您的工作区在所选时间段（**过去 7 天**或**过去 14 天**）内的总支出，以及总线程数和总运行次数。
+
+每日支出图表提供了所选时间段内成本的可视化细分。**明细**部分让您以两种方式查看支出详情：
+
+- **按代理**：查看每个代理的总成本、运行次数、首次和最后使用日期、所有者和每周限制。
+- **按用户**：查看每个用户的支出和活动。
+
+### 设置支出限制
+
+支出限制让您控制代理和用户可以花费的金额。管理支出限制需要 `fleet:write-admin-config` 权限。
+
+#### 默认每周支出限制
+
+在**默认每周支出限制**部分，您可以配置：
+
+- **每代理默认限制（美元）**：设置适用于工作区中所有代理的默认每周支出限制。
+- **每用户默认限制（美元）**：设置适用于工作区中所有用户的默认每周支出限制。
+
+限制按周一为起点的周累计计算。
+
+#### 覆盖个人代理和用户的限制
+
+您可以覆盖个人代理或用户的默认支出限制以设置自定义每周限制。
+
+#### 支出限制行为
+
+- 支出限制的更改可能需要几分钟才能传播到所有正在运行的代理。
+- 支出限制在每次运行开始时检查。如果运行开始时使用量低于限制，则允许完成，即使最终成本超过限制。
+- 支出计算基于跟踪。删除跟踪会影响报告的使用情况和支出执行。

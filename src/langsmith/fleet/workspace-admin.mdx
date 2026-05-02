@@ -1,72 +1,72 @@
 ---
-title: Manage workspace administration
-sidebarTitle: Workspace admin
-description: Configure workspace-level settings for Fleet.
+title:管理工作区管理
+sidebarTitle: 工作区管理
+description: 为 Fleet 配置工作区级设置。
 ---
 
-Configure workspace secrets and manage spend limits for Fleet agents and users.
+为 Fleet 智能体和用户配置工作区密钥和管理支出限制。
 
-## Workspace secrets
+## 工作区密钥
 
-Fleet uses [workspace secrets](/langsmith/set-up-hierarchy#configure-workspace-settings) to store API keys for models and tools. The following secret types are available:
+Fleet 使用[工作区密钥](/langsmith/set-up-hierarchy#configure-workspace-settings)来存储模型和工具的 API 密钥。以下密钥类型可用：
 
-- **Required model key**: An OpenAI or Anthropic API key is required for Fleet to make LLM API calls. The agent graphs load this key from workspace secrets for inference.
-- **Fleet-specific secrets**: Secrets prefixed with `FLEET_` are prioritized over workspace secrets within Fleet. This way, you can better track the usage of Fleet vs other parts of LangSmith that use the same secrets. If you have both `OPENAI_API_KEY` and `FLEET_OPENAI_API_KEY`, the `FLEET_OPENAI_API_KEY` secret will be used.
-- **Optional tool keys**: Add keys for any tools you enable. These are read from workspace secrets at runtime.
-  - `EXA_API_KEY`: Required for Exa search tools (general web and LinkedIn profile search).
-  - `TAVILY_API_KEY`: Required for Tavily web search.
-  - `TWITTER_API_KEY` and `TWITTER_API_KEY_SECRET`: Required for Twitter/X read operations (app-only bearer). Posting/media upload is not enabled.
-- **MCP server configuration**: Fleet can pull tools from one or more remote [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers. Configure MCP servers and headers in your [workspace](/langsmith/administration-overview#workspaces) settings. Fleet automatically discovers tools and applies the configured headers when calling them. For more information, refer to the [Remote MCP servers](/langsmith/fleet/remote-mcp-servers) page.
+- **必需的模型密钥**：Fleet 进行大型语言模型 API 调用需要 OpenAI 或 Anthropic API 密钥。智能体图从工作区密钥加载此密钥以进行推理。
+- **Fleet 特定密钥**：在 Fleet 中，以 `FLEET_` 为前缀的密钥优先于工作区密钥。这样，您可以更好地跟踪 Fleet 与使用相同密钥的 LangSmith 其他部分的用量。如果您同时拥有 `OPENAI_API_KEY` 和 `FLEET_OPENAI_API_KEY`，则将使用 `FLEET_OPENAI_API_KEY` 密钥。
+- **可选工具密钥**：为您启用的任何工具添加密钥。这些在运行时从工作区密钥中读取。
+  - `EXA_API_KEY`：Exa 搜索工具（通用网络和 LinkedIn 个人资料搜索）所需。
+  - `TAVILY_API_KEY`：Tavily 网络搜索所需。
+  - `TWITTER_API_KEY` 和 `TWITTER_API_KEY_SECRET`：Twitter/X 读取操作所需（仅应用承载者）。未启用发帖/媒体上传。
+- **MCP 服务器配置**：Fleet 可以从一个或多个远程[模型上下文协议 (MCP)](https://modelcontextprotocol.io/) 服务器拉取工具。在您的工作区设置中配置 MCP 服务器和标头。Fleet 自动发现工具并在调用它们时应用配置的标头。有关更多信息，请参阅[远程 MCP 服务器](/langsmith/fleet/remote-mcp-servers)页面。
 
 <Note icon="wand" iconType="regular">
-  Fleet supports custom models per agent. See [Custom models](/langsmith/fleet/essentials#custom-models) for more information.
+  Fleet 支持每个智能体的自定义模型。有关更多信息，请参阅[自定义模型](/langsmith/fleet/essentials#custom-models)。
 </Note>
 
-### Add a secret
+### 添加密钥
 
-To add a secret:
+要添加密钥：
 
-1. In the [LangSmith UI](https://smith.langchain.com), navigate to <Icon icon="settings" /> **Settings** and then move to the **Secrets** tab.
-1. Select **Add secret** and enter the secret **name** (for example, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`) and your key as the **value**.
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到<Icon icon="settings" />**设置**，然后转到**密钥**选项卡。
+1. 选择**添加密钥**并输入密钥**名称**（例如，`OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY`）和您的密钥作为**值**。
 
     <Note>
-    Ensure that the secret keys match the environment variable names expected by your model provider.
+    确保密钥与模型提供商期望的环境变量名称匹配。
     </Note>
 
-1. Select **Save secret**.
+1. 选择**保存密钥**。
 
-## Usage and spend limits
+## 使用和支出限制
 
-The **Usage** page gives workspace admins visibility into Fleet spend and the ability to set spend limits for agents and users. This page will only be visible to users with the `fleet:read-admin-config` permission.
+**使用情况**页面让工作区管理员了解 Fleet 支出情况，并为智能体和用户设置支出限制。此页面仅对具有 `fleet:read-admin-config` 权限的用户可见。
 
-### View current spend
+### 查看当前支出
 
-The **Usage** page shows your workspace's total spend over a selected time period (**Last 7 days** or **Last 14 days**), along with total threads and total runs.
+**使用情况**页面显示您工作区在所选时间段（**过去 7 天**或**过去 14 天**）内的总支出，以及总线程数和总运行次数。
 
-A daily spend chart provides a visual breakdown of costs over the selected period. The **Breakdown** section lets you view spend details in two ways:
+每日支出图表提供了所选时间段内成本的直观明细。**明细**部分让您以两种方式查看支出详情：
 
-- **By agent**: See each agent's total cost, number of runs, first and last used dates, owner, and weekly limit.
-- **By user**: See each user's spend and activity.
+- **按智能体**：查看每个智能体的总成本、运行次数、首次和最后使用日期、所有者以及每周限制。
+- **按用户**：查看每个用户的支出和活动。
 
-### Set spend limits
+### 设置支出限制
 
-Spend limits let you control how much agents and users can spend. Managing spend limits requires the `fleet:write-admin-config` permission.
+支出限制让您控制智能体和用户可以消费的金额。管理支出限制需要 `fleet:write-admin-config` 权限。
 
-#### Default weekly spend limits
+#### 默认每周支出限制
 
-In the **Default Weekly Spend Limits** section, you can configure:
+在**默认每周支出限制**部分，您可以配置：
 
-- **Per-Agent Default Limit (USD)**: Set a default weekly spend limit that applies to all agents in the workspace.
-- **Per-User Default Limit (USD)**: Set a default weekly spend limit that applies to all users in the workspace.
+- **每个智能体默认限制（美元）**：设置适用于工作区中所有智能体的默认每周支出限制。
+- **每个用户默认限制（美元）**：设置适用于工作区中所有用户的默认每周支出限制。
 
-Limits are week-to-date and reset on Mondays.
+限制按周累计计算，在周一重置。
 
-#### Override limits for individual agents and users
+#### 覆盖单个智能体和用户的限制
 
-You can override the default spend limit for individual agents or users to set a custom weekly limit.
+您可以为单个智能体或用户覆盖默认支出限制以设置自定义每周限制。
 
-#### Spend limit behavior
+#### 支出限制行为
 
-- Changes to spend limits may take a few minutes to propagate across all running agents.
-- Spend limits are checked at the start of each run. If a run begins while usage is under the limit, it will be allowed to complete even if the final cost exceeds the limit.
-- Spend calculations are based on traces. Deleting traces will affect reported usage and spend enforcement.
+- 支出限制的更改可能需要几分钟才能传播到所有正在运行的智能体。
+- 支出限制在每次运行开始时检查。如果运行开始时用量在限制范围内，则即使最终成本超过限制，也允许其完成。
+- 支出计算基于追踪。删除追踪将影响报告的用量和支出执行。
