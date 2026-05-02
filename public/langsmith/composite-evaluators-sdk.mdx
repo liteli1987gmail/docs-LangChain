@@ -1,0 +1,211 @@
+---
+title: 如何创建复合评估器
+sidebarTitle: 复合评估器
+---
+
+_复合评估器_ 是一种将多个评估器分数组合为单一[分数](/langsmith/evaluation-concepts#evaluator-outputs)的方法。当您想评估应用程序的多个方面并将结果组合成单一结果时，这很有用。
+
+本指南介绍如何使用 [LangSmith SDK](https://reference.langchain.com/python/langsmith/observability/sdk) 设置使用多个评估器并使用自定义聚合函数组合其分数的评估。
+
+<Note> 需要 langsmith>=0.4.29 </Note>
+
+<Tip>
+要在 LangSmith UI 中创建复合评估器，请参阅[如何创建复合评估器（UI）](/langsmith/composite-evaluators-ui)。
+</Tip>
+
+## 1. 在数据集上配置评估器
+
+首先配置您的评估器。在此示例中，应用程序从博客简介生成一条推文，并使用三个评估器——摘要、语气和格式——来评估输出。
+
+如果您已有自己的配置了评估器的数据集，可以跳过此步骤。
+
+```python
+import os
+from dotenv import load_dotenv
+from openai import OpenAI
+from langsmith import Client
+from pydantic import BaseModel
+import json
+
+# 从 .env 文件加载环境变量
+load_dotenv()
+
+# 访问环境变量
+openai_api_key = os.getenv('OPENAI_API_KEY')
+langsmith_api_key = os.getenv('LANGSMITH_API_KEY')
+langsmith_project = os.getenv('LANGSMITH_PROJECT', 'default')
+
+
+# 创建一个数据集。只需执行一次。
+client = Client()
+oai_client = OpenAI()
+
+examples = [
+  {
+    "inputs": {"blog_intro": "Today we're excited to announce the general availability of LangSmith—our purpose-built infrastructure and management layer for deploying and scaling long-running, stateful agents. Since our beta last June, nearly 400 companies have used LangSmith to deploy their agents into production. Agent deployment is the next hard hurdle for shipping reliable agents, and LangSmith dramatically lowers this barrier with: 1-click deployment to go live in minutes, 30 API endpoints for designing custom user experiences that fit any interaction pattern, Horizontal scaling to handle bursty, long-running traffic, A persistence layer to support memory, conversational history, and async collaboration with human-in-the-loop or multi-agent workflows, Native Studio, the agent IDE, for easy debugging, visibility, and iteration "},
+  },
+  {
+    "inputs": {"blog_intro": "Klarna has reshaped global commerce with its consumer-centric, AI-powered payment and shopping solutions. With over 85 million active users and 2.5 million daily transactions on its platform, Klarna is a fintech leader that simplifies shopping while empowering consumers with smarter, more flexible financial solutions. Klarna's flagship AI Assistant is revolutionizing the shopping and payments experience. Built on LangGraph and powered by LangSmith, the AI Assistant handles tasks ranging from customer payments, to refunds, to other payment escalations. With 2.5 million conversations to date, the AI Assistant is more than just a chatbot; it's a transformative agent that performs the work equivalent of 700 full-time staff, delivering results quickly and improving company efficiency."},
+  },
+]
+
+dataset = client.create_dataset(dataset_name="Blog Intros")
+
+client.create_examples(
+  dataset_id=dataset.id,
+  examples=examples,
+)
+
+# 定义一个目标函数。在这种情况下，我们使用一个简单的函数，从博客简介生成一条推文。
+def generate_tweet(inputs: dict) -> dict:
+    instructions = (
+      "Given the blog introduction, please generate a catchy yet professional tweet that can be used to promote the blog post on social media. Summarize the key point of the blog post in the tweet. Use emojis in a tasteful manner."
+    )
+    messages = [
+        {"role": "system", "content": instructions},
+        {"role": "user", "content": inputs["blog_intro"]},
+    ]
+    result = oai_client.responses.create(
+        input=messages, model="gpt-5-nano"
+    )
+    return {"tweet": result.output_text}
+
+# 定义评估器。在这种情况下，我们使用三个评估器：摘要、格式和语气。
+def summary(inputs: dict, outputs: dict) -> bool:
+    """判断推文是否是博客简介的良好摘要。"""
+    instructions = "Given the following text and summary, determine if the summary is a good summary of the text."
+
+    class Response(BaseModel):
+        summary: bool
+
+    msg = f"Question: {inputs['blog_intro']}\nAnswer: {outputs['tweet']}"
+    response = oai_client.responses.parse(
+        model="gpt-5-nano",
+        input=[{"role": "system", "content": instructions,}, {"role": "user", "content": msg}],
+        text_format=Response
+    )
+
+    parsed_response = json.loads(response.output_text)
+    return parsed_response["summary"]
+
+def formatting(inputs: dict, outputs: dict) -> bool:
+    """判断推文格式是否便于人类阅读。"""
+    instructions = "Given the following text, determine if it is formatted well so that a human can easily read it. Pay particular attention to spacing and punctuation."
+
+    class Response(BaseModel):
+        formatting: bool
+
+    msg = f"{outputs['tweet']}"
+    response = oai_client.responses.parse(
+        model="gpt-5-nano",
+        input=[{"role": "system", "content": instructions,}, {"role": "user", "content": msg}],
+        text_format=Response
+    )
+
+    parsed_response = json.loads(response.output_text)
+    return parsed_response["formatting"]
+
+def tone(inputs: dict, outputs: dict) -> bool:
+    """判断推文的语气是否信息丰富、友好且引人入胜。"""
+    instructions = "Given the following text, determine if the tweet is informative, yet friendly and engaging."
+
+    class Response(BaseModel):
+        tone: bool
+
+    msg = f"{outputs['tweet']}"
+    response = oai_client.responses.parse(
+        model="gpt-5-nano",
+        input=[{"role": "system", "content": instructions,}, {"role": "user", "content": msg}],
+        text_format=Response
+    )
+    parsed_response = json.loads(response.output_text)
+    return parsed_response["tone"]
+
+# 使用数据集、目标函数和评估器调用 evaluate()。
+results = client.evaluate(
+    generate_tweet,
+    data=dataset.name,
+    evaluators=[summary, tone, formatting],
+    experiment_prefix="gpt-5-nano",
+)
+
+# 获取实验名称以在下一节中的 client.get_experiment_results() 中使用
+experiment_name = results.experiment_name
+```
+
+## 2. 创建复合反馈
+
+创建使用自定义函数聚合各个评估器分数的复合反馈。此示例使用各个评估器分数的加权平均值。
+
+```python
+from typing import Dict
+import math
+from langsmith import Client
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# TODO：替换为您的实验名称。可以从 UI 或上面的 client.evaluate() 结果中找到
+YOUR_EXPERIMENT_NAME = "placeholder_experiment_name"
+
+# 为各个评估器分数设置权重
+DEFAULT_WEIGHTS: Dict[str, float] = {
+    "summary": 0.7,
+    "tone": 0.2,
+    "formatting": 0.1,
+}
+WEIGHTED_FEEDBACK_NAME = "weighted_summary"
+
+# 拉取实验结果
+client = Client()
+results = client.get_experiment_results(
+    name=YOUR_EXPERIMENT_NAME,
+)
+
+# 计算每个运行的加权分数
+def calculate_weighted_score(feedback_stats: dict) -> float:
+    if not feedback_stats:
+        return float("nan")
+
+    # 检查所有必需的指标是否存在且有数据
+    required_metrics = set(DEFAULT_WEIGHTS.keys())
+    available_metrics = set(feedback_stats.keys())
+
+    if not required_metrics.issubset(available_metrics):
+        return float("nan")
+
+    # 计算加权分数
+    total_score = 0.0
+    for metric, weight in DEFAULT_WEIGHTS.items():
+        metric_data = feedback_stats[metric]
+        if metric_data.get("n", 0) > 0 and "avg" in metric_data:
+            total_score += metric_data["avg"] * weight
+        else:
+            return float("nan")
+
+    return total_score
+
+# 处理每个运行并写入反馈
+# 注意：需要在实验结果处理完成后才能调用此方法。
+for example_with_runs in results["examples_with_runs"]:
+    for run in example_with_runs.runs:
+        if run.feedback_stats:
+            score = calculate_weighted_score(run.feedback_stats)
+            if not math.isnan(score):
+                client.create_feedback(
+                    run_id=run.id,
+                    key=WEIGHTED_FEEDBACK_NAME,
+                    score=float(score)
+                )
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\composite-evaluators-sdk.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

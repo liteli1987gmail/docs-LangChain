@@ -1,0 +1,65 @@
+---
+title: "PromptLayer integrations"
+description: "Integrate with PromptLayer using LangChain Python."
+---
+
+[PromptLayer](https://docs.promptlayer.com/introduction) 是一个提示词工程平台。它还提供 LLM 可观测性功能，帮助可视化请求、版本化提示词和追踪使用情况。
+
+虽然 `PromptLayer` 确实有直接与 LangChain 集成的 LLM（例如 [`PromptLayerOpenAI`](https://docs.promptlayer.com/languages/langchain)），但使用 callback是与 LangChain 集成 `PromptLayer` 的推荐方式。
+
+## Installation and setup
+
+To work with `PromptLayer`, we have to:
+- Create a `PromptLayer` account
+- Create an api token and set it as an environment variable (`PROMPTLAYER_API_KEY`)
+
+Install a Python package:
+
+<CodeGroup>
+```bash pip
+pip install promptlayer
+```
+
+```bash uv
+uv add promptlayer
+```
+</CodeGroup>
+
+
+## Callback
+
+See a [usage example](/oss/python/integrations/callbacks/promptlayer).
+
+```python
+import promptlayer  # Don't forget this import!
+from langchain.callbacks import PromptLayerCallbackHandler
+```
+
+
+## LLM
+
+See a [usage example](/oss/python/integrations/llms/promptlayer_openai).
+
+```python
+from langchain_community.llms import PromptLayerOpenAI
+```
+
+
+## Chat models
+
+See a [usage example](/oss/python/integrations/chat/promptlayer_chatopenai).
+
+```python
+from langchain_community.chat_models import PromptLayerChatOpenAI
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\promptlayer.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

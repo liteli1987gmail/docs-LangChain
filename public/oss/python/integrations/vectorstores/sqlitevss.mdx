@@ -1,0 +1,166 @@
+---
+title: "SQLite-VSS integration"
+description: "Integrate with the SQLite-VSS vector store using LangChain Python."
+---
+
+### SQLite-VSS 简介
+
+[SQLite-VSS](https://alexgarcia.xyz/sqlite-vss/) 是一个专为 **vector search（向量搜索）** 设计的 SQLite 扩展库，它的核心特点是：
+
+- **Local-first（本地优先）**：无需依赖外部服务器，数据存储和计算都在本地完成
+- **易于集成**：可以作为 SQLite 扩展直接加载到应用程序中
+- **基于 Faiss**：利用 Facebook Research 开发的 Faiss 库来实现高效的相似性搜索和聚类功能
+
+### 核心功能
+
+| 功能 | 说明 |
+|------|------|
+| **向量存储** | 在 SQLite 数据库中存储向量数据 |
+| **相似性搜索** | 快速找到与查询向量最相似的结果 |
+| **聚类** | 支持向量聚类操作 |
+
+### 使用场景
+
+- **RAG 应用**：在本地构建知识库检索系统
+- **嵌入向量存储**：存储和检索 LLM 生成的 embedding 向量
+- **本地 AI 应用**：无需云服务，实现完全本地化的向量搜索
+
+### 基本使用示例
+
+```python
+import sqlite3
+
+# 加载扩展
+conn = sqlite3.connect(":memory:")
+conn.enable_load_extension(True)
+conn.load_extension("sqlite_vss")
+
+# 创建向量表
+conn.execute("CREATE VIRTUAL TABLE embeddings USING vss(vec(768));")
+
+# 插入和搜索向量
+conn.execute("INSERT INTO embeddings(rowid, vec) VALUES (1, ?)", (embedding_vector,))
+results = conn.execute("SELECT * FROM embeddings WHERE vss_search(vec, ?) LIMIT 5", (query_vector,))
+```
+
+---
+
+如果您需要进一步了解如何将其与 LangChain 或其他框架集成，我可以提供更详细的示例。
+
+You'll need to install `langchain-community` with `pip install -qU langchain-community` to use this integration
+
+This notebook shows how to use the `SQLiteVSS` vector database.
+
+```python
+# You need to install sqlite-vss as a dependency.
+pip install -qU  sqlite-vss
+```
+
+## Quickstart
+
+```python
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings.sentence_transformer import (
+    SentenceTransformerEmbeddings,
+)
+from langchain_community.vectorstores import SQLiteVSS
+from langchain_text_splitters import CharacterTextSplitter
+
+# load the document and split it into chunks
+loader = TextLoader("../../how_to/state_of_the_union.txt")
+documents = loader.load()
+
+# split it into chunks
+text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+docs = text_splitter.split_documents(documents)
+texts = [doc.page_content for doc in docs]
+
+
+# create the open-source embedding function
+embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+
+
+# load it in sqlite-vss in a table named state_union.
+# the db_file parameter is the name of the file you want
+# as your sqlite database.
+db = SQLiteVSS.from_texts(
+    texts=texts,
+    embedding=embedding_function,
+    table="state_union",
+    db_file="/tmp/vss.db",
+)
+
+# query it
+query = "What did the president say about Ketanji Brown Jackson"
+data = db.similarity_search(query)
+
+# print results
+data[0].page_content
+```
+
+```text
+'Tonight. I call on the Senate to: Pass the Freedom to Vote Act. Pass the John Lewis Voting Rights Act. And while you’re at it, pass the Disclose Act so Americans can know who is funding our elections. \n\nTonight, I’d like to honor someone who has dedicated his life to serve this country: Justice Stephen Breyer—an Army veteran, Constitutional scholar, and retiring Justice of the United States Supreme Court. Justice Breyer, thank you for your service. \n\nOne of the most serious constitutional responsibilities a President has is nominating someone to serve on the United States Supreme Court. \n\nAnd I did that 4 days ago, when I nominated Circuit Court of Appeals Judge Ketanji Brown Jackson. One of our nation’s top legal minds, who will continue Justice Breyer’s legacy of excellence.'
+```
+
+## Using existing SQLite connection
+
+```python
+from langchain_community.document_loaders import TextLoader
+from langchain_community.embeddings.sentence_transformer import (
+    SentenceTransformerEmbeddings,
+)
+from langchain_community.vectorstores import SQLiteVSS
+from langchain_text_splitters import CharacterTextSplitter
+
+# load the document and split it into chunks
+loader = TextLoader("../../how_to/state_of_the_union.txt")
+documents = loader.load()
+
+# split it into chunks
+text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+docs = text_splitter.split_documents(documents)
+texts = [doc.page_content for doc in docs]
+
+
+# create the open-source embedding function
+embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+connection = SQLiteVSS.create_connection(db_file="/tmp/vss.db")
+
+db1 = SQLiteVSS(
+    table="state_union", embedding=embedding_function, connection=connection
+)
+
+db1.add_texts(["Ketanji Brown Jackson is awesome"])
+# query it again
+query = "What did the president say about Ketanji Brown Jackson"
+data = db1.similarity_search(query)
+
+# print results
+data[0].page_content
+```
+
+```text
+'Ketanji Brown Jackson is awesome'
+```
+
+```python
+# Cleaning up
+import os
+
+os.remove("/tmp/vss.db")
+```
+
+```python
+
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\vectorstores\sqlitevss.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,217 @@
+---
+title: 工具能力概述
+sidebarTitle: 概述
+---
+
+代理工具是多种不同能力的组合，使构建长时间运行的代理更容易：
+
+- [规划能力](#planning-capabilities)
+- [虚拟文件系统](#virtual-filesystem-access)
+- [文件系统权限](#filesystem-permissions)
+- [任务委托（子代理）](#task-delegation-subagents)
+- [上下文和 Token 管理](#context-management)
+- [代码执行](#code-execution)
+- [人工介入](#human-in-the-loop)
+- [工具配置文件](#harness-profiles)
+
+除了这些能力外，深度代理还使用[技能](#skills)和[记忆](#memory)来提供额外的上下文和指令。
+
+![深度代理开放工具：规划、虚拟文件系统、权限、子代理、上下文管理、代码执行、人工介入、技能和记忆](/oss/images/deepagents/production/open-harness.png)
+
+## 规划能力
+
+工具提供了一个 `write_todos` 工具，代理可以使用它来维护结构化任务列表。
+
+**功能：**
+- 使用状态跟踪多个任务（`'pending'`、`'in_progress'`、`'completed'`）
+- 保存在代理状态中
+- 帮助代理组织复杂的多步骤工作
+- 对长时间运行的任务和规划有用
+
+## 虚拟文件系统访问
+
+工具提供了一个可配置的虚拟文件系统，可以由不同的可插拔后端支持。
+后端支持以下文件系统操作：
+
+| 工具 | 描述 |
+| ---- | ----------- |
+| `ls` | 列出目录中的文件及元数据（大小、修改时间） |
+| `read_file` | 读取文件内容并显示行号，支持大文件的偏移/限制。也支持为非文本文件（图像、视频、音频和文档）返回多模态内容块。请参阅下面支持的文件扩展名。 |
+| `write_file` | 创建新文件 |
+| `edit_file` | 对文件执行精确字符串替换（带全局替换模式） |
+| `glob` | 查找匹配模式的文件（例如 `**/*.py`） |
+| `grep` | 搜索文件内容，支持多种输出模式（仅文件、带上下文的内 容或计数） |
+| `execute` | 在环境中运行 shell 命令（仅在使用[沙箱后端](/oss/python/deepagents/sandboxes)时可用） |
+
+<Accordion title="支持的多模态文件扩展名">
+
+| 类型 | 扩展名 |
+| ---- | ---------- |
+| [图像](/oss/python/langchain/messages#multimodal) | `.png`、`.jpg`、`.jpeg`、`.gif`、`.webp`、`.heic`、`.heif` |
+| [视频](/oss/python/langchain/messages#multimodal) | `.mp4`、`.mpeg`、`.mov`、`.avi`、`.flv`、`.mpg`、`.webm`、`.wmv`、`.3gpp` |
+| [音频](/oss/python/langchain/messages#multimodal) | `.wav`、`.mp3`、`.aiff`、`.aac`、`.ogg`、`.flac` |
+| [文件](/oss/python/langchain/messages#multimodal) | `.pdf`、`.ppt`、`.pptx` |
+
+</Accordion>
+
+虚拟文件系统被其他几个工具能力使用，如技能、记忆、代码执行和上下文管理。
+您还可以在为深度代理构建自定义工具和中间件时使用文件系统。
+
+有关更多信息，请参阅[后端](/oss/python/deepagents/backends)。
+
+## 文件系统权限
+
+工具支持声明性权限规则，控制代理可以读取或写入哪些文件和目录。权限适用于上面列出的内置文件系统工具，并按声明顺序评估，首个匹配优先。
+
+**工作原理：**
+- 创建代理时将规则列表传递给 `permissions=`
+- 每个规则指定 `operations`（`"read"`、`"write"`）、`paths`（glob 模式）和 `mode`（`"allow"` 或 `"deny"`）
+- 首个匹配规则优先。如果没有任何规则匹配，则允许操作。
+
+**为什么有用：**
+- 将代理限制在特定目录（例如 `/workspace/`）
+- 保护敏感文件（例如 `.env`、凭证）
+- 给子代理比父代理更窄的访问权限
+
+权限不适用于[沙箱后端](/oss/python/deepagents/sandboxes)，它支持通过 `execute` 工具进行任意命令执行。对于自定义验证逻辑，请使用[后端策略钩子](/oss/python/deepagents/backends#add-policy-hooks)。
+
+有关完整的规则结构、示例和子代理继承，请参阅[权限](/oss/python/deepagents/permissions)。
+
+## 任务委托（子代理）
+
+工具允许主代理创建临时"子代理"用于隔离的多步骤任务。
+
+**为什么有用：**
+- **上下文隔离** - 子代理的工作不会弄乱主代理的上下文
+- **并行执行** - 多个子代理可以同时运行
+- **专业化** - 子代理可以有不同的工具/配置
+- **Token 效率** - 大型子任务上下文被压缩成单个结果
+
+**工作原理：**
+- 主代理有一个 `task` 工具
+- 调用时，它会创建一个具有自己上下文的新代理实例
+- 子代理自主执行直到完成
+- 向主代理返回单个最终报告
+- 子代理是无状态的（不能发送多条消息回来）
+
+**默认子代理：**
+- 默认情况下可使用"通用"子代理
+- 默认具有文件系统工具
+- 可以用额外的工具/中间件进行自定义
+
+**自定义子代理：**
+- 使用特定工具定义专门子代理
+- 示例：代码审查员、网络研究员、测试运行器
+- 通过 `subagents` 参数配置
+
+## 上下文管理
+
+工具管理上下文，以便深度代理可以在 Token 限制内处理长时间运行的任务，同时保留所需的信息。
+
+**工作原理：**
+- **输入上下文** — 系统提示词、记忆、技能和工具提示词在启动时塑造代理知道的内容
+- **压缩** — 内置卸载和摘要在整个任务进展过程中保持上下文在窗口限制内
+- **隔离** - 子代理隔离重型工作，只返回结果（请参阅[任务委托](#task-delegation-subagents)）
+- **长期记忆** - 通过虚拟文件系统的跨线程持久化存储
+
+**为什么有用：**
+- 支持超出单个上下文窗口的多步骤任务
+- 在不需要手动修剪的情况下保持最相关的信息在范围内
+- 通过自动摘要和卸载减少 Token 使用
+
+有关配置详细信息，请参阅[上下文工程](/oss/python/deepagents/context-engineering)。
+
+## 代码执行
+
+当您使用[沙箱后端](/oss/python/deepagents/sandboxes)时，工具会暴露一个 `execute` 工具，允许代理在隔离环境中运行 shell 命令。这使代理能够安装依赖项、运行脚本并作为其任务的一部分执行代码。
+
+**工作原理：**
+- 沙箱后端实现 `SandboxBackendProtocolV2` — 当检测到时，工具将 `execute` 工具添加到代理的可用工具中
+- 没有沙箱后端，代理只有文件系统工具（`read_file`、`write_file` 等），不能运行命令
+- `execute` 工具返回组合的 stdout/stderr、退出代码，并截断大输出（保存到文件供代理增量读取）
+
+**为什么有用：**
+- **安全** — 代码在隔离中运行，保护您的主机系统免受代理操作的影响
+- **干净的环境** — 使用特定依赖项或操作系统配置，无需本地设置
+- **可重现性** — 跨团队的一致执行环境
+
+有关设置、提供商和文件传输 API，请参阅[沙箱](/oss/python/deepagents/sandboxes)。
+
+## 人工介入
+
+工具可以在指定的工具调用处暂停代理执行，以允许人工批准或修改。此功能通过 `interrupt_on` 参数选择加入。
+
+**配置：**
+- 将 `interrupt_on` 传递给 `create_deep_agent`，并附上工具名称到中断配置的映射
+- 示例：`interrupt_on={"edit_file": True}` 在每次编辑前暂停
+- 提示时可以提供批准消息或修改工具输入
+
+**为什么有用：**
+- 破坏性操作的安全门
+- 昂贵 API 调用前的用户验证
+- 交互式调试和指导
+
+## 技能
+
+工具支持为您的深度代理提供专门工作流和领域知识的技能。
+
+**工作原理：**
+- 技能遵循 [Agent Skills 标准](https://agentskills.io/)
+- 每个技能是一个包含带指令和元数据的 `SKILL.md` 文件的目录
+- 技能可以包括额外的脚本、参考文档、模板和其他资源
+- 技能使用渐进式披露——只有当代理确定它们对当前任务有用时才加载
+- 代理在启动时从每个 `SKILL.md` 文件读取 frontmatter，然后在需要时审查完整的技能内容
+
+**为什么有用：**
+- 通过仅在需要时加载相关技能来减少 Token 使用
+- 将能力捆绑到带有额外上下文的大操作中
+- 提供专门专业知识而不弄乱系统提示词
+- 支持模块化、可重用的代理能力
+
+有关更多信息，请参阅[技能](/oss/python/deepagents/skills)。
+
+## 记忆
+
+工具支持持久化记忆文件，为您的深度代理跨对话提供额外上下文。
+这些文件通常包含通用编码风格、偏好、约定和指南，帮助代理了解如何处理您的代码库并遵循您的偏好。
+
+**工作原理：**
+- 使用 [`AGENTS.md` 文件](https://agents.md/)提供持久化上下文
+- 记忆文件总是加载的（不像技能，使用渐进式披露）
+- 创建代理时将一个或多个文件路径传递给 `memory` 参数
+- 文件存储在代理的后端中（StateBackend、StoreBackend 或 FilesystemBackend）
+- 代理可以根据您的交互、反馈和识别到的模式更新记忆
+
+**为什么有用：**
+- 提供不需要在每次对话中重新指定的持久化上下文
+- 用于存储用户偏好、项目指南或领域知识
+- 始终对代理可用，确保一致的行为
+
+有关配置详细信息和示例，请参阅[记忆](/oss/python/deepagents/customization#memory)。
+
+## 工具配置文件
+
+工具可以在选择给定提供者或模型时应用声明性配置束（`HarnessProfile`）。配置文件在模型构建后调整运行时行为，无需每个代理设置代码。
+
+**工作原理：**
+- 在提供者名称（`"openai"`）或 `provider:model` 键（`"openai:gpt-5.4"`）下注册配置文件
+- `create_deep_agent` 在解析模型时查找并应用配置文件
+- 提供者级别和模型级别的配置文件在解析时合并
+
+**为什么有用：**
+- 将每个提供者或每个模型的默认值（系统提示词调整、工具覆盖、中间件）打包在一个地方
+- 在切换模型时保持 `create_deep_agent` 调用站点不变
+- 通过入口点将可重用的配置文件作为插件发布
+
+有关完整的字段列表、合并语义和插件打包，请参阅[配置文件](/oss/python/deepagents/profiles)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\harness.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

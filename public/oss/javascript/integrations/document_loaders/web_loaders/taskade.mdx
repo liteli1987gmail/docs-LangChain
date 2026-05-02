@@ -1,0 +1,39 @@
+---
+title: "Taskade 集成"
+description: "使用 LangChain JavaScript 与 Taskade 文档加载器集成。"
+---
+
+[Taskade](https://www.taskade.com) 是 AI 驱动写作、项目管理和任务自动化的终极工具。Taskade 旨在成为您的第二大脑，简化项目执行并从始至终增强团队协作。
+
+## 概述
+
+使用 [Taskade](https://www.taskade.com)，您可以构建、训练和部署自己的 AI 代理团队来自动化任务和简化工作流程。Taskade 提供了构思、协作和执行工具的无缝融合——从结构化列表到现代表格和思维导图，所有内容都可自定义以适应您独特的工作流程并满足您的需求。
+
+```typescript
+import { TaskadeProjectLoader } from "@langchain/community/document_loaders/web/taskade";
+
+const loader = new TaskadeProjectLoader({
+  personalAccessToken: "TASKADE_PERSONAL_ACCESS_TOKEN", // 或从 process.env.TASKADE_PERSONAL_ACCESS_TOKEN 加载
+  projectId: "projectId",
+});
+const docs = await loader.load();
+
+console.log({ docs });
+```
+
+您可以通过在浏览器中打开项目并从 URL 中提取来找到您的 Taskade 项目 ID：
+
+```
+https://www.taskade.com/d/<YOUR PROJECT ID HERE>
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\document_loaders\web_loaders\taskade.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

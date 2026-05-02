@@ -1,0 +1,100 @@
+---
+title: 指定自定义运行 ID
+description: 在使用 LangSmith 追踪时如何指定自定义运行 ID。
+---
+
+默认情况下，LangSmith 为每个[运行](/langsmith/observability-concepts#runs)分配一个随机 ID。您可以在需要时使用自定义 ID 覆盖它：
+
+- 提前知道运行 ID（例如，在运行后立即附加[反馈](/langsmith/observability-concepts#feedback)）。
+- 将 LangSmith 运行与外部系统的 ID 关联。
+- 通过重用确定性 ID 使运行具有幂等性。
+
+<Note>
+我们建议使用 **UUID v7** 自定义运行 ID。UUIDv7 嵌入时间戳，这可以保留追踪中运行的正确时间顺序。传递非 UUIDv7 ID 目前会发出警告，将来版本中将变为必需。
+
+[LangSmith SDK](/langsmith/reference) 导出 `uuid7` 帮助函数（Python v0.4.43+、JS v0.3.80+）：
+
+- **Python**：`from langsmith import uuid7`
+- **JS/TS**：`import { uuid7 } from 'langsmith'`
+</Note>
+
+任何 UUID v7 字符串都可以接受。您可以传递由 LangSmith SDK 帮助函数生成的 UUID，或者如果您系统已经使用 UUID v7 标识符，则可以使用您自己的。
+
+<Tabs>
+  <Tab title="Python">
+    ### 使用 `@traceable`
+
+    在调用 [`@traceable`](https://reference.langchain.com/python/langsmith/run_helpers/traceable) 函数时在 `langsmith_extra` 中传递 `run_id`：
+
+    ```python Python
+    from langsmith import traceable, uuid7
+
+    @traceable
+    def my_pipeline(question: str) -> str:
+        return "answer"
+
+    run_id = uuid7()
+    my_pipeline("What is the capital of France?", langsmith_extra={"run_id": run_id})
+
+    # 现在可以使用 run_id 来附加反馈、查询运行等。
+    ```
+
+    ### 使用 `trace` 上下文管理器
+
+    将 `run_id` 直接传递给 [trace](https://reference.langchain.com/python/langsmith/run_helpers/trace) 上下文管理器构造函数，以为追踪块设置 ID：
+
+    ```python Python
+    from langsmith import trace, uuid7
+
+    run_id = uuid7()
+
+    with trace("my-pipeline", run_id=run_id) as run:
+        result = "answer"
+        run.end(outputs={"result": result})
+
+    # 现在可以使用 run_id 来附加反馈、查询运行等。
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ### 使用 `traceable`
+
+    在传递给 [`traceable`](https://reference.langchain.com/javascript/langsmith/traceable/traceable) 的配置对象中传递 `id`：
+
+    ```typescript TypeScript
+    import { traceable } from "langsmith/traceable";
+    import { uuid7 } from "langsmith";
+
+    const runId = uuid7();
+
+    const myPipeline = traceable(
+      async (question: string) => {
+        return "answer";
+      },
+      { name: "my-pipeline", id: runId }
+    );
+
+    await myPipeline("What is the capital of France?");
+
+    // 现在可以使用 runId 来附加反馈、查询运行等。
+    ```
+
+  </Tab>
+</Tabs>
+
+## 相关
+
+- [附加用户反馈](/langsmith/attach-user-feedback)：预先指定运行 ID 的常见用例。
+- [在追踪函数中访问当前运行（跨度）](/langsmith/access-current-span)：从追踪内部读取自动分配的 ID。
+- [使用 LangSmith API 进行追踪](/langsmith/trace-with-api)：用于指定运行 ID 的低级 API 方法。
+- [追踪 Vercel AI SDK 应用程序](/langsmith/trace-with-vercel-ai-sdk)：使用 `wrapAISDK` 指定自定义运行 ID。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\custom-run-id.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

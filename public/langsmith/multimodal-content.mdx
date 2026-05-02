@@ -1,0 +1,52 @@
+---
+title: 在提示词中包含多模态内容
+sidebarTitle: 在提示词中包含多模态内容
+---
+
+一些应用程序基于多模态内容，例如可以回答有关 PDF 或图像问题的聊天机器人。在这些情况下，您需要将多模态内容包含在您的提示词中，并测试模型回答有关内容问题的能力。
+
+Playground 支持两种将多模态内容纳入提示词的方法：
+
+1. 内联内容：在提示词中直接嵌入静态文件（图像、PDF、音频）。当您想要在所有使用提示词的场景中一致地包含相同的多模态内容时，这是理想的。例如，您可能包含一个有助于使模型响应落地的参考图像。
+
+2. 模板变量：为附件创建动态占位符，每次可以用不同的内容填充。这种方法提供更大的灵活性，允许您：
+
+   * 测试模型如何处理不同的输入
+   * 创建可重用的提示词以使用不同的内容
+
+<Note>
+并非所有模型都支持多模态内容。在使用 Playground 中的多模态功能之前，请确保您选择的模型支持您想要使用的文件类型。
+</Note>
+
+## 内联内容
+
+在您想要添加多模态内容的消息中点击文件图标。在 `Upload content` 选项卡下，您可以上传文件并将其内联包含在提示词中。
+
+![Upload inline multimodal content](/langsmith/images/upload-inline-multimodal-content.png)
+
+## 模板变量
+
+在您想要添加多模态内容的消息中点击文件图标。在 `Template variables` 选项卡下，您可以为特定附件类型创建模板变量。当前仅支持图像、PDF 和音频文件（.wav、.mp3）。
+
+![Template variable multimodal content](/langsmith/images/template-variable-multimodal-content.png)
+
+## 填充模板变量
+
+添加模板变量后，您可以使用屏幕右侧的面板为其提供内容。只需点击 `+` 按钮上传或选择将用于填充模板变量的内容。
+
+![Manual prompt multimodal](/langsmith/images/manual-prompt-multimodal.png)
+
+## 运行评估
+
+在手动测试提示词后，您可以[运行评估](/langsmith/evaluate-with-attachments?mode=ui) 以查看提示词在黄金数据集示例上的表现。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\multimodal-content.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

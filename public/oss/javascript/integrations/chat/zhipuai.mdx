@@ -1,0 +1,77 @@
+---
+title: "ChatZhipuAI 集成"
+description: "使用 LangChain JavaScript 与 ChatZhipuAI 聊天模型集成。"
+---
+
+LangChain.js 支持 Zhipu AI 系列模型。
+
+https://open.bigmodel.cn/dev/howuse/model
+
+## 设置
+
+您需要注册 Zhipu API 密钥并将其设置为名为 `ZHIPUAI_API_KEY` 的环境变量
+
+https://open.bigmodel.cn
+
+您还需要安装以下依赖项：
+
+<Tip>
+有关安装 LangChain 软件包的常规说明，请参阅[此部分](/oss/javascript/langchain/install)。
+</Tip>
+
+```bash npm
+npm install @langchain/community @langchain/core jsonwebtoken
+```
+
+## 使用方法
+
+以下是示例：
+
+```typescript
+import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
+import { HumanMessage } from "@langchain/core/messages";
+
+// 默认模型是 glm-3-turbo
+const glm3turbo = new ChatZhipuAI({
+  zhipuAIApiKey: "YOUR-API-KEY", // In Node.js defaults to process.env.ZHIPUAI_API_KEY // 在 Node.js 中默认为 process.env.ZHIPUAI_API_KEY
+});
+
+// 使用 glm-4
+const glm4 = new ChatZhipuAI({
+  model: "glm-4", // Available models: // 可用模型：
+  temperature: 1,
+  zhipuAIApiKey: "YOUR-API-KEY", // In Node.js defaults to process.env.ZHIPUAI_API_KEY // 在 Node.js 中默认为 process.env.ZHIPUAI_API_KEY
+});
+
+const messages = [new HumanMessage("Hello")]; // 您好
+
+const res = await glm3turbo.invoke(messages);
+/*
+AIMessage {
+  content: "Hello! How can I help you today? Is there something you would like to talk about or ask about? I'm here to assist you with any questions you may have.",
+}
+*/
+
+const res2 = await glm4.invoke(messages);
+/*
+AIMessage {
+  text: "Hello! How can I help you today? Is there something you would like to talk about or ask about? I'm here to assist you with any questions you may have.",
+}
+*/
+```
+
+## 相关内容
+
+- 聊天模型[概念指南](/oss/javascript/langchain/models)
+- 聊天模型[操作指南](/oss/javascript/langchain/models)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\chat\zhipuai.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

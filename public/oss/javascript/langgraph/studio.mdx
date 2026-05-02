@@ -1,0 +1,180 @@
+---
+title: LangSmith Studio
+---
+
+在本地使用 LangChain 构建代理时，可视化代理内部发生的情况、实时交互并调试问题非常有用。**LangSmith Studio** 是一个免费的视觉界面，用于从本地机器开发和测试您的 LangChain 代理。
+
+Studio 连接到您在本地运行的代理，向您展示代理执行的每个步骤：发送给模型的提示词、工具调用及其结果，以及最终输出。您可以测试不同的输入、检查中间状态，并在不需要额外代码或部署的情况下迭代代理的行为。
+
+本页描述了如何设置 Studio 与您的本地 LangChain 代理配合使用。
+
+## 前置条件
+
+在开始之前，请确保您具备以下条件：
+
+- **LangSmith 账户**：在 [smith.langchain.com](https://smith.langchain.com) 免费注册或登录。
+- **LangSmith API 密钥**：按照[创建 API 密钥](/langsmith/create-account-api-key)指南操作。
+- 如果您不想将数据[追踪](/langsmith/observability-concepts#traces)到 LangSmith，请在应用程序的 `.env` 文件中设置 `LANGSMITH_TRACING=false`。禁用追踪后，没有数据会离开您的本地服务器。
+
+## 设置本地代理服务器
+
+### 1. 安装 LangGraph CLI
+
+[LangGraph CLI](/langsmith/cli) 提供了一个本地开发服务器（也称为[代理服务器](/langsmith/agent-server)），用于将您的代理连接到 Studio。
+
+
+
+```shell
+npx @langchain/langgraph-cli
+```
+
+
+### 2. 准备您的代理
+
+如果您已有 LangChain 代理，可以直接使用。此示例使用一个简单的电子邮件代理：
+
+
+
+```typescript title="agent.ts"
+import { createAgent } from "@langchain/langgraph";
+
+function sendEmail(to: string, subject: string, body: string): string {
+    // Send an email
+    const email = {
+        to: to,
+        subject: subject,
+        body: body
+    };
+    // ... email sending logic
+
+    return `Email sent to ${to}`;
+}
+
+const agent = createAgent({
+    model: "gpt-5.4",
+    tools: [sendEmail],
+    systemPrompt: "You are an email assistant. Always use the sendEmail tool.",
+});
+
+export { agent };
+```
+
+
+### 3. 环境变量
+
+Studio 需要 LangSmith API 密钥来连接您的本地代理。在项目根目录创建一个 `.env` 文件，并添加来自 [LangSmith](https://smith.langchain.com/settings) 的 API 密钥。
+
+<Warning>
+    确保您的 `.env` 文件不会被提交到版本控制，例如 Git。
+</Warning>
+
+```bash .env
+LANGSMITH_API_KEY=lsv2...
+```
+
+### 4. 创建 LangGraph 配置文件
+
+LangGraph CLI 使用配置文件来定位您的代理并管理依赖项。在您的应用目录中创建一个 `langgraph.json` 文件：
+
+
+
+```json title="langgraph.json"
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./src/agent.ts:agent"
+  },
+  "env": ".env"
+}
+```
+
+
+
+
+[`createAgent`](https://reference.langchain.com/javascript/langchain/index/createAgent) 函数自动返回一个编译后的 LangGraph 图，这是配置文件中 `graphs` 键所期望的。
+
+
+<Info>
+有关配置文件 JSON 对象中每个键的详细说明，请参阅 [LangGraph 配置文件参考](/langsmith/cli#configuration-file)。
+</Info>
+
+此时，项目结构将如下所示：
+
+
+
+```bash
+my-app/
+├── src
+│   └── agent.ts
+├── .env
+├── package.json
+└── langgraph.json
+```
+
+
+### 5. 安装依赖
+
+
+
+```shell
+yarn install
+```
+
+
+### 6. 在 Studio 中查看您的代理
+
+启动开发服务器以将您的代理连接到 Studio：
+
+
+
+```shell
+npx @langchain/langgraph-cli dev
+```
+
+
+<Warning>
+Safari 会阻止到 Studio 的 `localhost` 连接。要解决此问题，请使用 `--tunnel` 运行上述命令，以通过安全隧道访问 Studio。您需要通过 Studio UI 中的 **Connect to a local server** 手动将隧道 URL 添加到允许的来源。请参阅[故障排除指南](/langsmith/troubleshooting-studio#safari-connection-issues) 获取步骤。
+</Warning>
+
+服务器运行后，您的代理可以通过 API 在 `http://127.0.0.1:2024` 访问，也可以通过 Studio UI 在 `https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024` 访问：
+
+<Frame>
+![Agent view in the Studio UI](/oss/images/studio_create-agent.png)
+</Frame>
+
+通过 Studio 连接到您的本地代理，您可以快速迭代代理的行为。运行测试输入，检查完整的执行追踪，包括提示词、工具参数、返回值和 Token/延迟指标。当出现问题时，Studio 会捕获异常及周围状态以帮助您了解发生了什么。
+
+开发服务器支持热重载——更改代码中的提示词或工具签名，Studio 会立即反映这些更改。从任何步骤重新运行对话线程以测试您的更改，而无需从头开始。此工作流可从简单的单工具代理扩展到复杂的多节点图。
+
+有关如何运行 Studio 的更多信息，请参阅 [LangSmith 文档](/langsmith/home)中的以下指南：
+
+- [运行应用程序](/langsmith/use-studio#run-application)
+- [管理助手](/langsmith/use-studio#manage-assistants)
+- [管理线程](/langsmith/use-studio#manage-threads)
+- [迭代提示词](/langsmith/observability-studio)
+- [调试 LangSmith 追踪](/langsmith/observability-studio#debug-langsmith-traces)
+- [向数据集添加节点](/langsmith/observability-studio#add-node-to-dataset)
+
+## 视频指南
+
+<Frame>
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/Mi1gSlHwZLM?si=zA47TNuTC5aH0ahd"
+  title="Studio"
+  frameBorder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+</Frame>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\studio.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

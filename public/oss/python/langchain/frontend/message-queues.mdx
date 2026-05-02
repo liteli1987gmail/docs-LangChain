@@ -1,0 +1,389 @@
+---
+title: 消息队列
+description: 排队多条消息并在代理按顺序处理时管理它们
+---
+
+消息排队让用户可以快速连续发送多条消息而无需等待代理完成当前消息的处理。每条消息都在服务器端排队并按顺序处理，让您可以完全 visibility 控制待处理队列。
+
+import { PatternEmbed } from "/snippets/pattern-embed.jsx"
+
+<PatternEmbed pattern="message-queues" />
+
+import RequiresLanggraphServer from '/snippets/oss/requires-langgraph-server.mdx';
+
+<RequiresLanggraphServer />
+
+## 为什么需要消息队列？
+
+在典型的聊天界面中，用户必须在发送另一条消息之前等待代理完成响应。这在几种场景中造成了摩擦：
+
+- **批量问题**：用户想一次提出五个相关问题，而不是等待每个答案
+- **后续链**：在代理仍在工作时提交澄清或附加上下文
+- **自动化测试序列**：以编程方式发送一系列提示词以验证代理行为
+- **数据输入工作流**：将结构化输入一个接一个地输入处理
+
+消息排队通过立即接受所有提交并按顺序处理它们来解决这个问题。
+
+## 工作原理
+
+在后台，LangGraph 使用 `multitaskStrategy: "enqueue"` 来管理并发提交。当消息在代理已经在处理时提交，它会被添加到服务器端队列。一旦当前运行完成，下一条排队的消息会自动被拾取。
+
+`useStream` 钩子暴露了一个 `queue` 属性，提供对待处理消息的实时可见性：
+
+| 属性 | 类型 | 描述 |
+|---|---|---|
+| `queue.entries` | `QueueEntry[]` | 所有待处理队列条目的数组 |
+| `queue.size` | `number` | 当前在队列中的条目数量 |
+| `queue.cancel(id)` | `(id: string) => Promise<void>` | 通过 ID 取消特定的队列条目 |
+| `queue.clear()` | `() => Promise<void>` | 取消所有队列条目 |
+
+每个 `QueueEntry` 对象包含：
+
+| 字段 | 类型 | 描述 |
+|---|---|---|
+| `id` | `string` | 此队列条目的唯一标识符 |
+| `values` | `object` | 提交的值（包括消息） |
+| `options` | `object` | 随提交传递的任何附加选项 |
+| `createdAt` | `string` | 条目创建时的 ISO 时间戳 |
+
+## 设置 `useStream`
+
+定义一个与您的代理状态模式匹配的 TypeScript 接口，并将其作为类型参数传递给 `useStream`，以获得对状态值的类型安全访问。在下面的示例中，将 `typeof myAgent` 替换为您的接口名称：
+
+```ts
+import type { BaseMessage } from "@langchain/core/messages";
+
+interface AgentState {
+  messages: BaseMessage[];
+}
+```
+
+
+
+
+
+<CodeGroup>
+
+```tsx React
+import { useStream } from "@langchain/react";
+
+function Chat() {
+  const stream = useStream<typeof myAgent>({
+    apiUrl: "http://localhost:2024",
+    assistantId: "message_queue",
+  });
+
+  const handleSubmit = (text: string) => {
+    stream.submit({
+      messages: [{ type: "human", content: text }],
+    });
+  };
+
+  // 访问队列状态
+  const pendingCount = stream.queue.size;
+  const entries = stream.queue.entries;
+
+  return (
+    <div>
+      <MessageList messages={stream.messages} />
+      {pendingCount > 0 && <QueueList entries={entries} queue={stream.queue} />}
+      <ChatInput onSubmit={handleSubmit} />
+    </div>
+  );
+}
+```
+
+```vue Vue
+<script setup lang="ts">
+import { useStream } from "@langchain/vue";
+
+const stream = useStream<typeof myAgent>({
+  apiUrl: "http://localhost:2024",
+  assistantId: "message_queue",
+});
+
+function handleSubmit(text: string) {
+  stream.submit({
+    messages: [{ type: "human", content: text }],
+  });
+}
+
+// 在脚本中通过 .value 访问队列状态
+const pendingCount = computed(() => stream.queue.value.size);
+const entries = computed(() => stream.queue.value.entries);
+</script>
+
+<template>
+  <div>
+    <MessageList :messages="stream.messages" />
+    <QueueList v-if="stream.queue.size > 0" :entries="stream.queue.entries" :queue="stream.queue" />
+    <ChatInput @submit="handleSubmit" />
+  </div>
+</template>
+```
+
+```svelte Svelte
+<script lang="ts">
+  import { useStream } from "@langchain/svelte";
+
+  const { messages, submit, queue } = useStream<typeof myAgent>({
+    apiUrl: "http://localhost:2024",
+    assistantId: "message_queue",
+  });
+
+  function handleSubmit(text: string) {
+    submit({
+      messages: [{ type: "human", content: text }],
+    });
+  }
+</script>
+
+<div>
+  <MessageList messages={$messages} />
+  {#if $queue.size > 0}
+    <QueueList entries={$queue.entries} queue={$queue} />
+  {/if}
+  <ChatInput on:submit={(e) => handleSubmit(e.detail)} />
+</div>
+```
+
+```ts Angular
+import { Component } from "@angular/core";
+import { useStream } from "@langchain/angular";
+
+@Component({
+  selector: "app-chat",
+  template: `
+    <message-list [messages]="stream.messages()" />
+    @if (stream.queue().size > 0) {
+      <queue-list [entries]="stream.queue().entries" [queue]="stream.queue()" />
+    }
+    <chat-input (onSubmit)="handleSubmit($event)" />
+  `,
+})
+export class ChatComponent {
+  stream = useStream<typeof myAgent>({
+    apiUrl: "http://localhost:2024",
+    assistantId: "message_queue",
+  });
+
+  handleSubmit(text: string) {
+    this.stream.submit({
+      messages: [{ type: "human", content: text }],
+    });
+  }
+}
+```
+
+</CodeGroup>
+
+## 显示队列
+
+构建一个 `QueueList` 组件，显示每条待处理消息并带有取消按钮。这让用户了解等待的内容并能够删除他们不再需要的项目。
+
+```tsx
+function QueueList({ entries, queue }) {
+  return (
+    <div className="queue-panel">
+      <div className="queue-header">
+        <span>Queued messages ({entries.length})</span>
+        <button onClick={() => queue.clear()}>Clear all</button>
+      </div>
+      <ul className="queue-entries">
+        {entries.map((entry) => {
+          const text = entry.values?.messages?.[0]?.content ?? "Unknown";
+          return (
+            <li key={entry.id} className="queue-entry">
+              <span className="queue-text">{text}</span>
+              <span className="queue-time">
+                {new Date(entry.createdAt).toLocaleTimeString()}
+              </span>
+              <button
+                className="queue-cancel"
+                onClick={() => queue.cancel(entry.id)}
+              >
+                Cancel
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+```
+
+<Tip>
+显示每条排队消息的前几个字符作为预览，以便用户可以快速识别要取消的项目，而无需阅读完整消息。
+</Tip>
+
+## 取消排队的消息
+
+您有两个级别的取消：
+
+### 取消单个条目
+
+通过其 ID 从队列中删除特定消息。代理将跳过它并移动到下一个条目。
+
+```ts
+await queue.cancel(entryId);
+```
+
+### 清空整个队列
+
+一次删除所有待处理消息。在用户更改上下文或想要重新开始时很有用。
+
+```ts
+await queue.clear();
+```
+
+<Note>
+取消队列条目仅影响 **尚未开始处理** 的消息。如果代理已经在处理消息，则从中取消队列没有效果。使用 `stream.stop()` 中断当前运行。
+</Note>
+
+## 使用 `onCreated` 链接后续提交
+
+`onCreated` 回调在新运行创建时触发，让您可以编程提交后续消息。这对于构建下一步取决于先前提交被接受的多步骤工作流很有用。
+
+```ts
+stream.submit(
+  { messages: [{ type: "human", content: "What is quantum computing?" }] },
+  {
+    onCreated(run) {
+      console.log("Run created:", run.run_id);
+      // 链接后续
+      stream.submit({
+        messages: [{ type: "human", content: "Give me a simple analogy." }],
+      });
+    },
+  }
+);
+```
+
+此模式自然地填充队列。第一条消息立即开始处理，后续内容排在后面。
+
+## 开始新线程
+
+当用户想要开始新对话时，使用 `switchThread(null)` 创建新线程。这会清除当前消息历史和队列。
+
+<CodeGroup>
+
+```tsx React
+function NewThreadButton() {
+  const stream = useStream<typeof myAgent>({ /* ... */ });
+
+  return (
+    <button onClick={() => stream.switchThread(null)}>
+      New conversation
+    </button>
+  );
+}
+```
+
+```vue Vue
+<script setup lang="ts">
+const stream = useStream<typeof myAgent>({ /* ... */ });
+</script>
+
+<template>
+  <button @click="stream.switchThread(null)">New conversation</button>
+</template>
+```
+
+```svelte Svelte
+<script lang="ts">
+  const { switchThread } = useStream<typeof myAgent>({ /* ... */ });
+</script>
+
+<button on:click={() => switchThread(null)}>New conversation</button>
+```
+
+```ts Angular
+stream = useStream<typeof myAgent>({ /* ... */ });
+
+// 在模板中：
+// <button (click)="stream.switchThread(null)">New conversation</button>
+```
+
+</CodeGroup>
+
+## 完整示例
+
+将它们放在一起，这是一个带有队列管理的完整聊天组件：
+
+```tsx
+function QueueChat() {
+  const stream = useStream<typeof myAgent>({
+    apiUrl: "http://localhost:2024",
+    assistantId: "message_queue",
+  });
+
+  const [input, setInput] = useState("");
+
+  const handleSubmit = () => {
+    if (!input.trim()) return;
+    stream.submit({
+      messages: [{ type: "human", content: input.trim() }],
+    });
+    setInput("");
+  };
+
+  return (
+    <div className="chat-container">
+      <header>
+        <h2>Queue Chat</h2>
+        <button onClick={() => stream.switchThread(null)}>New thread</button>
+      </header>
+
+      <div className="messages">
+        {stream.messages.map((msg, i) => (
+          <MessageBubble key={i} message={msg} />
+        ))}
+        {stream.isLoading && <TypingIndicator />}
+      </div>
+
+      {stream.queue.size > 0 && (
+        <div className="queue-panel">
+          <strong>Queued ({stream.queue.size})</strong>
+          <button onClick={() => stream.queue.clear()}>Clear all</button>
+          {stream.queue.entries.map((entry) => (
+            <div key={entry.id} className="queue-item">
+              <span>{entry.values?.messages?.[0]?.content}</span>
+              <button onClick={() => stream.queue.cancel(entry.id)}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message (you can send multiple!)"
+        />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## 最佳实践
+
+- **限制队列大小**：虽然对队列大小没有硬性的客户端限制，但要注意非常大的队列可能会降低用户体验。考虑在队列超过合理阈值（例如 10 个项目）时显示警告。
+- **显示队列位置**：为每个排队项目编号，以便用户知道处理顺序。
+- **保留输入焦点**：提交后保持输入字段聚焦，以便用户可以立即输入下一条消息。
+- **为转换添加动画**：当项目开始处理时，将项目从队列面板平滑移动到消息列表。
+- **优雅地处理错误**：如果排队的消息失败，在不阻止后续队列条目的情况下显示错误。
+- **对快速提交进行防抖**：对于自动或编程提交，在消息之间添加小延迟以避免使服务器过载。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\frontend\message-queues.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

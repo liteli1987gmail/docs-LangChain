@@ -1,0 +1,45 @@
+---
+title: "Transwarp integrations"
+description: "Integrate with Transwarp using LangChain Python."
+---
+
+Transwarp致力于打造企业级大数据和AI基础设施软件，塑造数据世界的未来。它为企业提供贯穿整个数据生命周期的基础设施软件和服务，涵盖集成、存储、治理、建模、分析、挖掘和流通。
+
+Transwarp专注于技术研发，并在以下方面积累了核心技术：distributed computing、SQL编译、database technology、multi-model data management统一、container-based cloud computing，以及big data analytics and intelligence。
+
+## Installation
+
+You have to install several python packages:
+
+<CodeGroup>
+```bash pip
+pip install -U tiktoken hippo-api
+```
+
+```bash uv
+uv add tiktoken hippo-api
+```
+</CodeGroup>
+
+and get the connection configuration.
+
+## Vector stores
+
+### Hippo
+
+See [a usage example and installation instructions](/oss/python/integrations/vectorstores/hippo).
+
+```python
+from langchain_community.vectorstores.hippo import Hippo
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\transwarp.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

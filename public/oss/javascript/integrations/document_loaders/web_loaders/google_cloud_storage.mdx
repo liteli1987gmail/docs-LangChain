@@ -1,0 +1,61 @@
+---
+title: "Google cloud storage 集成"
+description: "使用 LangChain JavaScript 与 Google cloud storage 文档加载器集成。"
+---
+
+<Tip>
+**兼容性**
+
+仅适用于 Node.js。
+</Tip>
+
+本文介绍如何将 Google Cloud Storage 文件加载到 LangChain 文档中。
+
+## 设置
+
+要使用此加载器，您需要已经设置并准备好在可用 URL 端点上使用 Unstructured。它也可以配置为在本地运行。
+
+有关如何执行此操作的信息，请参阅 [Unstructured 文件加载器文档](/oss/javascript/integrations/document_loaders/file_loaders/unstructured)。
+
+您还需要安装官方 Google Cloud Storage SDK：
+
+```bash npm
+npm install @langchain/community @langchain/core @google-cloud/storage
+```
+
+## 使用方法
+
+配置 Unstructured 后，您可以使用 Google Cloud Storage 加载器加载文件，然后将它们转换为文档。
+
+此外，您可以选择提供 `storageOptions` 参数来不仅指定您的存储选项，还可以指定其他身份验证方式（如果您不想使用应用程序默认凭证 (ADC) 作为默认方式）。
+
+```typescript
+import { GoogleCloudStorageLoader } from "@langchain/community/document_loaders/web/google_cloud_storage";
+
+const loader = new GoogleCloudStorageLoader({
+  bucket: "my-bucket-123",
+  file: "path/to/file.pdf",
+  storageOptions: {
+    keyFilename: "/path/to/keyfile.json",
+  },
+  unstructuredLoaderOptions: {
+    apiUrl: "http://localhost:8000/general/v0/general",
+    apiKey: "", // 即将需要
+  },
+});
+
+const docs = await loader.load();
+
+console.log(docs);
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\document_loaders\web_loaders\google_cloud_storage.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,55 @@
+---
+title: "GitHub integrations"
+description: "Integrate with GitHub using LangChain Python."
+---
+
+> [GitHub](https://github.com/) 是一个面向开发者的平台，允许开发者创建、存储、管理和共享代码。它使用 `Git` 软件，提供分布式版本控制功能，同时为每个项目提供访问控制、问题跟踪、软件功能请求、任务管理、持续集成和 Wiki 等功能。
+
+
+## Installation and setup
+
+To access the GitHub API, you need a [personal access token](https://github.com/settings/tokens).
+
+
+## Document loader
+
+There are two document loaders available for GitHub.
+
+See a [usage example](/oss/python/integrations/document_loaders/github).
+
+```python
+from langchain_community.document_loaders import GitHubIssuesLoader, GithubFileLoader
+```
+
+## Tools/Toolkit
+
+### GitHubToolkit
+The `GitHub` toolkit contains tools that enable an LLM agent to interact
+with a GitHub repository.
+
+The toolkit is a wrapper for the `PyGitHub` library.
+
+```python
+from langchain_community.agent_toolkits.github.toolkit import GitHubToolkit
+```
+
+Learn more in the [example notebook](/oss/python/integrations/tools/github).
+
+### GitHubAction
+
+Tool for interacting with the GitHub API.
+
+```python
+from langchain_community.tools.github.tool import GitHubAction
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\github.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

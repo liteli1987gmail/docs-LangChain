@@ -1,0 +1,40 @@
+---
+title: "ClickHouse integrations"
+description: "Integrate with ClickHouse using LangChain Python."
+---
+
+> [ClickHouse](https://clickhouse.com/) 是一个快速、资源高效的开源数据库，支持实时应用和实时分析，具备完整的 SQL 支持以及丰富的函数库，帮助用户编写分析查询。它具备数据结构和支持距离搜索的函数（如 `L2Distance`），还提供[近似最近邻搜索索引](https://clickhouse.com/docs/en/engines/table-engines/mergetree-family/annindexes)。这使得 ClickHouse 能够作为高性能、可扩展的向量数据库，用于通过 SQL 存储和搜索向量。
+
+
+## Installation and setup
+
+We need to install `clickhouse-connect` python package.
+
+<CodeGroup>
+```bash pip
+pip install clickhouse-connect
+```
+
+```bash uv
+uv add clickhouse-connect
+```
+</CodeGroup>
+
+## Vector store
+
+See a [usage example](/oss/python/integrations/vectorstores/clickhouse).
+
+```python
+from langchain_community.vectorstores import Clickhouse, ClickhouseSettings
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\clickhouse.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

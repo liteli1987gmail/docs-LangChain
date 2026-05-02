@@ -1,0 +1,37 @@
+---
+title: Annotate traces and runs inline
+sidebarTitle: Annotate traces and runs inline
+---
+
+LangSmith 允许您在应用程序内手动使用反馈注释追踪。这对于向追踪添加上下文很有用，例如用户的评论或关于特定问题的注释。
+您可以内联注释追踪或发送追踪到标注队列，这允许您仔细检查并一次一个地向运行记录反馈。
+反馈标签与您的[工作区](/langsmith/administration-overview#workspaces)关联。
+
+<Note>
+**您可以将用户反馈附加到追踪的任何中间运行（span），而不仅仅是根 span。**
+
+这对于批评大型语言模型应用程序的特定部分很有用，例如 RAG 管道的检索步骤或生成步骤。
+
+</Note>
+
+要内联注释追踪，请点击作为追踪一部分的任何特定运行的追踪视图右上角的`Annotate`。
+
+![内联注释追踪](/langsmith/images/annotate-trace-inline.png)
+
+这将打开一个窗格，允许您从与您工作区关联的反馈标签中选择，并为特定标签添加分数。您也可以添加独立评论。按照[设置反馈标准](/langsmith/set-up-feedback-criteria)为您的工作区设置反馈标签。
+您也可以从该窗格本身设置新的反馈标准。
+
+![标注侧边栏](/langsmith/images/annotation-sidebar.png)
+
+您可以使用标记的键盘快捷键来简化标注过程。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\annotate-traces-inline.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

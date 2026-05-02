@@ -1,0 +1,47 @@
+---
+title: "Gitbook 集成"
+description: "使用 LangChain JavaScript 与 Gitbook 文档加载器集成。"
+---
+
+本示例介绍如何使用 Cheerio 从任何 GitBook 加载数据。将为每个页面创建一个文档。
+
+## 设置
+
+```bash npm
+npm install @langchain/community @langchain/core cheerio
+```
+## 从单个 GitBook 页面加载
+
+```typescript
+import { GitbookLoader } from "@langchain/community/document_loaders/web/gitbook";
+
+const loader = new GitbookLoader(
+  "https://docs.gitbook.com/product-tour/navigation"
+);
+
+const docs = await loader.load();
+```
+## 从给定 GitBook 的所有路径加载
+
+要使其工作，GitbookLoader 需要使用根路径初始化（在本例中为 https://docs.gitbook.com），并将 `shouldLoadAllPaths` 设置为 `true`。
+
+```typescript
+import { GitbookLoader } from "@langchain/community/document_loaders/web/gitbook";
+
+const loader = new GitbookLoader("https://docs.gitbook.com", {
+  shouldLoadAllPaths: true,
+});
+
+const docs = await loader.load();
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\document_loaders\web_loaders\gitbook.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

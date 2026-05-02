@@ -1,0 +1,65 @@
+---
+title: 如何审核评估器分数
+sidebarTitle: 审核评估器分数
+---
+
+LLM 作为判断者的评估器并不总是能正确做到这一点。因此，让人工手动审核评估器留下的分数并在必要时进行纠正通常很有用。LangSmith 允许您在 UI 或 SDK 中对评估器分数进行更正。
+
+## 在比较视图中
+
+在比较视图中，您可以点击任何反馈标签以调出反馈详情。从那里，点击右侧的"编辑"图标以调出更正视图。然后您可以在"进行更正"下的文本框中输入您想要的分数。如果愿意，您还可以附加对更正的解释。这在您使用[少样本评估器](/langsmith/create-few-shot-evaluators)时很有用，它会自动插入到您的少样本示例中，替换 `few_shot_explanation` 提示词变量。
+
+![审核评估器比较视图](/langsmith/images/corrections-comparison-view.png)
+
+## 在运行表中
+
+在运行表中，找到"反馈"列并点击反馈标签以调出反馈详情。同样，点击右侧的"编辑"图标以调出更正视图。
+
+![审核评估器运行表](/langsmith/images/corrections-runs-table.png)
+
+## 在 SDK 中
+
+可以通过 SDK 的 `update_feedback` 函数和 `correction` 字典进行更正。您必须指定一个 `score` 键，它对应一个数字，以便在 UI 中呈现。
+
+<CodeGroup>
+
+```python Python
+import langsmith
+
+client = langsmith.Client()
+
+client.update_feedback(
+    my_feedback_id,
+    correction={
+        "score": 1,
+    },
+)
+```
+
+```typescript TypeScript
+import { Client } from 'langsmith';
+
+const client = new Client();
+
+await client.updateFeedback(
+    myFeedbackId,
+    {
+        correction: {
+            score: 1,
+        }
+    }
+)
+```
+
+</CodeGroup>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\audit-evaluator-scores.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

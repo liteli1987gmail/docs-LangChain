@@ -1,0 +1,97 @@
+---
+title: "Falkordb integrations"
+description: "Integrate with Falkordb using LangChain Python."
+---
+
+# FalkorDB
+
+FalkorDB 是一个高性能的 **图数据库**（Graph Database），它是从 Redis Graph 项目发展而来的独立图数据库系统。
+
+## 核心特点
+
+| 特点 | 描述 |
+|------|------|
+| **高性能** | 基于 Redis 引擎，擅长处理复杂的图遍历和关联查询 |
+| **图查询语言** | 支持 GQL 和 Cypher 风格的查询语法 |
+| **属性图模型** | 支持带属性的节点和边 |
+| **多语言客户端** | 提供 Python、JavaScript、Java 等 SDK |
+
+## 技术架构
+
+- **底层存储**：基于 Redis 的高性能数据结构
+- **查询引擎**：优化的图遍历算法
+- **索引支持**：支持节点和关系的多属性索引
+
+## 常见应用场景
+
+1. **社交网络分析** - 好友推荐、影响力分析
+2. **知识图谱** - 构建和查询实体关系网络
+3. **欺诈检测** - 识别异常关联模式
+4. **推荐系统** - 基于用户-物品关系图谱
+5. **生物信息学** - 蛋白质相互作用网络
+
+## 代码示例
+
+```python
+from redis_graph import RedisGraph
+
+# 创建图
+graph = RedisGraph('SocialGraph')
+
+# 创建节点
+graph.query("CREATE (alice:Person {name: 'Alice'})")
+graph.query("CREATE (bob:Person {name: 'Bob'})")
+
+# 创建关系
+graph.query("""
+    MATCH (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'})
+    CREATE (a)-[:KNOWS {since: 2020}]->(b)
+""")
+
+# 查询
+result = graph.query("""
+    MATCH (alice:Person)-[r:KNOWS]->(bob:Person)
+    RETURN alice.name, bob.name, r.since
+""")
+```
+
+FalkorDB 通过将图数据存储在 Redis 中，充分利用 Redis 的内存性能和丰富数据结构，实现了高效的图操作。
+
+>- FalkorDB 是一个专注于图数据库技术的 `open-source database management system`（开源数据库管理系统）。
+>- FalkorDB 允许您以节点（nodes）和边（edges）的形式表示和存储数据，使其非常适合处理关联数据和关系。
+>- FalkorDB 支持带有专有扩展的 OpenCypher 查询语言，让您可以轻松地与图数据进行交互和查询。
+>- 借助 FalkorDB，您可以实现高性能的图遍历和查询（graph traversals and queries），适用于生产级别的系统。
+
+> 开始使用 FalkorDB，请访问[其网站](https://docs.falkordb.com/)。
+
+## Installation and setup
+
+- Install the Python SDK with `pip install falkordb langchain-falkordb`
+
+## VectorStore
+
+The FalkorDB vector index is used as a vectorstore,
+whether for semantic search or example selection.
+
+```python
+from langchain_community.vectorstores.falkordb_vector import FalkorDBVector
+```
+
+or
+
+```python
+from langchain_falkordb.vectorstore import FalkorDBVector
+```
+
+See a [usage example](/oss/python/integrations/vectorstores/falkordbvector.ipynb)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\falkordb.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

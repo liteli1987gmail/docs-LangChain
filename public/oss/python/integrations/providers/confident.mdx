@@ -1,0 +1,46 @@
+---
+title: "Confident AI integrations"
+description: "Integrate with Confident AI using LangChain Python."
+---
+
+[Confident AI](https://confident-ai.com)是`DeepEval`的创造者。
+
+[DeepEval](https://github.com/confident-ai/deepeval)是一个用于对LLM进行单元测试的包。
+使用`DeepEval`，每个人都可以通过更快的迭代来构建稳健的语言模型，
+同时使用单元测试和集成测试。`DeepEval`在迭代的每一步都提供支持，
+从合成数据创建到测试。
+
+## Installation and setup
+
+You need to get the [DeepEval API credentials](https://app.confident-ai.com).
+
+You need to install the `DeepEval` Python package:
+
+<CodeGroup>
+```bash pip
+pip install deepeval
+```
+
+```bash uv
+uv add deepeval
+```
+</CodeGroup>
+
+## Callbacks
+
+See an [example](/oss/python/integrations/callbacks/confident).
+
+```python
+from langchain.callbacks.confident_callback import DeepEvalCallbackHandler
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\confident.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

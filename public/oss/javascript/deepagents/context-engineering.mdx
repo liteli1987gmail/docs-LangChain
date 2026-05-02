@@ -1,0 +1,459 @@
+---
+title: 深度代理中的上下文工程
+sidebarTitle: 上下文工程
+description: 控制深度代理可以访问什么上下文以及如何在长时间运行的任务中管理它
+---
+
+上下文工程是提供正确的信息和工具在正确的格式，以便您的深度代理可以可靠地完成任务。
+
+深度代理可以访问多种上下文。
+有些来源在启动时提供给代理；其他在运行时变得可用，例如用户输入。
+深度代理包括内置机制，用于跨长时间会话管理上下文。
+
+本页概述了深度代理可以访问和管理的不同类型的上下文。
+
+<Tip>
+不熟悉上下文工程？请参阅[概念概述](/oss/javascript/concepts/context)了解不同类型的上下文以及何时使用它们。
+</Tip>
+
+## 上下文类型
+
+| 上下文类型 | 您控制的内容 | 范围 |
+|--------------|------------------|-------|
+| **[输入上下文](#input-context)** | 启动时放入代理提示词的内容（系统提示词、记忆、技能） | 静态，每次运行应用 |
+| **[运行时上下文](#runtime-context)** | 调用时传递的静态配置（用户元数据、API 密钥、连接） | 每次运行，传播到子代理 |
+| **[上下文压缩](#context-compression)** | 内置卸载和摘要，以将上下文保持在窗口限制内 | 自动，接近限制时 |
+| **[上下文隔离](#context-isolation-with-subagents)** | 使用子代理隔离重型工作，仅将结果返回给主代理 | 每个子代理，委托时 |
+| **[长期记忆](#long-term-memory)** | 使用虚拟文件系统的跨线程持久化存储 | 跨对话持久化 |
+
+## 输入上下文
+
+输入上下文是在启动时提供给深度代理的信息，成为其系统提示词的一部分。最终提示由多个来源组成：
+
+<CardGroup cols={2}>
+  <Card title="系统提示词" icon="message-2" href="#system-prompt">
+    您提供的自定义指令加上内置代理指导。
+  </Card>
+  <Card title="记忆" icon="database" href="#memory">
+    配置时始终加载的持久化 `AGENTS.md` 文件。
+  </Card>
+  <Card title="技能" icon="tool" href="#skills">
+    在相关时按需加载的能力（渐进式披露）。
+  </Card>
+  <Card title="工具提示词" icon="list" href="#tool-prompts">
+    使用内置工具或自定义工具的指令。
+  </Card>
+</CardGroup>
+
+### 系统提示词
+
+您的自定义系统提示词被预先添加到内置系统提示词之前，后者包括规划、文件系统工具和子代理的指导。用它来定义代理的角色、行为和知识：
+
+
+
+```typescript
+import { createDeepAgent } from "deepagents";
+
+const agent = await createDeepAgent({
+  model: "google_genai:gemini-3.1-pro-preview",
+  systemPrompt: `你是一个专门从事科学文献的研究助手。
+  始终引用来源。使用子代理对不同主题进行并行研究。`,
+});
+```
+
+
+
+
+`systemPrompt` 参数是静态的，这意味着它不会在每次调用时更改。
+对于某些用例，您可能需要动态提示：例如，告诉模型"你有管理员访问权限"vs"你有只读访问权限"，或者从[长期记忆](#long-term-memory)中注入用户偏好，如"用户偏好简洁的回复"。
+如果您的提示依赖于上下文或 `runtime.store`，请使用 `dynamicSystemPromptMiddleware` 来构建上下文感知指令。
+您的中间件可以读取 `request.runtime.context` 和 `request.runtime.store`。
+请参阅[自定义](/oss/javascript/deepagents/customization#middleware)了解添加[自定义中间件](/oss/javascript/langchain/middleware)，以及 [LangChain 上下文工程](/oss/javascript/langchain/context-engineering#system-prompt)指南了解示例。
+
+当仅工具使用上下文或 `runtime.store` 时，您**不需要**中间件；工具直接接收 `runtime` 对象（包括 `runtime.context` 和 `runtime.store`）。仅在系统提示词本身必须因请求而异时添加中间件。
+
+
+<Tip>
+    要为特定提供商或模型调整组装的系统提示词，请使用[工具配置文件](/oss/javascript/deepagents/profiles#harness-profiles)：`base_system_prompt` 直接替换基础提示词，`system_prompt_suffix` 追加到其上。
+</Tip>
+
+### 记忆
+
+记忆文件（[`AGENTS.md`](https://agents.md/)）提供**始终加载**到系统提示词中的持久化上下文。将记忆用于项目约定、用户偏好和应适用于每个对话的关键指南：
+
+
+
+```typescript
+const agent = await createDeepAgent({
+  model: "google_genai:gemini-3.1-pro-preview",
+  memory: ["/project/AGENTS.md", "~/.deepagents/preferences.md"],
+});
+```
+
+
+与技能不同，记忆总是注入——没有渐进式披露。保持记忆最小化以避免上下文过载；对详细的工作流和特定领域的内容使用[技能](/oss/javascript/deepagents/skills)。请参阅[记忆](/oss/javascript/deepagents/customization#memory)了解配置详细信息。
+
+### 技能
+
+技能提供**按需**的能力。代理在启动时从每个 `SKILL.md` 读取 frontmatter，然后仅在确定技能相关时加载完整技能内容。这在提供专门工作流的同时减少了 token 使用：
+
+
+
+```typescript
+const agent = await createDeepAgent({
+  model: "google_genai:gemini-3.1-pro-preview",
+  skills: ["/skills/research/", "/skills/web-search/"],
+});
+```
+
+
+保持每个技能专注于单个工作流或领域；广泛或重叠的技能会稀释相关性并在加载时膨胀上下文。在技能内部，保持主要内容简洁，将详细参考材料移到在技能文件中引用的单独文件中。将始终相关的约定放在[记忆](#memory)中。请参阅[技能](/oss/javascript/deepagents/skills)了解创作和配置。
+
+### 工具提示词
+
+[工具](/oss/javascript/langchain/tools)提示词是塑造模型如何使用工具的指令。所有工具都向模型公开元数据——通常是模式和描述。您通过 `tools` 参数传递的工具会向模型显示该工具元数据（模式和描述）。深度代理的内置工具打包在中间件中，通常还会用更多关于这些工具的指导更新系统提示词。
+
+**内置工具** – 添加工具能力的中间件（规划、文件系统、子代理）自动将特定于工具的指令附加到系统提示词，创建解释如何有效使用这些工具的工具提示词：
+- 规划提示词 – `write_todos` 维护结构化任务列表的指令
+- 文件系统提示词 – `ls`、`read_file`、`write_file`、`edit_file`、`glob`、`grep` 的文档（使用沙箱后端时还有 `execute`）
+- 子代理提示词 – 使用 `task` 工具委托工作的指导
+- 人工介入提示词 – 在指定工具调用处暂停的用法（设置 `interrupt_on` 时）
+- 本地上下文提示词 – 当前目录和项目信息（仅 CLI）
+
+**您提供的工具** – 通过 `tools` 参数传递的工具会获得其描述（来自工具模式）发送给模型。您还可以添加[自定义中间件](/oss/javascript/langchain/middleware)，添加工具并追加自己的系统提示词指令。
+
+对于您提供的工具，请确保提供清晰的名称、描述和参数描述。这些指导模型的推理关于何时以及如何使用工具。在描述中包含*何时*使用工具，并描述每个参数的作用。
+
+
+
+```typescript
+const searchOrders = tool(
+  async ({ userId, status, limit }) => { /* ... */ },
+  {
+    name: "search_orders",
+    description: `Search for user orders by status.
+
+Use this when the user asks about order history or wants to check
+order status. Always filter by the provided status.`,
+    schema: z.object({
+      userId: z.string().describe("Unique identifier for the user"),
+      status: z.enum(["pending", "shipped", "delivered"]).describe("Order status to filter by"),
+      limit: z.number().default(10).describe("Maximum number of results to return"),
+    }),
+  }
+);
+```
+
+
+<Tip>
+    要为特定提供商或模型覆盖内置或用户提供的工具的描述，请使用[工具配置文件](/oss/javascript/deepagents/profiles#harness-profiles)的 `tool_description_overrides`，按工具名称键控。`excluded_tools` 从可见工具集中完全移除工具。
+</Tip>
+
+请参阅[工具](/oss/javascript/deepagents/harness)了解内置能力，以及[自定义](/oss/javascript/deepagents/customization#tools)了解直接传递工具。
+
+### 完整的系统提示词
+
+深度代理的系统消息——模型在运行开始时接收的组装系统提示词——由以下部分组成：
+
+1. 自定义 `system_prompt`（如果提供）
+1. [基础代理提示词](https://github.com/langchain-ai/deepagents/blob/e18e9dcd0e6edc72c0a4a5b76ae752c4bc539752/libs/deepagents/deepagents/graph.py#L37)
+1. 待办事项列表提示词：如何使用待办列表进行规划的指令
+1. 记忆提示词：`AGENTS.md` + 记忆使用指南（仅当提供 `memory` 时）
+1. 技能提示词：技能位置 + 带 frontmatter 信息的技能列表 + 用法（仅当提供技能时）
+1. 虚拟文件系统提示词（文件系统 + execute 工具文档，如果适用）
+1. 子代理提示词：任务工具用法
+1. 用户提供的中间件提示词（如果提供了自定义中间件）
+1. 人工介入提示词（设置 `interrupt_on` 时）
+
+## 运行时上下文
+
+运行时上下文是调用代理时传递的每次运行配置。它不会自动包含在模型提示词中；模型只有在工具、中间件或其他逻辑读取它并将其添加到消息或系统提示词时才会看到它。使用运行时上下文获取用户元数据（ID、偏好、角色）、API 密钥、数据库连接、功能标志或您的工具和工具需要的其他值。
+
+
+
+使用 `contextSchema` 定义该数据的形状，通常是 Zod 对象模式（例如 `z.object({ ... })`）。在传递给 `invoke` / `ainvoke` 的选项对象的 **`context`** 字段中传递运行时值。请参阅[运行时](/oss/javascript/langchain/runtime)和 [LangGraph 运行时上下文](/oss/javascript/langgraph/graph-api#runtime-context)了解完整详情。
+
+在工具内部，从作为工具处理器 `runtime` 参数提供的 `ToolRuntime` 实例读取 `runtime.context`：
+
+```typescript
+import { createDeepAgent } from "deepagents";
+import { tool } from "langchain";
+import type { ToolRuntime } from "@langchain/core/tools";
+import { z } from "zod";
+
+const contextSchema = z.object({
+  userId: z.string(),
+  apiKey: z.string(),
+});
+
+const fetchUserData = tool(
+  async (input, runtime: ToolRuntime<unknown, typeof contextSchema>) => {
+    const userId = runtime.context?.userId;
+    return `Data for user ${userId}: ${input.query}`;
+  },
+  {
+    name: "fetch_user_data",
+    description: "Fetch data for the current user",
+    schema: z.object({ query: z.string() }),
+  }
+);
+
+const agent = await createDeepAgent({
+  model: "google_genai:gemini-3.1-pro-preview",
+  tools: [fetchUserData],
+  contextSchema,
+});
+
+const result = await agent.invoke(
+  { messages: [{ role: "user", content: "Get my recent activity" }] },
+  { context: { userId: "user-123", apiKey: "sk-..." } },
+);
+```
+
+
+运行时上下文**传播到所有子代理**。当子代理运行时，它接收与父代理相同的运行时上下文。请参阅[子代理](/oss/javascript/deepagents/subagents#context-management)了解每个子代理的上下文（命名空间键）。
+
+## 上下文压缩
+
+长时间运行的任务会产生大量工具输出和长对话历史。
+上下文压缩在保留与任务相关的细节的同时，减少代理工作内存中的信息大小。
+以下技术是内置机制，用于确保传递给大型语言模型的上下文保持在上下文窗口限制内：
+
+<CardGroup cols={2}>
+  <Card title="卸载" icon="file-export" href="#offloading">
+    大型工具输入和结果存储在文件系统中并替换为引用。
+  </Card>
+  <Card title="摘要" icon="article" href="#summarization">
+    当接近限制时，旧消息被压缩成大型语言模型生成的摘要。
+  </Card>
+</CardGroup>
+
+### 卸载
+
+深度代理使用[内置文件系统工具](/oss/javascript/deepagents/harness#virtual-filesystem-access)自动卸载内容，并根据需要搜索和检索该卸载的内容。
+当工具调用输入或结果超过 token 阈值（默认 20,000）时，会发生内容卸载：
+
+1. **工具调用输入超过 20,000 个 token**：文件写入和编辑操作会在代理的对话历史中留下包含完整文件内容的工具调用。
+    由于此内容已持久化到文件系统，它通常是冗余的。
+    当会话上下文跨过模型可用窗口的 85% 时，深度代理会截断较旧的工具调用，用指向磁盘文件的指针替换它们，并减少活动上下文的大小。
+
+    ![卸载示例，显示大型输入被保存到磁盘，截断版本用于工具调用](/oss/images/deepagents/offloading-inputs.png)
+
+2. **工具调用结果超过 20,000 个 token**：当发生时，深度代理将响应卸载到配置的后端，并将其替换为文件路径引用和前 10 行的预览。然后代理可以重新读取或根据需要搜索内容。
+
+    ![卸载示例，显示大型工具响应被替换为关于卸载结果位置的消息和结果的前 10 行](/oss/images/deepagents/offloading-results.png)
+
+### 摘要
+
+<Note>
+当前的摘要行为（通过 `wrapModelCall` 的模型内摘要、准确的 token 计数和自动 `ContextOverflowError` 回退）需要 `deepagents>=1.6.0`。
+</Note>
+::
+
+当上下文大小跨过模型的上下文窗口限制（例如 `max_input_tokens` 的 85%），并且没有更多符合卸载条件的上下文时，深度代理会摘要消息历史。
+
+这个过程有两个组成部分：
+
+- **上下文内摘要**：大型语言模型生成包含会话意图、创建产物和下一步的结构化摘要——它替换代理工作内存中的完整对话历史。
+- **文件系统保留**：完整的原始对话消息作为规范记录写入文件系统。
+
+这种双重方法确保代理保持对其目标和进展的意识（通过摘要），同时保留在需要时恢复特定细节的能力（通过文件系统搜索）。
+
+![摘要示例，显示代理的对话历史，其中几个步骤被压缩](/oss/images/deepagents/summarization.png)
+
+**配置：**
+- 在模型的 `max_input_tokens` 的 85% 处触发，来自其[模型配置文件](/oss/javascript/langchain/models#model-profiles)
+- 保留 10% 的 token 作为最近上下文
+- 如果模型配置文件不可用，则回退到 170,000 token 触发 / 保留 6 条消息
+- 如果任何模型调用引发标准 [ContextOverflowError](https://reference.langchain.com/javascript/langchain-core/errors/ContextOverflowError)，深度代理立即回退到摘要并用摘要 + 最近保留的消息重试
+- 旧消息由模型摘要
+
+python
+<Tip>
+从代理[流式传输 token](/oss/javascript/deepagents/streaming#llm-tokens) 通常会包括由摘要步骤生成的 token。您可以使用关联的元数据过滤掉这些 token：
+```python
+for chunk in agent.stream(
+    {"messages": [...]},
+    stream_mode="messages",
+    version="v2",
+):
+    token, metadata = chunk["data"]
+    if metadata.get("lc_source") == "summarization":  # [!code highlight]
+        continue
+    else:
+        ...
+```
+</Tip>
+::
+
+<Tip>
+从代理[流式传输 token](/oss/javascript/deepagents/streaming#llm-tokens) 通常会包括由摘要步骤生成的 token。您可以使用关联的元数据过滤掉这些 token：
+```typescript
+for await (const [namespace, chunk] of await agent.stream(
+  { messages: [...] },
+  { streamMode: "messages" },
+)) {
+  const [message, metadata] = chunk;
+  if (metadata?.lcSource === "summarization") {  // [!code highlight]
+    continue;
+  } else {
+    ...
+  }
+}
+```
+</Tip>
+
+
+
+js
+<Note>
+摘要工具中间件需要 `deepagents>=1.6.0`。
+</Note>
+::
+
+深度代理包括一个可选的[工具](/oss/javascript/langchain/tools)，用于摘要，使代理能够在适当的时机触发摘要——例如在任务之间——而不是在固定 token 间隔。
+
+您可以通过将其中附加到中间件列表来启用此工具：
+
+```python
+from deepagents import create_deep_agent
+from deepagents.backends import StateBackend
+from deepagents.middleware.summarization import (
+    create_summarization_tool_middleware,
+)
+
+backend = StateBackend  # 如果使用默认后端
+
+model = "google_genai:gemini-3.1-pro-preview"
+agent = create_deep_agent(
+    model=model,
+    middleware=[  # [!code highlight]
+        create_summarization_tool_middleware(model, backend),  # [!code highlight]
+    ],  # [!code highlight]
+)
+```
+
+启用此功能不会禁用在模型上下文限制 85% 处的默认摘要操作。
+
+请参阅 [`SummarizationToolMiddleware`](https://reference.langchain.com/javascript/deepagents/middleware/createSummarizationMiddleware) API 参考了解详细信息。
+
+::
+
+## 使用子代理进行上下文隔离
+
+子代理解决**上下文膨胀问题**。当主代理使用具有大量输出的工具（网络搜索、文件读取、数据库查询）时，上下文窗口会迅速填满。子代理隔离这项工作——主代理只接收最终结果，而不是产生它的数十个工具调用。您还可以独立于主代理配置每个子代理（例如，模型、工具、系统提示词和技能）。
+
+**工作原理：**
+
+- 主代理有 `task` 工具来委托工作
+- 子代理使用自己的全新上下文运行
+- 子代理自主执行直到完成
+- 子代理向主代理返回单个最终报告
+- 主代理的上下文保持清洁
+
+**最佳实践：**
+
+1. **委托复杂任务**：对会使主代理上下文变得混乱的多步骤工作使用子代理。
+2. **保持子代理响应简洁**：指示子代理返回摘要，而不是原始数据：
+
+
+
+        ```typescript
+    const researchSubagent = {
+    name: "researcher",
+    description: "对主题进行研究",
+    systemPrompt: `你是一个研究助手。
+    重要提示：只返回必要的摘要（500 字以内）。
+    不要包括原始搜索结果或详细的工具输出。`,
+    tools: [webSearch],
+    };
+    ```
+    ::
+
+3. **使用文件系统处理大数据**：子代理可以将结果写入文件；主代理读取所需内容。
+
+请参阅[子代理](/oss/javascript/deepagents/subagents)了解配置，以及[上下文管理](/oss/javascript/deepagents/subagents#context-management)了解运行时上下文传播和每个子代理的命名空间。
+
+## 长期记忆
+
+当使用默认文件系统时，您的深度代理将其工作内存文件存储在代理状态中，这仅在单个线程内持久化。
+长期记忆使您的深度代理能够跨不同线程和对话持久化信息。
+深度代理可以使用长期记忆来存储用户偏好、积累的知识、研究进度或任何应该超越单个会话持久化的信息。
+
+要使用长期记忆，您必须使用 `CompositeBackend`，将特定路径（通常为 `/memories/`）路由到提供持久化跨线程持久化的 LangGraph Store。
+`CompositeBackend` 是一个混合存储系统，其中一些文件无限期持久化，而其他文件仅限于单个线程。
+
+python
+```python
+from deepagents import create_deep_agent
+from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
+from langgraph.store.memory import InMemoryStore
+
+def make_backend(runtime):
+    return CompositeBackend(
+        default=StateBackend(runtime),
+        routes={"/memories/": StoreBackend(runtime)},
+    )
+
+agent = create_deep_agent(
+    model="google_genai:gemini-3.1-pro-preview",
+    store=InMemoryStore(),
+    backend=make_backend,
+    system_prompt="""当用户告诉您他们的偏好时，将其保存到
+    /memories/user_preferences.txt 以便您在未来的对话中记住它们。""",
+)
+```
+:::
+
+```typescript
+import { createDeepAgent, CompositeBackend, StateBackend, StoreBackend } from "deepagents";
+import { InMemoryStore } from "@langchain/langgraph-checkpoint";
+
+const agent = await createDeepAgent({
+  model: "google_genai:gemini-3.1-pro-preview",
+  store: new InMemoryStore(),
+  backend: new CompositeBackend(
+    new StateBackend(),
+    { "/memories/": new StoreBackend() },
+  ),
+  systemPrompt: `当用户告诉您他们的偏好时，将其保存到 /memories/user_preferences.txt 以便您在未来的对话中记住它们。`,
+});
+```
+
+
+您不需要预先填充 `/memories/` 的文件。
+您提供后端配置、存储和系统提示词指令，告诉代理*什么*要保存以及*在哪里*保存。
+例如，您可以提示代理将偏好存储在 `/memories/preferences.txt`。
+路径开始为空，当用户分享值得记住的信息时，代理使用其文件系统工具（`write_file`、`edit_file`）按需创建文件。
+
+要预先填充记忆，请在 LangSmith 上部署时使用 [Store API](/langsmith/custom-store)。
+请参阅[长期记忆](/oss/javascript/deepagents/memory)了解设置和用例。
+
+## 最佳实践
+
+1. **从正确的输入上下文开始** – 对始终相关的约定保持记忆最小化；对特定于任务的 capabilities 使用专注的技能。
+2. **利用子代理处理重型工作** – 委托多步骤、输出重型的工作以保持主代理的上下文清洁。
+3. **在配置中调整子代理输出** – 如果您在调试时注意到子代理生成长输出，您可以向子代理的 `system_prompt` 添加指导以创建摘要和综合发现。
+4. **使用文件系统** – 将大输出持久化到文件（例如子代理写入或[自动卸载](#offloading)），以保持活动上下文较小；当需要细节时，模型可以用 `read_file` 和 `grep` 拉取片段。
+5. **记录长期记忆结构** – 告诉代理 `/memories/` 中有什么以及如何使用它。
+6. **为工具传递运行时上下文** – 对工具需要的用户元数据、API 密钥和其他静态配置使用 `context`。
+
+## 相关资源
+
+- [工具](/oss/javascript/deepagents/harness) – 上下文管理概述、卸载、摘要
+- [子代理](/oss/javascript/deepagents/subagents) – 上下文隔离、运行时上下文传播
+- [长期记忆](/oss/javascript/deepagents/memory) – 跨线程持久化
+- [技能](/oss/javascript/deepagents/skills) – 渐进式披露和技能创作
+- [后端](/oss/javascript/deepagents/backends) – 文件系统后端和 CompositeBackend
+- [上下文概念概述](/oss/javascript/concepts/context) – 上下文类型和生命周期
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\context-engineering.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

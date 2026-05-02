@@ -1,0 +1,747 @@
+---
+title: "Cogniswitch integrations"
+description: "Integrate with Cogniswitch using LangChain Python."
+---
+
+
+[CogniSwitch](https://www.cogniswitch.ai/aboutus) 是一个基于 API 的数据平台，通过提取实体、概念及其关系来增强企业数据，从而将数据转换为多维格式并存储在能够容纳这些增强内容的数据库中。在我们的案例中，数据存储在知识图谱中。这些增强后的数据现已准备好供 LLM 和其他 GenAI 应用使用，确保数据可被消费并保持上下文，从而消除幻觉并提供准确性。
+
+## Toolkit
+
+See [installation instructions and usage example](/oss/python/integrations/tools/cogniswitch).
+
+```python
+from langchain_community.agent_toolkits import CogniswitchToolkit
+```
+
+## Tools
+
+### CogniswitchKnowledgeRequest
+
+Below is a **ready‑to‑use, lightweight Python “tool”** that takes a natural‑language question, sends it to the **CogniSwitch service**, and returns the answer.  
+The example is written so you can:
+
+| Use‑case | What to do |
+|----------|-------------|
+| **Stand‑alone CLI** | Run `answer_question.py` from the command line. |
+| **Embed in a bigger app** | Import the `ask_cogniswitch()` function. |
+| **Expose as a REST API** | Run the **Flask** version (`app.py`). |
+| **Plug into LangChain / other frameworks** | Use the same function as an LLM‑compatible wrapper (shown at the end). |
+
+All snippets use only the **standard** `requests` library (and Flask if you choose the API version).  
+The only secret you need is the CogniSwitch API key – stored in an environment variable (`COGNISWITCH_API_KEY`).
+
+---
+
+## 1️⃣ High‑level flow
+
+```
+User (or caller)  ──►  ask_cogniswitch(question)
+                            │
+                     HTTP POST to CogniSwitch
+                            │
+                     JSON { "question": … }
+                            │
+                CogniSwitch returns  { "answer": … }
+                            │
+                     return answer to caller
+```
+
+---
+
+## 2️⃣ Prerequisites & setup
+
+```bash
+# 1️⃣ Create a virtual environment (optional but recommended)
+python -m venv .venv && source .venv/bin/activate   # Linux/macOS
+python -m venv .venv && .venv\Scripts\activate      # Windows
+
+# 2️⃣ Install only what you need (requests + optional Flask for the API)
+pip install requests          # Flask is optional – only needed for the REST version
+# pip install flask           # un‑comment if you want the Flask version
+```
+
+**Environment variable**
+
+```bash
+export COGNISWITCH_API_KEY="<your‑key‑here>"      # Linux/macOS
+set COGNISWITCH_API_KEY="<your‑key‑here>"        # Windows (cmd)
+```
+
+> **Tip:** Never hard‑code secrets in source code. Use `.env` + `python-dotenv` if you prefer, but keep the key out of version control.
+
+---
+
+## 3️⃣ Core function – `ask_cogniswitch()`
+
+```python
+# answer_question.py
+import os
+import json
+import logging
+from typing import Optional
+import requests
+
+# --------------------------------------------------------------
+# Configuration – can be overridden when the module is imported
+# --------------------------------------------------------------
+COGNISWITCH_API_KEY: Optional[str] = os.getenv("COGNISWITCH_API_KEY")
+COGNISWITCH_ENDPOINT: str = "https://api.cogniswitch.com/v1/answer"
+
+# Logging – feel free to replace with your favourite logger
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def ask_cogniswitch(question: str,
+                    language: Optional[str] = None,
+                    context: Optional[str] = None,
+                    timeout: int = 30) -> str:
+    """
+    Send a question to CogniSwitch and return the answer.
+
+    Args:
+        question (str): The natural‑language question to answer.
+        language (str, optional): Desired answer language (e.g. "en", "zh").
+                                  The service may respect it if supported.
+        context (str, optional): Any extra context you want to include.
+        timeout (int): Seconds to wait for the HTTP request.
+
+    Returns:
+        str: The answer returned by CogniSwitch.
+        If an error occurs, a string starting with "Error:" is returned.
+    """
+    if not COGNISWITCH_API_KEY:
+        logger.error("COGNISWITCH_API_KEY is not set.")
+        return "Error: CogniSwitch API key is not configured."
+
+    headers = {
+        "Authorization": f"Bearer {COGNISWITCH_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    payload = {
+        "question": question
+    }
+    if language:
+        payload["language"] = language
+    if context:
+        payload["context"] = context
+
+    try:
+        logger.info("Calling CogniSwitch with question: %s", question)
+        response = requests.post(
+            COGNISWITCH_ENDPOINT,
+            json=payload,
+            headers=headers,
+            timeout=timeout
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        # The exact shape of `data` depends on CogniSwitch's contract.
+        # Adapt the following line to the actual field name(s) they return.
+        answer = data.get("answer") or data.get("result") or data.get("text")
+        if not answer:
+            logger.warning("CogniSwitch response missing answer field: %s", data)
+            return "Error: Unexpected response shape."
+
+        logger.info("Received answer (first 200 chars): %s", answer[:200])
+        return answer
+
+    except requests.exceptions.Timeout:
+        logger.exception("CogniSwitch request timed out.")
+        return "Error: Request timed out."
+    except requests.exceptions.HTTPError as exc:
+        logger.exception("CogniSwitch HTTP error: %s", exc)
+        return f"Error: HTTP {exc.response.status_code}"
+    except requests.exceptions.RequestException as exc:
+        logger.exception("Request to CogniSwitch failed: %s", exc)
+        return f"Error: {exc}"
+    except json.JSONDecodeError:
+        logger.exception("CogniSwitch returned non‑JSON.")
+        return "Error: Invalid JSON from CogniSwitch."
+```
+
+### How to use it
+
+```python
+from answer_question import ask_cogniswitch
+
+answer = ask_cogniswitch("What is the capital of France?")
+print(answer)
+```
+
+---
+
+## 4️⃣ CLI wrapper (just run it interactively)
+
+If you want a **command‑line interface** that reads a question from `stdin` or as a positional argument:
+
+```python
+# cli.py
+import sys
+from answer_question import ask_cogniswitch
+
+def main():
+    if len(sys.argv) < 2:
+        question = sys.stdin.read().strip()
+        if not question:
+            print("Usage: python cli.py \"Your question here\"  (or pipe question in)", file=sys.stderr)
+            sys.exit(1)
+    else:
+        question = " ".join(sys.argv[1:])
+
+    answer = ask_cogniswitch(question)
+    print(answer)
+
+if __name__ == "__main__":
+    main()
+```
+
+Run it:
+
+```bash
+# interactive
+python cli.py "Who wrote 'The Iliad'?"
+
+# piped
+echo "What is the speed of light in vacuum?" | python cli.py
+```
+
+---
+
+## 5️⃣ Flask REST API (optional)
+
+If you need a tiny **web service** you can host anywhere:
+
+```bash
+pip install flask   # if you haven't already
+```
+
+```python
+# app.py
+from flask import Flask, request, jsonify
+from answer_question import ask_cogniswitch
+
+app = Flask(__name__)
+
+@app.route("/answer", methods=["POST"])
+def answer():
+    payload = request.get_json(force=True) or {}
+    question = payload.get("question")
+    if not question:
+        return jsonify({"error": "Missing 'question' field"}), 400
+
+    language = payload.get("language")
+    context = payload.get("context")
+
+    answer = ask_cogniswitch(question, language=language, context=context)
+    # If the answer starts with "Error:" we treat it as a client‑side problem
+    if answer.startswith("Error:"):
+        return jsonify({"error": answer}), 500
+    return jsonify({"answer": answer})
+
+if __name__ == "__main__":
+    # For production use a proper WSGI server (gunicorn, uwsgi, etc.)
+    app.run(host="0.0.0.0", port=5000)
+```
+
+**Example call**
+
+```bash
+curl -X POST http://localhost:5000/answer \
+     -H "Content-Type: application/json" \
+     -d '{"question":"What is the boiling point of water?","language":"en"}'
+```
+
+---
+
+## 6️⃣ LangChain integration (optional)
+
+If you’re using **LangChain** and want CogniSwitch to be a “LLM” component:
+
+```python
+# langchain_cogniswitch.py
+from langchain_core.language_models.chat_models import ChatGen
+from langchain_core.messages import HumanMessage
+from answer_question import ask_cogniswitch
+
+class CogniSwitchChatModel:
+    """Thin wrapper that satisfies the LangChain LLM interface."""
+    def __init__(self):
+        # No extra initialization needed – token handling is inside ask_cogniswitch()
+        pass
+
+    def _call(self, messages, **kwargs):
+        # LangChain sends a list of messages; we just need the last user turn.
+        # The exact format depends on how you formatted your prompts.
+        prompt = messages[-1].content if messages else ""
+        answer = ask_cogniswitch(prompt)
+        # LangChain expects a string (or Message) return
+        return answer
+
+    @property
+    def _llm_type(self) -> str:
+        return "cogniswitch"
+
+# Use it like any other LangChain LLM
+llm = CogniSwitchChatModel()
+response = llm([HumanMessage(content="Explain quantum entanglement in simple terms.")])
+print(response)
+```
+
+> **Note:** If CogniSwitch provides an official Python SDK, you could replace the raw `ask_cogniswitch` call with that SDK. The wrapper above stays the same.
+
+---
+
+## 7️⃣ Production‑grade enhancements (optional)
+
+| Concern | How to address it |
+|--------|-------------------|
+| **Rate‑limit handling** | Catch 429 responses and back‑off (exponential, jitter). |
+| **Caching** | Store (question‑hash → answer) in Redis/Memcached for repeated queries. |
+| **Fallback** | If CogniSwitch returns an error, query a secondary LLM (e.g., OpenAI) and merge. |
+| **Observability** | Emit metrics (request latency, success/failure) to Prometheus or DataDog. |
+| **Security** | Keep the API key in a secret manager (AWS Secrets Manager, HashiCorp Vault) and inject at runtime. |
+| **Timeouts** | Already built‑in (`timeout=30` seconds). Increase if your use‑case needs longer. |
+| **Multi‑turn** | Keep a rolling history of Q&A and prepend as `context` when calling `ask_cogniswitch`. |
+| **Scalability** | Deploy the Flask/FASTAPI app behind a proper WSGI container (Gunicorn) and scale horizontally. |
+
+---
+
+## 8️⃣ Quick FAQ
+
+| Q | A |
+|---|---|
+| **Where do I get an API key?** | Sign up at `https://cogniswitch.com` (or the service you’re integrating) and create a key in the developer console. |
+| **What if the service changes its response schema?** | Adjust the line that extracts `answer` in `ask_cogniswitch` (e.g., change `data.get("answer")`). Keep an eye on
+
+```python
+from langchain_community.tools.cogniswitch.tool import CogniswitchKnowledgeRequest
+```
+
+### CogniswitchKnowledgeSourceFile
+
+```python
+"""
+CogniSwitch Data Storage Tool
+
+This tool uses CogniSwitch services to store data from various file formats.
+CogniSwitch provides knowledge management and LLM integration services.
+"""
+
+import json
+import os
+from typing import Any, Dict, List, Optional
+from pathlib import Path
+from dataclasses import dataclass
+
+# Note: Install required dependencies: pip install requests python-dotenv
+
+try:
+    import requests
+except ImportError:
+    raise ImportError("Please install requests: pip install requests")
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    raise ImportError("Please install python-dotenv: pip install python-dotenv")
+
+
+@dataclass
+class CogniSwitchConfig:
+    """Configuration for CogniSwitch service connection."""
+    api_key: str
+    base_url: str = "https://api.cogniswitch.com/v1"
+    org_id: Optional[str] = None
+
+
+class CogniSwitchFileStorage:
+    """
+    Tool for storing data from files using CogniSwitch services.
+    
+    CogniSwitch provides knowledge management capabilities including:
+    - Document processing and indexing
+    - Knowledge base management
+    - Semantic search capabilities
+    - LLM integration
+    
+    Attributes:
+        config: CogniSwitch connection configuration
+    """
+    
+    def __init__(self, config: Optional[CogniSwitchConfig] = None):
+        """Initialize CogniSwitch storage tool."""
+        load_dotenv()
+        
+        if config is None:
+            self.config = CogniSwitchConfig(
+                api_key=os.getenv("COGNISWITCH_API_KEY", ""),
+                base_url=os.getenv("COGNISWITCH_BASE_URL", "https://api.cogniswitch.com/v1"),
+                org_id=os.getenv("COGNISWITCH_ORG_ID")
+            )
+        else:
+            self.config = config
+    
+    def _get_headers(self) -> Dict[str, str]:
+        """Get request headers for CogniSwitch API."""
+        headers = {
+            "Authorization": f"Bearer {self.config.api_key}",
+            "Content-Type": "application/json"
+        }
+        if self.config.org_id:
+            headers["X-Organization-ID"] = self.config.org_id
+        return headers
+    
+    def read_file_content(self, file_path: str) -> Dict[str, Any]:
+        """
+        Read content from various file formats.
+        
+        Args:
+            file_path: Path to the file to read
+            
+        Returns:
+            Dictionary containing file content and metadata
+        """
+        path = Path(file_path)
+        
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        content_type = path.suffix.lower()
+        result = {
+            "filename": path.name,
+            "file_type": content_type,
+            "content": None,
+            "metadata": {}
+        }
+        
+        # Read based on file type
+        if content_type in ['.txt', '.md', '.csv', '.json']:
+            result["content"] = path.read_text(encoding='utf-8')
+        elif content_type in ['.pdf', '.doc', '.docx']:
+            # For binary formats, you would typically use specialized libraries
+            # This is a simplified version - production code would use pdfplumber, python-docx, etc.
+            result["content"] = f"[Binary file: {path.name}]"
+            result["metadata"]["requires_processing"] = True
+        else:
+            raise ValueError(f"Unsupported file type: {content_type}")
+        
+        # Add file metadata
+        stat = path.stat()
+        result["metadata"].update({
+            "size_bytes": stat.st_size,
+            "modified": stat.st_mtime,
+            "path": str(path.absolute())
+        })
+        
+        return result
+    
+    def store_document(self, file_path: str, knowledge_base: str = "default") -> Dict[str, Any]:
+        """
+        Store document content in CogniSwitch knowledge base.
+        
+        Args:
+            file_path: Path to the file to store
+            knowledge_base: Name of the knowledge base to use
+            
+        Returns:
+            Response containing document ID and storage status
+        """
+        # Read file content
+        file_data = self.read_file_content(file_path)
+        
+        # Prepare document for CogniSwitch API
+        document_payload = {
+            "knowledge_base": knowledge_base,
+            "document": {
+                "content": file_data["content"],
+                "filename": file_data["filename"],
+                "file_type": file_data["file_type"],
+                "metadata": file_data["metadata"]
+            },
+            "options": {
+                "index_content": True,
+                "extract_entities": True,
+                "generate_summary": True
+            }
+        }
+        
+        # Call CogniSwitch API to store document
+        endpoint = f"{self.config.base_url}/documents"
+        
+        try:
+            response = requests.post(
+                endpoint,
+                headers=self._get_headers(),
+                json=document_payload,
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return {
+                "status": "error",
+                "message": str(e),
+                "document": file_data["filename"]
+            }
+    
+    def store_text_data(self, text: str, metadata: Dict[str, Any] = None, 
+                        knowledge_base: str = "default") -> Dict[str, Any]:
+        """
+        Store raw text data in CogniSwitch.
+        
+        Args:
+            text: Text content to store
+            metadata: Optional metadata for the document
+            knowledge_base: Name of the knowledge base
+            
+        Returns:
+            Response containing document ID and storage status
+        """
+        payload = {
+            "knowledge_base": knowledge_base,
+            "document": {
+                "content": text,
+                "metadata": metadata or {}
+            },
+            "options": {
+                "index_content": True
+            }
+        }
+        
+        endpoint = f"{self.config.base_url}/documents"
+        
+        try:
+            response = requests.post(
+                endpoint,
+                headers=self._get_headers(),
+                json=payload,
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+    
+    def batch_store_documents(self, file_paths: List[str], 
+                              knowledge_base: str = "default") -> Dict[str, Any]:
+        """
+        Store multiple documents from file paths.
+        
+        Args:
+            file_paths: List of file paths to store
+            knowledge_base: Name of the knowledge base
+            
+        Returns:
+            Summary of batch storage operation
+        """
+        results = {
+            "total": len(file_paths),
+            "successful": 0,
+            "failed": 0,
+            "documents": []
+        }
+        
+        for file_path in file_paths:
+            try:
+                result = self.store_document(file_path, knowledge_base)
+                if result.get("status") != "error":
+                    results["successful"] += 1
+                else:
+                    results["failed"] += 1
+                results["documents"].append(result)
+            except Exception as e:
+                results["failed"] += 1
+                results["documents"].append({
+                    "file": file_path,
+                    "status": "error",
+                    "message": str(e)
+                })
+        
+        return results
+
+
+# Tool definition for LangChain integration
+def create_cogniswitch_store_tool() -> Dict[str, Any]:
+    """
+    Create a LangChain-compatible tool for CogniSwitch data storage.
+    
+    Returns:
+        Tool definition compatible with LangChain's tool interface
+    """
+    
+    def store_file_data(file_path: str, knowledge_base: str = "default") -> str:
+        """
+        Store data from a file into CogniSwitch knowledge base.
+        
+        Args:
+            file_path: Full path to the file to store (e.g., '/path/to/document.txt')
+            knowledge_base: Name of the knowledge base to store in (default: 'default')
+            
+        Returns:
+            JSON string containing the storage result
+        """
+        storage = CogniSwitchFileStorage()
+        result = storage.store_document(file_path, knowledge_base)
+        return json.dumps(result, indent=2)
+    
+    def store_text_data(text: str, metadata: str = "{}") -> str:
+        """
+        Store raw text data into CogniSwitch knowledge base.
+        
+        Args:
+            text: Text content to store
+            metadata: JSON string of metadata for the document
+            
+        Returns:
+            JSON string containing the storage result
+        """
+        storage = CogniSwitchFileStorage()
+        meta_dict = json.loads(metadata) if metadata != "{}" else {}
+        result = storage.store_text_data(text, meta_dict)
+        return json.dumps(result, indent=2)
+    
+    return {
+        "name": "cogniswitch_store_file",
+        "description": """Use this tool to store data from files into CogniSwitch knowledge base.
+        Supports text files (.txt, .md, .csv, .json) and binary files (.pdf, .doc).
+        The tool reads file content and stores it in a specified knowledge base for later retrieval and processing.
+        Returns a JSON response with the document ID and processing status.""",
+        "func": store_file_data
+    }
+
+
+# Example usage
+if __name__ == "__main__":
+    # Initialize the storage tool
+    storage = CogniSwitchFileStorage()
+    
+    # Example 1: Store a single file
+    print("=== CogniSwitch File Storage Tool ===\n")
+    
+    # Example: reading file content (actual API call would require valid credentials)
+    try:
+        test_file = "example.txt"
+        if os.path.exists(test_file):
+            result = storage.store_document(test_file)
+            print(f"Storage Result: {json.dumps(result, indent=2)}")
+        else:
+            print(f"Note: example.txt not found. Create a test file to demonstrate.")
+            
+        # Demonstrate batch storage
+        print("\n--- Batch Storage Example ---")
+        batch_result = storage.batch_store_documents(["file1.txt", "file2.txt"])
+        print(f"Batch Result: {json.dumps(batch_result, indent=2)}")
+        
+    except Exception as e:
+        print(f"Error: {e}")
+```
+
+## Usage Instructions
+
+### 1. Environment Setup
+
+Create a `.env` file with your CogniSwitch credentials:
+
+```env
+COGNISWITCH_API_KEY=your_api_key_here
+COGNISWITCH_BASE_URL=https://api.cogniswitch.com/v1
+COGNISWITCH_ORG_ID=your_org_id  # Optional
+```
+
+### 2. Install Dependencies
+
+```bash
+pip install requests python-dotenv
+```
+
+### 3. Basic Usage
+
+```python
+from cogniswitch_storage import CogniSwitchFileStorage
+
+# Initialize storage tool
+storage = CogniSwitchFileStorage()
+
+# Store a single file
+result = storage.store_document("/path/to/document.txt", "my_knowledge_base")
+
+# Store text directly
+result = storage.store_text_data(
+    "This is the content to store",
+    metadata={"source": "user_input", "category": "notes"}
+)
+
+# Batch store multiple files
+results = storage.batch_store_documents(["file1.txt", "file2.txt", "file3.md"])
+```
+
+### 4. LangChain Integration
+
+```python
+from langchain.agents import initialize_agent
+from cogniswitch_storage import create_cogniswitch_store_tool
+
+# Get the tool definition
+store_tool = create_cogniswitch_store_tool()
+
+# Use with LangChain agent
+# agent = initialize_agent([store_tool], llm, agent="zero-shot-react-description")
+```
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **File Support** | .txt, .md, .csv, .json, .pdf, .doc |
+| **Metadata** | Automatic file metadata extraction |
+| **Batch Processing** | Store multiple files at once |
+| **Knowledge Bases** | Organize documents by knowledge base |
+| **LangChain Ready** | Compatible with LangChain tool interface |
+
+## Notes
+
+- Replace the CogniSwitch API endpoints with your actual service endpoints
+- Add proper error handling for production use
+- Consider rate limiting for large batch operations
+- For PDF/DOC files, integrate libraries like `pdfplumber` or `python-docx` for full text extraction
+
+```python
+from langchain_community.tools.cogniswitch.tool import CogniswitchKnowledgeSourceFile
+```
+
+### CogniswitchKnowledgeSourceURL
+
+使用 CogniSwitch 服务从 URL 存储数据的工具
+
+```python
+from langchain_community.tools.cogniswitch.tool import CogniswitchKnowledgeSourceURL
+```
+
+### CogniswitchKnowledgeStatus
+
+
+使用 CogniSwitch 服务获取上传的文档或 URL 状态的工具。
+
+```python
+from langchain_community.tools.cogniswitch.tool import CogniswitchKnowledgeStatus
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\cogniswitch.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,230 @@
+---
+title: Profiles
+description: 打包 Deep Agents 在为给定提供商或模型选择时应用的每提供商和每模型默认值
+---
+
+<Note>
+    Harness 和 provider profiles 仅适用于 Python，需要 `deepagents>=0.5.4`。它们是公开 beta API，未来版本中可能会更新。
+</Note>
+
+**Harness profiles** 让你打包配置，Deep Agents 在选择给定提供商或特定模型时应用：系统提示词调整、工具描述覆盖、排除的工具或中间件、额外中间件，以及通用子代理编辑。它们是调优 harness 对特定模型行为的主要方式，而无需更改你的 `create_deep_agent` 调用点。使用 `HarnessProfile` 在 Python 中构建 profiles；当[从 YAML/JSON 文件加载或保存](#load-profiles-from-config-files)时使用 `HarnessProfileConfig`。Deep Agents 为 OpenAI 和 Anthropic (Claude) 模型内置了 harness profiles。
+
+**Provider profiles** 是一个更窄的配套 API，用于*模型构建* kwargs，不影响 harness。大多数调用者不需要它们；当你想要 `init_chat_model` 默认值、凭证检查或运行时派生的 kwargs 作为提供商选择时的默认值时使用（例如，当你打包一个提供商集成时）。
+
+## Harness profiles
+
+`HarnessProfile` 描述提示词组装、工具可见性、中间件和默认子代理调整，`create_deep_agent` 在聊天模型构建后应用：
+
+```python
+from deepagents import (
+    GeneralPurposeSubagentProfile,
+    HarnessProfile,
+    register_harness_profile,
+)
+
+register_harness_profile(
+    "openai:gpt-5.4",
+    HarnessProfile(
+        system_prompt_suffix="Respond in under 100 words.",
+        excluded_tools={"execute"},
+        excluded_middleware={"SummarizationMiddleware"},
+        general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False),
+    ),
+)
+```
+
+<ResponseField name="base_system_prompt" type="string">
+    替换基础 Deep Agents 系统提示词（[Prompt assembly](/oss/python/deepagents/customization#prompt-assembly) 中的 `CUSTOM`）。
+</ResponseField>
+
+<ResponseField name="system_prompt_suffix" type="string">
+    追加到组装的基础提示词的文本（[Prompt assembly](/oss/python/deepagents/customization#prompt-assembly) 中的 `SUFFIX`）；应用于主代理、声明式子代理和自动添加的通用目的子代理。
+</ResponseField>
+
+<ResponseField name="tool_description_overrides" type="Mapping[str, str]">
+    按工具名称覆盖单个工具描述。
+</ResponseField>
+
+<ResponseField name="excluded_tools" type="frozenset[str]">
+    从工具集中移除特定的 harness 级别工具。
+</ResponseField>
+
+<ResponseField name="excluded_middleware" type="frozenset[type[AgentMiddleware] | str]">
+    从堆栈中剥离特定中间件类。接受中间件类或字符串名称。
+</ResponseField>
+
+<ResponseField name="extra_middleware" type="Sequence[AgentMiddleware] | Callable[[], Sequence[AgentMiddleware]]">
+    追加中间件到每个应用此 profile 的堆栈。
+</ResponseField>
+
+<ResponseField name="general_purpose_subagent" type="GeneralPurposeSubagentProfile">
+    禁用、重命名或重新提示通用目的子代理。当此字段的 `system_prompt` 与 `base_system_prompt` 一起设置时，通用目的专用子代理提示词优先 — 参见[通用目的子代理提示词](/oss/python/deepagents/customization#general-purpose-subagent-prompt)。
+</ResponseField>
+
+<Note>
+    调用者提供的 `system_prompt=` 始终位于组装提示词的前面，`system_prompt_suffix` 始终位于末尾 — 无论选择哪个模型。相同的覆盖规则适用于子代理：每个子代理针对其自己的模型重新运行 profile 解析。参见[提示词组装](/oss/python/deepagents/customization#prompt-assembly)获取每种情况的完整细分（主代理、子代理和通用目的子代理）。
+</Note>
+
+<Warning>
+    `excluded_middleware` 无法移除 Deep Agents 依赖的脚手架。列出 `FilesystemMiddleware`、`SubAgentMiddleware` 或内部权限中间件会引发 `ValueError`。
+</Warning>
+
+`excluded_middleware` 中的条目接受两种形式：
+
+- 中间件*类*（按精确类型匹配），或匹配 `AgentMiddleware.name` 的纯字符串。对内置和公共别名使用纯字符串，例如 `"SummarizationMiddleware"`。
+- `module:Class` 导入引用（例如 `"my_pkg.middleware:TelemetryMiddleware"`）以从配置文件定位精确的中间件类。导入引用延迟解析，因此仅对受信任的本地配置使用它们 — 加载一个会导入 Python 代码。
+
+<Accordion
+    title="Lookup order for preconfigured model instances"
+>
+    When you pass a preconfigured chat model instance instead of a `provider:model` string, the harness synthesizes the canonical `provider:identifier` key from the instance and looks it up in this order:
+
+    1. Exact `provider:identifier` match
+    2. Identifier-only (only when the identifier already contains `:`)
+    3. Provider-only fallback
+</Accordion>
+
+## Registration keys
+
+Both profile types use the same key format:
+
+- **Provider-level** — a bare provider name like `"openai"` applies to every model from that provider.
+- **Model-level** — a fully qualified `provider:model` key like `"openai:gpt-5.4"` applies only to that specific model.
+
+When both a provider-level and a model-level profile exist, they are merged at resolution time. Unset model-level fields inherit from the provider-level profile; explicit model-level values override them.
+
+Re-registering under an existing key merges the new profile on top of the prior one—it does not replace it. See [Merge semantics](#merge-semantics) for the per-field rules.
+
+<Note>
+    There is no wildcard key that matches every provider. To apply the same overrides everywhere—say, dropping `TodoListMiddleware` regardless of which model is selected—register the profile under each provider key you use. Profiles are intended for adjustments that depend on the model being selected. Global adjustments that should apply regardless of model should be made on the `create_deep_agent` call site.
+</Note>
+
+## Merge semantics
+
+| Field | Merge behavior |
+| --- | --- |
+| `base_system_prompt`, `system_prompt_suffix` | New value wins when set; otherwise inherits |
+| `tool_description_overrides` | Mappings merge per key; new value wins on a shared key |
+| `excluded_tools`, `excluded_middleware` | Set union |
+| `extra_middleware` | Merged by concrete class: new instance replaces existing at its position, novel classes append |
+| `general_purpose_subagent` | Merged field-wise (unset fields inherit) |
+| `init_kwargs` (provider) | Dicts merge key-wise; new value wins on a shared key |
+| `pre_init` (provider) | Callables chain: existing runs first, then the new one |
+| `init_kwargs_factory` (provider) | Factories chain with their outputs merged every `resolve_model` call |
+
+## Provider profiles
+
+A `ProviderProfile` declares how Deep Agents should construct a chat model for a given provider or specific model spec. It applies only when you provide a `provider:model` string when creating the deep agent, not when you pass a preconfigured model with [`init_chat_model`](https://reference.langchain.com/python/langchain/chat_models/base/init_chat_model):
+
+```python
+from deepagents import ProviderProfile, register_provider_profile
+
+register_provider_profile(
+    "openai",
+    ProviderProfile(init_kwargs={"temperature": 0}),
+)
+```
+
+<ResponseField name="init_kwargs" type="Mapping[str, Any]">
+    Static initialization arguments forwarded to `init_chat_model`.
+</ResponseField>
+
+<ResponseField name="pre_init" type="Callable[[str], None]">
+    Side effects to run before construction (for example, credential validation).
+</ResponseField>
+
+<ResponseField name="init_kwargs_factory" type="Callable[[], dict[str, Any]]">
+    Kwargs derived from runtime state (for example, headers pulled from environment variables).
+</ResponseField>
+
+## Load profiles from config files
+
+For YAML/JSON-backed workflows, use `HarnessProfileConfig`. It mirrors the declarative subset of `HarnessProfile` (prompt text, tool-description overrides, excluded tools and middleware, general-purpose subagent edits) and owns `to_dict` / `from_dict`. Runtime-only state — middleware instances, factories, and class-form `excluded_middleware` entries — stays on `HarnessProfile`.
+
+`register_harness_profile` accepts either type, so config-backed callers don't need a manual conversion step:
+
+```yaml
+# openai.yaml
+base_system_prompt: You are helpful.
+system_prompt_suffix: Respond briefly.
+excluded_tools:
+  - execute
+  - grep
+excluded_middleware:
+  - SummarizationMiddleware
+  - my_pkg.middleware:TelemetryMiddleware
+general_purpose_subagent:
+  enabled: false
+```
+
+```python
+import yaml
+from deepagents import HarnessProfileConfig, register_harness_profile
+
+with open("openai.yaml") as f:
+    register_harness_profile(
+        "openai",
+        HarnessProfileConfig.from_dict(yaml.safe_load(f)),
+    )
+```
+
+To go the other direction, `HarnessProfileConfig.from_harness_profile(...)` exports a runtime profile back to the declarative shape when it only uses serializable features:
+
+- Class-form `excluded_middleware` entries serialize as a public alias (when the class exposes one via `serialized_name: ClassVar[str]`) or as a `module:Class` import ref.
+- Non-empty `extra_middleware` and middleware classes declared in `__main__` or inside a function scope cannot be serialized — export raises `ValueError`.
+
+## Ship a profile as a plugin
+
+Distributable profiles can register themselves via `importlib.metadata` entry points instead of requiring callers to run `register_*_profile` by hand. Load order is **built-ins first, then entry-point plugins, then any direct `register_*_profile` calls in user code**; all three paths funnel through the same additive registration, so later registrations layer on top of earlier ones under the same key.
+
+Declare an entry point in the distribution's own `pyproject.toml` under the appropriate group:
+
+```toml
+[project.entry-points."deepagents.harness_profiles"]
+my_provider = "my_pkg.profiles:register_harness"
+
+[project.entry-points."deepagents.provider_profiles"]
+my_provider = "my_pkg.profiles:register_provider"
+```
+
+Each target resolves to a zero-arg callable that performs the registrations when `deepagents.profiles` is imported:
+
+```python
+from deepagents import (
+    HarnessProfile,
+    ProviderProfile,
+    register_harness_profile,
+    register_provider_profile,
+)
+
+
+def register_harness() -> None:
+    register_harness_profile(
+        "my_provider",
+        HarnessProfile(system_prompt_suffix="Batch independent tool calls in parallel."),
+    )
+
+
+def register_provider() -> None:
+    register_provider_profile(
+        "my_provider",
+        ProviderProfile(init_kwargs={"temperature": 0}),
+    )
+```
+
+## Related
+
+- [Harness](/oss/python/deepagents/harness) — overview of harness capabilities
+- [Models](/oss/python/deepagents/models) — configure model providers and parameters
+- [Customization](/oss/python/deepagents/customization) — full `create_deep_agent` configuration surface
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\profiles.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

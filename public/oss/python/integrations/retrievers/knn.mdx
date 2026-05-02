@@ -1,0 +1,53 @@
+---
+title: "Knn integration"
+description: "Integrate with the Knn retriever using LangChain Python."
+---
+
+在统计学中，k-近邻算法（k-NN）是一种非参数监督学习方法，最早由 Evelyn Fix 和 Joseph Hodges 于 1951 年提出，后来由 Thomas Cover 进一步发展。它主要用于分类和回归任务。
+
+This notebook goes over how to use a retriever that under the hood uses a kNN.
+
+Largely based on the code of [Andrej Karpathy](https://github.com/karpathy/randomfun/blob/master/knn_vs_svm.html).
+
+```python
+from langchain_community.retrievers import KNNRetriever
+from langchain_openai import OpenAIEmbeddings
+```
+
+## Create new retriever with texts
+
+```python
+retriever = KNNRetriever.from_texts(
+    ["foo", "bar", "world", "hello", "foo bar"], OpenAIEmbeddings()
+)
+```
+
+## Use retriever
+
+We can now use the retriever!
+
+```python
+result = retriever.invoke("foo")
+```
+
+```python
+result
+```
+
+```python
+[Document(page_content='foo', metadata={}),
+ Document(page_content='foo bar', metadata={}),
+ Document(page_content='hello', metadata={}),
+ Document(page_content='bar', metadata={})]
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\retrievers\knn.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

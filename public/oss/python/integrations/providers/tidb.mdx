@@ -1,0 +1,42 @@
+---
+title: "TiDB integrations"
+description: "Integrate with TiDB using LangChain Python."
+---
+
+
+> [TiDB Cloud](https://www.pingcap.com/tidb-serverless) 是一个全面的 Database-as-a-Service (DBaaS) 解决方案，
+> 提供专有部署和 serverless 两种选项。`TiDB Serverless` 目前正在将内置的向量搜索功能集成到 MySQL 生态中。
+> 通过这一增强功能，您可以无缝使用 `TiDB Serverless` 开发 AI 应用，无需使用新的数据库或额外的技术栈。
+> 创建免费的 TiDB Serverless 集群，开始使用向量搜索功能，请访问 https://pingcap.com/ai。
+
+
+## Installation and setup
+
+You have to get the connection details for the TiDB database.
+Visit the [TiDB Cloud](https://tidbcloud.com/) to get the connection details.
+
+```bash
+## Document loader
+
+```python
+from langchain_community.document_loaders import TiDBLoader
+```
+See the [TiDB document loader documentation](/oss/python/integrations/document_loaders/tidb) for details.
+
+## Vector store
+
+```python
+from langchain_community.vectorstores import TiDBVectorStore
+```
+See the [TiDB vector store documentation](/oss/python/integrations/vectorstores/tidb_vector) for details.
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\tidb.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

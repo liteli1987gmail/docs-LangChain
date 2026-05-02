@@ -1,0 +1,38 @@
+---
+title: "Uptrain integrations"
+description: "Integrate with Uptrain using LangChain Python."
+---
+
+
+>[UpTrain](https://uptrain.ai/) 是一个开源的统一平台，用于评估和改进 Generative AI 应用。它提供 20+ 预配置评估的评级（涵盖语言、代码、embedding 用例），对失败案例进行根本原因分析，并提供如何解决这些问题的见解。
+
+## Installation and setup
+
+<CodeGroup>
+```bash pip
+pip install uptrain
+```
+
+```bash uv
+uv add uptrain
+```
+</CodeGroup>
+
+## Callbacks
+
+```python
+from langchain_community.callbacks.uptrain_callback import UpTrainCallbackHandler
+```
+
+See an [example](/oss/python/integrations/callbacks/uptrain).
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\uptrain.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

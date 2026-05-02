@@ -1,0 +1,59 @@
+---
+title: "Jira 集成"
+description: "使用 LangChain JavaScript 与 Jira 文档加载器集成。"
+---
+
+<Tip>
+**兼容性**
+
+仅适用于 Node.js。
+</Tip>
+
+本文介绍如何从 Jira 项目中的问题加载文档对象。
+
+## 凭据
+
+- 您需要设置一个访问令牌，并提供您的 Jira 用户名，以便对请求进行身份验证
+- 您还需要包含要加载为文档的问题的项目密钥和主机 URL。
+
+## 使用方法
+
+```typescript
+import { JiraProjectLoader } from "@langchain/community/document_loaders/web/jira";
+
+const host = process.env.JIRA_HOST || "https://jira.example.com";
+const username = process.env.JIRA_USERNAME;
+const accessToken = process.env.JIRA_ACCESS_TOKEN;
+const projectKey = process.env.JIRA_PROJECT_KEY || "PROJ";
+
+if (username && accessToken) {
+  // 创建于最近 30 天内
+  const createdAfter = new Date();
+  createdAfter.setDate(createdAfter.getDate() - 30);
+  const loader = new JiraProjectLoader({
+    host,
+    projectKey,
+    username,
+    accessToken,
+    createdAfter,
+  });
+
+  const documents = await loader.load();
+  console.log(`Loaded ${documents.length} Jira document(s)`);
+} else {
+  console.log(
+    "You must provide a username and access token to run this example."
+  );
+}
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\document_loaders\web_loaders\jira.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

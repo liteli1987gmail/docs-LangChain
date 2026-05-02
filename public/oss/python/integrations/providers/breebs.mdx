@@ -1,0 +1,32 @@
+---
+title: "Breebs (open knowledge) integrations"
+description: "Integrate with Breebs (open knowledge) using LangChain Python."
+---
+
+
+[Breebs](https://www.breebs.com/) 是一个开放的协作知识平台。
+
+任何人都可以创建一个 `Breeb`，即基于存储在 Google Drive 文件夹中的 PDF 文件的知识胶囊。
+
+`Breeb` 可以被任何 LLM/chatbot 用来提升其专业能力、减少幻觉并提供信息来源。
+
+在幕后，`Breebs` 实现了多个 `Retrieval Augmented Generation (RAG)` 模型，以在每次迭代中无缝提供有用的上下文。
+
+## Retriever
+
+```python
+from langchain_classic.retrievers import BreebsRetriever
+```
+
+[See a usage example (Retrieval & ConversationalRetrievalChain)](/oss/python/integrations/retrievers/breebs)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\breebs.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,138 @@
+---
+title: "Google 集成s"
+description: "Integrate with Google using LangChain JavaScript."
+sidebarTitle: "概述"
+---
+
+LangChain provides integrations with [Google AI Studio](https://aistudio.google.com/) and [Google Cloud Vertex AI](https://cloud.google.com/vertex-ai) through the `@langchain/google` package.
+
+<信息>
+  Looking for the older `@langchain/google-genai` or `@langchain/google-vertexai` 包s? 该y are maintained under [long-term support](#旧版-包s) but are no longer recommended for new projects.
+</信息>
+
+## Chat models
+
+该 [`ChatGoogle`](/oss/javascript/集成s/chat/google) class is the recommended way to access Gemini models (such as `gemini-2.5-pro`, `gemini-2.5-flash`, and `gemini-3.1-pro-preview`) and open models like Gemma. It supports both Google AI Studio and Vertex AI in a single interface
+
+<Tip>
+请参阅 [this section for general instructions on installing LangChain 包s](/oss/javascript/langchain/install).
+</Tip>
+
+<CodeGroup>
+```bash npm
+npm install @langchain/google @langchain/core
+```
+```bash yarn
+yarn add @langchain/google @langchain/core
+```
+```bash pnpm
+pnpm add @langchain/google @langchain/core
+```
+</CodeGroup>
+
+Configure your API key:
+
+```bash
+export GOOGLE_API_KEY=your-api-key
+```
+
+```typescript
+import { ChatGoogle } from "@langchain/google";
+
+const model = new ChatGoogle("gemini-2.5-flash");
+
+const res = await model.invoke([
+  ["human", "What would be a good company name for a company that makes colorful socks?"],
+]);
+```
+
+`ChatGoogle` supports tool calling, structured output, multimodal inputs (images, audio, video), reasoning/thinking, image generation, text-to-speech, and Gemini-specific native tools like Google Search grounding and code execution.
+
+<CardGroup cols={2}>
+  <Card
+    title="ChatGoogle"
+    icon="message-chatbot"
+    href="/oss/javascript/集成s/chat/google"
+  >
+    Full chat model documentation, including setup, invocation, streaming, structured output, and more.
+  </Card>
+  <Card
+    title="Gemini native tools"
+    icon="tool"
+    href="/oss/javascript/集成s/tools/google"
+  >
+    Google Search, Code Execution, URL Context, Google Maps, File Search, Computer 使用, and MCP servers.
+  </Card>
+</CardGroup>
+
+### Third-party models on Vertex AI
+
+[Anthropic](/oss/javascript/集成s/chat/anthropic) Claude models are also available through
+the [Vertex AI](https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude)
+platform. See [using Claude on Vertex AI](https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude)
+for more information about enabling access to the models and the model names to use.
+
+## Vector stores
+
+### Vertex AI vector search
+
+> [Vertex AI Vector Search](https://cloud.google.com/vertex-ai/docs/matching-engine/overview),
+> formerly known as Vertex AI Matching Engine, provides the industry's leading high-scale
+> low latency vector database. 该se vector databases are commonly
+> referred to as vector similarity-matching or an approximate nearest neighbor (ANN) service.
+
+```typescript
+import { MatchingEngine } from "@langchain/community/vectorstores/googlevertexai";
+```
+
+### Postgres vector store
+
+该 [PostgresVectorStore](/oss/javascript/集成s/vectorstores/google_cloudsql_pg) module from the
+[`@langchain/google-cloud-sql-pg`](https://www.npmjs.com/package/@langchain/google-cloud-sql-pg) package provides a way to use CloudSQL for PostgreSQL to store
+vector embeddings.
+
+```bash
+npm install @langchain/google-cloud-sql-pg
+```
+
+## Community tools
+
+Google-related community tools are available in the `@langchain/community` 包:
+
+- [Google Calendar](/oss/javascript/集成s/tools/google_calendar)
+- [Gmail](/oss/javascript/集成s/tools/google_gmail)
+- [Google Places](/oss/javascript/集成s/tools/google_places)
+- [Google Routes](/oss/javascript/集成s/tools/google_routes)
+- [Google Scholar](/oss/javascript/集成s/tools/google_scholar)
+- [Google Trends](/oss/javascript/集成s/tools/google_trends)
+
+## Legacy 包s
+
+该 following 包s are maintained under long-term support for existing users. New projects should use `@langchain/google` instead.
+
+### `@langchain/google-genai`
+
+该 `@langchain/google-genai` 包 provides [`ChatGoogleGenerativeAI`](/oss/javascript/集成s/chat/google_generative_ai) for accessing Gemini models through Google AI Studio. This 包 is built on a deprecated Google SDK and will not receive new features.
+
+### `@langchain/google-vertexai`
+
+该 `@langchain/google-vertexai` 包 provides [`ChatVertexAI`](/oss/javascript/集成s/chat/google_vertex_ai) for accessing Gemini models through Vertex AI. This 包 is superseded by the Vertex AI support built into `@langchain/google`.
+
+### `@langchain/google-common`
+
+该 `@langchain/google-common` 包 contains shared abstractions used internally by the Google 集成 包s. It is not intended to be used directly.
+
+<Tip>
+  To migrate from `@langchain/google-genai` or `@langchain/google-vertexai` to `@langchain/google`, 请参阅 the [ChatGoogle](/oss/javascript/集成s/chat/google) page for setup instructions. 该 `ChatGoogle` class provides equivalent functionality with unified access to both Google AI Studio and Vertex AI.
+</Tip>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\providers\google.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,43 @@
+---
+title: "Amazon kendra integration"
+description: "Integrate with the Amazon kendra retriever using LangChain Python."
+---
+
+
+> [Amazon Kendra](https://docs.aws.amazon.com/kendra/latest/dg/what-is-kendra.html) 是由 `Amazon Web Services`（AWS）提供的智能搜索服务。它利用先进的自然语言处理（NLP）和机器学习算法，能够在组织内的各种数据源中实现强大的搜索功能。`Kendra` 旨在帮助用户快速、准确地找到所需信息，从而提高工作效率和决策能力。
+
+
+使用 Kendra，用户可以搜索各种类型的内容，包括文档、FAQ、知识库、手册和网站。它支持多种语言，能够理解复杂查询、同义词和上下文含义，从而提供高度相关的搜索结果。
+
+## Using the Amazon kendra index retriever
+
+```python
+pip install -qU  boto3
+```
+
+```python
+from langchain_community.retrievers import AmazonKendraRetriever
+```
+
+Create New Retriever
+
+```python
+retriever = AmazonKendraRetriever(index_id="c0806df7-e76b-4bce-9b5c-d5582f6b1a03")
+```
+
+Now you can use retrieved documents from Kendra index
+
+```python
+retriever.invoke("what is langchain")
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\retrievers\amazon_kendra_retriever.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

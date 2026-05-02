@@ -1,0 +1,85 @@
+---
+title: "AssemblyAI 音频转录集成"
+description: "使用 LangChain JavaScript 与 AssemblyAI 音频转录文档加载器集成。"
+---
+
+本文介绍如何使用 [AssemblyAI API](https://www.assemblyai.com/docs/api-reference/transcripts/submit?utm_source=langchainjs) 将音频（和视频）转录本作为文档对象从文件加载。
+
+## 使用方法
+
+首先，您需要安装官方 AssemblyAI 包：
+
+```bash npm
+npm install @langchain/community @langchain/core assemblyai
+```
+
+要使用加载器，您需要一个 [AssemblyAI 账户](https://www.assemblyai.com/dashboard/signup?utm_source=langchainjs) 和
+[从仪表板获取您的 AssemblyAI API 密钥](https://www.assemblyai.com/app/account?utm_source=langchainjs)。
+
+然后，将 API 密钥配置为 `ASSEMBLYAI_API_KEY` 环境变量或 `apiKey` 选项参数。
+
+```typescript
+import {
+  AudioTranscriptLoader,
+  // AudioTranscriptParagraphsLoader,
+  // AudioTranscriptSentencesLoader
+} from "@langchain/community/document_loaders/web/assemblyai";
+
+// 您也可以使用本地文件路径，加载器会将其上传到 AssemblyAI。
+const audioUrl = "https://storage.googleapis.com/aai-docs-samples/espn.m4a";
+
+// 使用 `AudioTranscriptParagraphsLoader` 或 `AudioTranscriptSentencesLoader` 将转录本分割成段落或句子
+const loader = new AudioTranscriptLoader(
+  {
+    audio: audioUrl,
+    // 此处记录的任何其他参数：https://www.assemblyai.com/docs/api-reference/transcripts/submit
+  },
+  {
+    apiKey: "<ASSEMBLYAI_API_KEY>", // 或设置 `ASSEMBLYAI_API_KEY` 环境变量
+  }
+);
+const docs = await loader.load();
+console.dir(docs, { depth: Infinity });
+```
+
+> **信息**
+>
+> - 您可以使用 `AudioTranscriptParagraphsLoader` 或 `AudioTranscriptSentencesLoader` 将转录本分割成段落或句子。
+> - `audio` 参数可以是 URL、本地文件路径、缓冲区或流。
+> - `audio` 也可以是视频文件。请参阅 [FAQ 文档中支持的的文件类型列表](https://www.assemblyai.com/docs/concepts/faq?utm_source=langchainjs#:~:text=file%20types%20are%20supported)。
+> - 如果您不传入 `apiKey` 选项，加载器将使用 `ASSEMBLYAI_API_KEY` 环境变量。
+> - 除了 `audio` 之外，您还可以添加更多属性。在 [AssemblyAI API 文档](https://www.assemblyai.com/docs/api-reference/transcripts/submit?utm_source=langchainjs#create-a-transcript) 中找到完整的请求参数列表。
+
+您还可以使用 `AudioSubtitleLoader` 获取 `srt` 或 `vtt` 字幕作为文档。
+
+```typescript
+import { AudioSubtitleLoader } from "@langchain/community/document_loaders/web/assemblyai";
+
+// 您也可以使用本地文件路径，加载器会将其上传到 AssemblyAI。
+const audioUrl = "https://storage.googleapis.com/aai-docs-samples/espn.m4a";
+
+const loader = new AudioSubtitleLoader(
+  {
+    audio: audioUrl,
+    // 此处记录的任何其他参数：https://www.assemblyai.com/docs/api-reference/transcripts/submit
+  },
+  "srt", // srt 或 vtt
+  {
+    apiKey: "<ASSEMBLYAI_API_KEY>", // 或设置 `ASSEMBLYAI_API_KEY` 环境变量
+  }
+);
+
+const docs = await loader.load();
+console.dir(docs, { depth: Infinity });
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\document_loaders\web_loaders\assemblyai_audio_transcription.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

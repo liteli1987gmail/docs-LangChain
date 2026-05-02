@@ -1,0 +1,43 @@
+---
+title: "KDB.AI integrations"
+description: "Integrate with KDB.AI using LangChain Python."
+---
+
+
+[KDB.AI](https://kdb.ai) 是一个功能强大的基于知识的 vector database 和搜索引擎，它使您能够使用实时数据，通过提供 advanced search、recommendation 和 personalization，构建可扩展、可靠的 AI 应用程序。
+
+
+## Installation and setup
+
+Install the Python SDK:
+
+<CodeGroup>
+```bash pip
+pip install kdbai-client
+```
+
+```bash uv
+uv add kdbai-client
+```
+</CodeGroup>
+
+
+## Vector store
+
+There exists a wrapper around KDB.AI indexes, allowing you to use it as a vectorstore,
+whether for semantic search or example selection.
+
+```python
+from langchain_community.vectorstores import KDBAI
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\kdbai.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

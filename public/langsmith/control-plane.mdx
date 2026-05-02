@@ -1,0 +1,149 @@
+---
+title: LangSmith 控制平面
+sidebarTitle: 控制平面
+---
+
+_控制平面_ 是 LangSmith 中管理部署的部分。它包括控制平面 UI，用户在其中创建和更新 [Agent Servers](/langsmith/agent-server)，以及控制平面 API，支持 UI 并提供程序化访问。
+
+当您通过控制平面进行更新时，更新会存储在控制平面状态中。[数据平面](/langsmith/data-plane)"对等体"通过调用控制平面 API 轮询这些更新。控制平面从不直接连接到数据平面。
+
+## 控制平面 UI
+
+从控制平面 UI，您可以：
+
+* 查看突出部署列表。
+* 查看单个部署的详细信息。
+* 创建新部署。
+* 更新部署。
+* 更新部署的环境变量。
+* 查看部署的构建和服务器日志。
+* 查看部署指标，如 CPU 和内存使用情况。
+* 删除部署。
+
+控制平面 UI 嵌入在 [LangSmith](https://docs.smith.langchain.com) 中。
+
+## 控制平面 API
+
+本节描述控制平面 API 的数据模型。该 API 用于创建、更新和删除部署。请参阅[控制平面 API 参考](/langsmith/api-ref-control-plane)了解更多详情。
+
+### 集成
+
+集成是 `git` 仓库提供商（例如 GitHub）的抽象。它包含连接和部署 `git` 仓库所需的所有元数据。
+
+### 部署
+
+部署是 Agent Server 的一个实例。单个部署可以有多个修订版。
+
+### 修订版
+
+修订版是部署的迭代。创建新部署时，会自动创建初始修订版。要部署代码更改或更新部署的密钥，必须创建新修订版。
+
+### 对等体
+
+对等体是["对等体"应用程序](/langsmith/data-plane#listener-application)的实例。对等体包含有关应用程序的元数据（例如版本）和有关其可以部署到的计算基础设施的元数据（例如 Kubernetes 命名空间）。
+
+对等体数据模型仅适用于[混合](/langsmith/hybrid)和[自托管](/langsmith/self-hosted)部署。
+
+## 控制平面功能
+
+本节描述控制平面的各种功能。
+
+### 部署类型
+
+为简单起见，控制平面提供两种具有不同资源分配的部署类型：`Development` 和 `Production`。
+
+| **部署类型** | **CPU/内存** | **扩展** | **数据库** |
+|---------------------|-----------------|---------------------|----------------------------------------------------------------------------------|
+| Development | 1 CPU，1 GB RAM | 最多 1 个副本 | 10 GB 磁盘，无备份 |
+| Production | 2 CPU，2 GB RAM | 最多 10 个副本 | 自动扩展磁盘、自动备份、高可用性（多区域配置） |
+
+CPU 和内存资源按副本计算。
+
+<Warning>
+**不可变的部署类型**
+一旦创建部署，就无法更改部署类型。
+</Warning>
+
+<Info>
+**自托管部署**
+[混合](/langsmith/hybrid)和[自托管](/langsmith/self-hosted)部署的资源可以完全自定义。部署类型仅适用于[云](/langsmith/cloud)部署。
+</Info>
+
+#### 生产
+
+`Production` 类型部署适用于"生产"工作负载。例如，为关键路径中的客户面向应用程序选择 `Production`。
+
+`Production` 类型部署的资源可以根据用例和容量限制手动增加。请通过 [support.langchain.com](https://support.langchain.com) 联系支持人员以请求增加资源。
+
+#### 开发
+
+`Development` 类型部署适合开发和测试。例如，为内部测试环境选择 `Development`。`Development` 类型部署不适合"生产"工作负载。
+
+<Danger>
+**可抢占的计算基础设施**
+`Development` 类型部署（API 服务器、队列服务器和数据库）在可抢占的计算基础设施上配置。这意味着计算基础设施**可能随时终止，恕不另行通知**。这可能导致间歇性...
+
+* Redis 连接超时/错误
+* Postgres 连接超时/错误
+* 失败或重试后台运行
+
+此行为是预期的。可抢占的计算基础设施**显著降低了配置 `Development` 类型部署的成本**。通过设计，Agent Server 是容错的。实现将自动尝试从 Redis/Postgres 连接错误中恢复并重试失败的后台运行。
+
+`Production` 类型部署在持久计算基础设施上配置，而不是可抢占的计算基础设施。
+</Danger>
+
+`Development` 类型部署的数据库磁盘大小可以根据用例和容量限制手动增加。对于大多数用例，应配置 [TTL](/langsmith/configure-ttl) 来管理磁盘使用。请通过 [support.langchain.com](https://support.langchain.com) 联系支持人员以请求增加资源。
+
+### 数据库配置
+
+控制平面和[数据平面](/langsmith/data-plane)"对等体"应用程序协调为每个部署自动创建 Postgres 数据库。该数据库用作部署的[持久化层](/oss/python/langgraph/persistence#memory-store)。
+
+在实现 LangGraph 应用程序时，不需要开发人员配置[检查点存储](/oss/python/langgraph/persistence#checkpointer-libraries)。相反，检查点存储会自动为图配置。任何为图配置的检查点存储将被自动配置的检查点存储替换。
+
+无法直接访问数据库。所有数据库访问都通过 [Agent Server](/langsmith/agent-server) 进行。
+
+在删除部署之前，数据库永远不会被删除。
+
+<Info>
+可以为[混合](/langsmith/hybrid)和[自托管](/langsmith/self-hosted)部署配置自定义 Postgres 实例。
+</Info>
+
+### 异步部署
+
+部署和修订版的基础设施是异步配置和部署的。它们不是在提交后立即部署的。目前，部署可能需要长达几分钟。
+
+* 创建新部署时，会为部署创建一个新数据库。数据库创建是一次性步骤。这一步骤有助于初始修订版的较长部署时间。
+* 当为部署创建后续修订版时，没有数据库创建步骤。后续修订版的部署时间比初始修订版的部署时间明显更快。
+* 每个修订版的部署过程包含一个构建步骤，可能需要几分钟。
+
+控制平面和[数据平面](/langsmith/data-plane)"对等体"应用程序协调实现异步部署。
+
+### 监控
+
+部署就绪后，控制平面会监控部署并记录各种指标，例如：
+
+* 部署的 CPU 和内存使用情况。
+* 容器重启次数。
+* 副本数量（这将随[自动扩展](/langsmith/data-plane#autoscaling)增加）。
+* [PostgreSQL](/langsmith/data-plane#postgresql) CPU、内存使用情况和磁盘使用情况。
+* [Agent Server 队列](/langsmith/agent-server#task-queue) 待处理/活动运行计数。
+* [Agent Server API](/langsmith/agent-server) 成功响应计数、错误响应计数和延迟。
+
+这些指标在控制平面 UI 中显示为图表。
+
+### LangSmith 集成
+
+每个部署会自动创建一个[LangSmith](/langsmith/home)追踪项目。追踪项目与部署同名。创建部署时，无需指定 `LANGCHAIN_TRACING` 和 `LANGSMITH_API_KEY`/`LANGCHAIN_API_KEY` 环境变量；它们由控制平面自动设置。
+
+删除部署时，追踪和追踪项目不会被删除。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\control-plane.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,79 @@
+---
+title: "Bedrock integration"
+description: "Integrate with the Bedrock LLM using LangChain Python."
+---
+
+<Warning>
+**You are currently on a page documenting the use of Amazon Bedrock models as text completion models. Many popular models available on Bedrock are [chat completion models](/oss/python/langchain/models).**
+
+You may be looking for [this page instead](/oss/python/integrations/chat/bedrock/).
+</Warning>
+
+>[Amazon Bedrock](https://aws.amazon.com/bedrock/) 是一项完全托管服务，提供来自 `AI21 Labs`、`Anthropic`、`Cohere`、`Meta`、`Stability AI` 和 `Amazon` 等领先 AI 公司的高性能基础模型 (Foundation Models)，只需通过一个 API 即可访问，同时提供构建生成式 AI 应用程序所需的各种功能，包括安全性、隐私性和负责任的 AI。使用 `Amazon Bedrock`，您可以轻松试验和评估顶级基础模型以满足您的用例需求，使用微调和检索增强生成 (RAG) 等技术通过您的数据私有化定制模型，并构建可以运用您的企业系统和数据源执行任务的代理。由于 `Amazon Bedrock` 是无服务器的，您无需管理任何基础设施，并且可以使用您已熟悉的 AWS 服务安全地集成和部署生成式 AI 功能到您的应用程序中。
+
+```python
+pip install -qU langchain-aws
+```
+
+```python
+from langchain_aws import BedrockLLM
+
+llm = BedrockLLM(
+    credentials_profile_name="bedrock-admin", model_id="amazon.titan-text-express-v1"
+)
+```
+
+### Custom models
+
+```python
+custom_llm = BedrockLLM(
+    credentials_profile_name="bedrock-admin",
+    provider="cohere",
+    model_id="<Custom model ARN>",  # ARN like 'arn:aws:bedrock:...' obtained via provisioning the custom model
+    model_kwargs={"temperature": 1},
+    streaming=True,
+)
+
+custom_llm.invoke(input="What is the recipe of mayonnaise?")
+```
+
+## Guardrails for Amazon Bedrock
+
+[Guardrails for Amazon Bedrock](https://aws.amazon.com/bedrock/guardrails/) evaluates user inputs and model responses based on use case specific policies, and provides an additional layer of safeguards regardless of the underlying model. Guardrails can be applied across models, including Anthropic Claude, Meta Llama 2, Cohere Command, AI21 Labs Jurassic, and Amazon Titan Text, as well as fine-tuned models.
+In this section, we are going to set up a Bedrock language model with specific guardrails that include tracing capabilities.
+
+```python
+from typing import Any
+
+from langchain_core.callbacks import AsyncCallbackHandler
+
+
+class BedrockAsyncCallbackHandler(AsyncCallbackHandler):
+    # Async callback handler that can be used to handle callbacks from langchain.
+
+    async def on_llm_error(self, error: BaseException, **kwargs: Any) -> Any:
+        reason = kwargs.get("reason")
+        if reason == "GUARDRAIL_INTERVENED":
+            print(f"Guardrails: {kwargs}")
+
+
+# Guardrails for Amazon Bedrock with trace
+llm = BedrockLLM(
+    credentials_profile_name="bedrock-admin",
+    model_id="<Model_ID>",
+    model_kwargs={},
+    guardrails={"id": "<Guardrail_ID>", "version": "<Version>", "trace": True},
+    callbacks=[BedrockAsyncCallbackHandler()],
+)
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\llms\bedrock.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

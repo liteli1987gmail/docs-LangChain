@@ -1,0 +1,87 @@
+---
+title: "FastEmbed by Qdrant integration"
+description: "Integrate with the FastEmbed by Qdrant embedding model using LangChain Python."
+---
+
+>[FastEmbed](https://qdrant.github.io/fastembed/) 是 [Qdrant](https://qdrant.tech) 构建的一个轻量级、快速 Python 库，专门用于生成嵌入向量。
+
+- 量化模型权重
+- 基于 ONNX Runtime，无需 PyTorch 依赖
+- CPU 优先设计
+- 数据并行处理，支持大规模数据集编码
+
+## Dependencies
+
+To use FastEmbed with LangChain, install the `fastembed` Python package.
+
+```python
+pip install -qU  fastembed
+```
+
+## Imports
+
+```python
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
+```
+
+## Instantiating FastEmbed
+
+### Parameters
+
+- `model_name: str` (default: "BAAI/bge-small-en-v1.5")
+要使用的 FastEmbedding 模型名称。请参阅[支持的 FastEmbed 模型列表](https://qdrant.github.io/fastembed/examples/Supported_Models/)。
+
+- `max_length: int` (default: 512)
+最大 tokens 数。对于 > 512 的值，行为未知。
+
+- `cache_dir: Optional[str]` (default: None)
+缓存目录的路径。默认为父目录中的 `local_cache`。
+
+- `threads: Optional[int]` (default: None)
+单个 onnxruntime 会话可以使用的线程数。
+
+- `doc_embed_type: Literal["default", "passage"]` (default: "default")
+
+> **"default"**：使用 FastEmbed 的默认嵌入方法。
+
+> "passage": 在嵌入之前，用"passage"作为文本的前缀。
+
+- `batch_size: int` (default: 256)
+批处理编码的大小。数值越高会占用更多内存，但速度会更快。
+
+- `parallel: Optional[int]` (default: None)
+
+> 如果 `>1`，将使用数据并行编码，推荐用于离线处理大型数据集的编码。
+> 如果 `0`，使用所有可用核心。
+> 如果 `None`，不使用数据并行处理，改用默认的 onnxruntime 线程。
+
+```python
+embeddings = FastEmbedEmbeddings()
+```
+
+## Usage
+
+### Generating document embeddings
+
+```python
+document_embeddings = embeddings.embed_documents(
+    ["This is a document", "This is some other document"]
+)
+```
+
+### Generating query embeddings
+
+```python
+query_embeddings = embeddings.embed_query("This is a query")
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\embeddings\fastembed.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

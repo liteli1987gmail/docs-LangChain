@@ -1,0 +1,38 @@
+---
+title: "Connery integrations"
+description: "Integrate with Connery using LangChain Python."
+---
+
+>[Connery SDK](https://github.com/connery-io/connery-sdk) 是一个 NPM 包，包含 SDK 和 CLI两部分，专为插件和动作的开发而设计。
+>
+>CLI 在开发过程中实现了许多自动化操作。SDK 提供了 JavaScript API，用于定义插件和动作，并将其打包成带有标准化 REST API 的插件服务器（API 元数据由元信息自动生成）。插件服务器负责处理授权、输入验证和日志记录。
+>您只需专注于动作的业务逻辑。
+>
+>请参阅 [Connery SDK 文档](https://sdk.connery.io/docs/use-cases/) 中的用例和示例。
+
+## Toolkit
+
+See [usage example](/oss/python/integrations/tools/connery).
+
+```python
+from langchain_community.agent_toolkits.connery import ConneryToolkit
+```
+
+## Tools
+
+### ConneryAction
+
+```python
+from langchain_community.tools.connery import ConneryService
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\connery.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

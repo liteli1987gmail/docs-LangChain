@@ -1,0 +1,159 @@
+---
+title: "OpenAI adapter integration"
+description: "Integrate with the OpenAI adapter using LangChain Python."
+---
+
+**请确保 OpenAI 库的版本为 1.0.0 或更高版本；否则，请参阅旧版文档 [OpenAI Adapter(Old)](/oss/python/integrations/adapters/openai-old/)。**
+
+很多用户最初使用 OpenAI，但希望探索其他模型。LangChain 与多个模型提供商的集成使这一需求变得容易实现。虽然 LangChain 有自己的 message 和 model API，但我们也通过暴露一个适配器来轻松探索其他模型，该适配器可以将 LangChain 模型适配到 OpenAI API。
+
+
+目前这仅处理输出，而不返回其他信息（Token 数量、停止原因等）。
+
+```python
+import openai
+from langchain_community.adapters import openai as lc_openai
+```
+
+## chat.completions.create
+
+```python
+messages = [{"role": "user", "content": "hi"}]
+```
+
+原始 OpenAI 调用
+
+```python
+result = openai.chat.completions.create(
+    messages=messages, model="gpt-3.5-turbo", temperature=0
+)
+result.choices[0].message.model_dump()
+```
+
+```text
+{'content': 'Hello! How can I assist you today?',
+ 'role': 'assistant',
+ 'function_call': None,
+ 'tool_calls': None}
+```
+
+LangChain OpenAI wrapper 调用
+
+```python
+lc_result = lc_openai.chat.completions.create(
+    messages=messages, model="gpt-3.5-turbo", temperature=0
+)
+
+lc_result.choices[0].message  # Attribute access
+```
+
+```python
+{'role': 'assistant', 'content': 'Hello! How can I help you today?'}
+```
+
+```python
+lc_result["choices"][0]["message"]  # Also compatible with index access
+```
+
+```python
+{'role': 'assistant', 'content': 'Hello! How can I help you today?'}
+```
+
+# 替换模型提供商
+
+```python
+lc_result = lc_openai.chat.completions.create(
+    messages=messages, model="claude-2", temperature=0, provider="ChatAnthropic"
+)
+lc_result.choices[0].message
+```
+
+```python
+{'role': 'assistant', 'content': 'Hello! How can I assist you today?'}
+```
+
+## chat.completions.stream
+
+原始 OpenAI 调用
+
+```python
+for c in openai.chat.completions.create(
+    messages=messages, model="gpt-3.5-turbo", temperature=0, stream=True
+):
+    print(c.choices[0].delta.model_dump())
+```
+
+```python
+{'content': '', 'function_call': None, 'role': 'assistant', 'tool_calls': None}
+{'content': 'Hello', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': '!', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': ' How', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': ' can', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': ' I', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': ' assist', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': ' you', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': ' today', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': '?', 'function_call': None, 'role': None, 'tool_calls': None}
+{'content': None, 'function_call': None, 'role': None, 'tool_calls': None}
+```
+
+LangChain OpenAI 包装器调用
+
+```python
+for c in lc_openai.chat.completions.create(
+    messages=messages, model="gpt-3.5-turbo", temperature=0, stream=True
+):
+    print(c.choices[0].delta)
+```
+
+```python
+{'role': 'assistant', 'content': ''}
+{'content': 'Hello'}
+{'content': '!'}
+{'content': ' How'}
+{'content': ' can'}
+{'content': ' I'}
+{'content': ' assist'}
+{'content': ' you'}
+{'content': ' today'}
+{'content': '?'}
+{}
+```
+
+# 更换模型提供商
+
+```python
+for c in lc_openai.chat.completions.create(
+    messages=messages,
+    model="claude-2",
+    temperature=0,
+    stream=True,
+    provider="ChatAnthropic",
+):
+    print(c["choices"][0]["delta"])
+```
+
+```python
+{'role': 'assistant', 'content': ''}
+{'content': 'Hello'}
+{'content': '!'}
+{'content': ' How'}
+{'content': ' can'}
+{'content': ' I'}
+{'content': ' assist'}
+{'content': ' you'}
+{'content': ' today'}
+{'content': '?'}
+{}
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\adapters\openai.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

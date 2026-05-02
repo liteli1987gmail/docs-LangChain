@@ -1,0 +1,160 @@
+---
+title: "FirecrawlLoader 集成"
+description: "使用 LangChain JavaScript 与 FirecrawlLoader 文档加载器集成。"
+---
+
+
+本笔记本提供了开始使用 `FireCrawlLoader` [文档加载器](/oss/javascript/integrations/document_loaders/) 的快速概述。有关所有 `FireCrawlLoader` 功能和配置的详细文档，请前往 [API 参考](https://reference.langchain.com/javascript/langchain-community/document_loaders/web/firecrawl/FireCrawlLoader)。
+
+## 概述
+
+### 集成详情
+
+| 类 | 包 | 本地 | 可序列化 | [Python 支持](https://python.langchain.com/docs/integrations/document_loaders/firecrawl)|
+| :--- | :--- | :---: | :---: |  :---: |
+| [`FireCrawlLoader`](https://reference.langchain.com/javascript/langchain-community/document_loaders/web/firecrawl/FireCrawlLoader) | [`@langchain/community`](https://www.npmjs.com/package/@langchain/community) | 🟠（见下方详情） | beta | ✅ |
+
+### 加载器功能
+
+| 来源 | Web 加载器 | 仅 Node 环境 |
+| :---: | :---: | :---: |
+| `FireCrawlLoader` | ✅ | ❌ |
+
+[FireCrawl](https://firecrawl.dev) 爬取并将任何网站转换为 LLM 可用的数据。它爬取所有可访问的子页面，并为您提供了每个页面的干净 markdown 和元数据。无需 sitemap。
+
+FireCrawl 处理复杂任务，如反向代理、缓存、速率限制和由 JavaScript 阻止的内容。由 [mendable.ai](https://mendable.ai) 团队构建。
+
+本指南展示如何使用 LangChain 中的 `FireCrawlLoader` 抓取和爬取整个网站并加载它们。
+
+## 设置
+
+要访问 `FireCrawlLoader` 文档加载器，您需要安装 `@langchain/community` 集成和 `@mendable/firecrawl-js@0.0.36` 包。然后创建一个 **[FireCrawl](https://firecrawl.dev)** 账户并获取 API 密钥。
+
+### 凭据
+
+注册并获取您的免费 [FireCrawl API 密钥](https://firecrawl.dev) 以开始使用。FireCrawl 提供 300 免费积分帮助您入门，如果您想自行托管，它是 [开源的](https://github.com/mendableai/firecrawl)。
+
+完成此操作后，设置 `FIRECRAWL_API_KEY` 环境变量：
+
+```bash
+export FIRECRAWL_API_KEY="your-api-key"
+```
+
+如果您想获取模型调用的自动跟踪，您还可以通过取消注释来设置您的 [LangSmith](/langsmith/home) API 密钥：
+
+```bash
+# export LANGSMITH_TRACING="true"
+# export LANGSMITH_API_KEY="your-api-key"
+```
+
+### 安装
+
+LangChain FireCrawlLoader 集成位于 `@langchain/community` 包中：
+
+<CodeGroup>
+```bash npm
+npm install @langchain/community @langchain/core @mendable/firecrawl-js@0.0.36
+```
+```bash yarn
+yarn add @langchain/community @langchain/core @mendable/firecrawl-js@0.0.36
+```
+```bash pnpm
+pnpm add @langchain/community @langchain/core @mendable/firecrawl-js@0.0.36
+```
+</CodeGroup>
+
+## 实例化
+
+以下是使用 `FireCrawlLoader` 加载网络搜索结果的示例：
+
+Firecrawl 提供 3 种模式：`scrape`、`crawl` 和 `map`。在 `scrape` 模式下，Firecrawl 将仅抓取您提供的页面。在 `crawl` 模式下，Firecrawl 将爬取整个网站。在 `map` 模式下，Firecrawl 将返回与该网站相关的语义链接。
+
+`formats`（`crawl` 模式的 `scrapeOptions.formats`）参数允许从 `"markdown"`、`"html"` 或 `"rawHtml"` 中选择。但是，加载的文档将仅以一种格式返回内容，优先级如下：首先 `markdown`，然后 `html`，最后 `rawHtml`。
+
+现在我们可以实例化我们的模型对象并加载文档：
+
+```typescript
+import "@mendable/firecrawl-js";
+import { FireCrawlLoader } from "@langchain/community/document_loaders/web/firecrawl"
+
+const loader = new FireCrawlLoader({
+  url: "https://firecrawl.dev", // 要抓取的 URL
+  apiKey: "...", // 可选，默认为环境中的 `FIRECRAWL_API_KEY`。
+  mode: "scrape", // 运行爬虫的模式。可以是单个 URL 的 "scrape" 或所有可访问子页面的 "crawl"
+  params: {
+    // 基于 Firecrawl API 文档的可选参数
+    // 访问 https://docs.firecrawl.dev 查看 API 文档
+  },
+})
+```
+
+## 加载
+
+```typescript
+const docs = await loader.load()
+docs[0]
+```
+
+```javascript
+Document {
+  pageContent: "Introducing [Smart Crawl!](https://www.firecrawl.dev/smart-crawl)\n" +
+    " Join the waitlist to turn any web"... 18721 more characters,
+  metadata: {
+    title: "Home - Firecrawl",
+    description: "Firecrawl crawls and converts any website into clean markdown.",
+    keywords: "Firecrawl,Markdown,Data,Mendable,LangChain",
+    robots: "follow, index",
+    ogTitle: "Firecrawl",
+    ogDescription: "Turn any website into LLM-ready data.",
+    ogUrl: "https://firecrawl.dev/",
+    ogImage: "https://firecrawl.dev/og.png?123",
+    ogLocaleAlternate: [],
+    ogSiteName: "Firecrawl",
+    sourceURL: "https://firecrawl.dev",
+    pageStatusCode: 500
+  },
+  id: undefined
+}
+```
+
+```typescript
+console.log(docs[0].metadata)
+```
+
+```javascript
+{
+  title: "Home - Firecrawl",
+  description: "Firecrawl crawls and converts any website into clean markdown.",
+  keywords: "Firecrawl,Markdown,Data,Mendable,LangChain",
+  robots: "follow, index",
+  ogTitle: "Firecrawl",
+  ogDescription: "Turn any website into LLM-ready data.",
+  ogUrl: "https://firecrawl.dev/",
+  ogImage: "https://firecrawl.dev/og.png?123",
+  ogLocaleAlternate: [],
+  ogSiteName: "Firecrawl",
+  sourceURL: "https://firecrawl.dev",
+  pageStatusCode: 500
+}
+```
+
+## 附加参数
+
+对于 `params`，您可以根据 [Firecrawl 文档](https://docs.firecrawl.dev) 传递任何参数。
+
+---
+
+## API 参考
+
+有关所有 `FireCrawlLoader` 功能和配置的详细文档，请前往 [API 参考](https://reference.langchain.com/javascript/langchain-community/document_loaders/web/firecrawl/FireCrawlLoader)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\document_loaders\web_loaders\firecrawl.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

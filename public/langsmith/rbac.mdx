@@ -1,0 +1,229 @@
+---
+title: 基于角色的访问控制
+sidebarTitle: 基于角色的访问控制
+---
+
+import OrgWorkspaceRole from '/snippets/langsmith/multi-workspace-org-roles.mdx';
+import PermissionReference from '/snippets/langsmith/permissions-reference.mdx';
+
+本参考文档解释了 LangSmith 用于管理组织级和工作区级权限的基于角色的访问控制（RBAC）系统。
+
+<Note>
+RBAC（基于角色的访问控制）是一项企业功能，用于管理工作区级权限。如果您对此功能感兴趣，[联系我们的销售团队](https://www.langchain.com/contact-sales)。其他计划默认为所有用户使用管理员角色。
+</Note>
+
+LangSmith 的 RBAC 系统管理工作区内的用户权限。RBAC 允许您控制谁可以访问您的 LangSmith [工作区](/langsmith/administration-overview#workspaces)以及他们可以在其中做什么。
+
+在 LangSmith 中，每个用户都有：
+- 一个在整个组织范围内适用的[**组织角色**](#organization-roles)（与工作区 RBAC 分开）。
+    - <OrgWorkspaceRole/>
+- 每个他们所属的工作区的一个[**工作区角色**](#workspace-roles)（需要企业 RBAC 功能）。
+
+在企业计划上，组织可以创建具有细粒度权限组合的[自定义工作区角色](#custom-roles)。
+
+要了解如何设置 RBAC 和为用户分配角色，请参阅[用户管理指南](/langsmith/user-management#set-up-access-control)。您的身份提供商也可以通过 [SCIM 组](/langsmith/user-management#set-up-scim-for-your-organization)或 [SSO 组同步](/langsmith/user-management#sso-groups-sync-alternative)自动分配角色。
+
+<Note>
+<PermissionReference/>
+</Note>
+
+## 角色类型
+
+### 组织角色
+
+组织角色**与工作区 RBAC 功能不同**，用于管理组织范围的能力。角色是系统定义的，无法修改或扩展。[组织用户](#organization-user)和[组织查看者](#organization-viewer)角色仅在 [Plus 和企业计划](https://langchain.com/pricing)的组织中可用。在开发者组织（单个工作区）中，默认情况下所有用户都被分配[组织管理员](#organization-admin)角色。
+
+| 角色 | 描述 |
+|------|-------------|
+| [组织管理员](#organization-admin) | 管理组织配置、用户、账单和工作区的完全权限 |
+| [组织操作员](#organization-operator) | 用于日常操作的工作区和用户管理访问权限，不包括管理员级特权 |
+| [组织用户](#organization-user) | 对组织信息的读取访问权限和创建个人访问令牌的能力 |
+| [组织查看者](#organization-viewer) | 对组织信息的只读访问权限 |
+
+#### 组织管理员
+
+**描述**：管理所有组织配置、用户、账单和工作区的完全权限。
+
+**权限**：
+- `organization:manage` - 对组织设置、SSO、安全、账单的完全控制
+- `organization:read` - 对所有组织信息的读取访问权限
+- `organization:pats:create` - 创建组织级[个人访问令牌](/langsmith/administration-overview#personal-access-tokens-pats)
+
+<PermissionReference/>
+
+**关键能力**：
+- 管理[组织设置](/langsmith/set-up-hierarchy#set-up-an-organization)和品牌
+- 配置 [SSO 和认证方法](/langsmith/user-management#set-up-saml-sso-for-your-organization)
+- 管理[账单](/langsmith/billing)和订阅计划
+- 创建和删除[工作区](/langsmith/set-up-hierarchy)
+- 邀请和移除组织成员
+- 为成员分配组织和工作区角色
+- 创建和管理[自定义角色](#custom-roles)
+- 配置 RBAC 和 ABAC（基于属性的访问控制）策略
+- 查看组织[使用情况](/langsmith/administration-overview#usage-limits)和分析
+- 查看[审计日志](/langsmith/audit-logs)（企业）
+
+有关设置和管理组织的详细信息，请参阅[管理概述](/langsmith/administration-overview#organizations)。
+
+#### 组织操作员
+
+**描述**：用于日常操作的管理访问权限，包括工作区和用户管理，但不能管理组织管理员或创建组织范围的服务密钥。
+
+**权限：**
+- `organization:manage` - 对组织设置、工作区和非管理员用户的控制
+- `organization:read` - 对所有组织信息的读取访问权限
+- `organization:pats:create` - 创建个人访问令牌
+
+<PermissionReference/>
+
+**关键能力：**
+- 创建和管理[工作区](/langsmith/set-up-hierarchy#set-up-a-workspace)
+- 邀请组织成员（仅限组织用户和查看者角色）
+- 管理非管理员组织成员（修改和移除组织用户和查看者）
+- 为成员分配工作区角色
+- 创建工作区范围的服务密钥和服务账户
+- 查看组织[使用情况](/langsmith/administration-overview#usage-limits)和分析
+- 查看[审计日志](/langsmith/audit-logs)（企业）
+
+**限制：**
+
+- 不能邀请、修改或移除组织管理员
+- 不能为用户分配组织管理员角色
+- 不能创建组织范围（非工作区特定）的服务密钥
+- 不会自动添加到现有工作区（仅添加到他们创建或被明确邀请加入的工作区）
+- 不能管理组织[账单](/langsmith/billing)或订阅计划
+- 不能配置 [SSO 或认证方法](/langsmith/user-management#set-up-saml-sso-for-your-organization)
+- 不能创建或管理[自定义角色](#custom-roles)
+
+#### 组织用户
+
+**描述**：对组织信息的读取访问权限和创建个人访问令牌的能力。
+
+**权限**：
+- `organization:read` - 对组织信息的读取访问权限
+- `organization:pats:create` - 创建个人访问令牌
+
+<PermissionReference/>
+
+**关键能力**：
+- 查看组织成员和工作区
+- 查看组织设置（但不能修改）
+- 创建用于 API 访问的[个人访问令牌](/langsmith/administration-overview#personal-access-tokens-pats)
+- 加入他们被邀请的工作区
+
+**限制**：
+- 不能修改组织设置
+- 不能管理账单或订阅
+- 不能创建或删除工作区
+- 不能邀请或移除组织成员
+- 不能管理角色或权限
+
+您可以将组织用户添加到部分工作区并分配工作区角色（如果启用了 RBAC），这些角色在工作区级别指定权限。
+
+#### 组织查看者
+
+**描述**：对组织信息的只读访问权限。
+
+**权限**：
+- `organization:read` - 对组织信息的读取访问权限
+
+<PermissionReference/>
+
+**关键能力**：
+- 查看组织成员和工作区
+- 查看组织设置
+
+**限制**：
+- 不能在组织级别修改任何内容
+- 不能创建个人访问令牌
+- 不能管理账单、工作区或成员
+
+### 工作区角色
+
+工作区角色是**企业 RBAC 功能**的一部分，控制用户可以对工作区内的资源做什么：
+
+| 角色 | 描述 |
+|------|-------------|
+| [工作区管理员](#workspace-admin) | 对所有资源的完全权限，包括工作区设置和成员管理 |
+| [工作区编辑者](#workspace-editor) | 对大多数资源的完全权限，不能管理工作区设置或删除某些资源 |
+| [工作区查看者](#workspace-viewer) | 对所有工作区资源的只读访问权限 |
+
+<Note>
+RBAC（基于角色的访问控制）是一项仅适用于[企业](https://langchain.com/pricing)客户的功能。如果您对此功能感兴趣，[联系我们的销售团队](https://www.langchain.com/contact-sales)。其他计划默认为所有用户使用管理员角色。
+</Note>
+
+#### 工作区管理员
+
+**描述**：对所有资源具有完全权限并能够管理工作区的角色。
+
+**权限**：
+- 对所有资源类型的全部创建、读取、更新、删除和共享权限
+- 工作区管理能力
+
+<PermissionReference/>
+
+#### 工作区编辑者
+
+**描述**：对大多数资源具有完全权限的角色。不能管理工作区设置或删除某些关键资源。
+
+**与管理员的主要区别**：
+- 不能删除[运行](/langsmith/observability-concepts#runs)
+- 不能管理工作区设置（更改工作区名称等）
+- 不能管理工作区成员（添加、移除或更新成员角色）
+
+#### 工作区查看者
+
+**描述**：对所有工作区资源的只读访问权限。
+
+**权限**：对所有资源类型的只读访问权限。
+
+<PermissionReference/>
+
+<Tip>
+有关为用户分配工作区角色的分步说明，请参阅[用户管理指南](/langsmith/user-management#assign-a-role-to-a-user)。
+</Tip>
+
+## 自定义角色
+
+<Info>为企业计划上的组织提供创建自定义角色的功能。</Info>
+
+[组织管理员](#organization-admin)可以创建具有针对其组织需求而定制的特定权限组合的自定义角色。
+
+### 创建自定义角色
+
+自定义角色在[组织](/langsmith/administration-overview#organizations)级别创建，并可以分配给该组织内任何[工作区](/langsmith/administration-overview#workspaces)中的用户。
+
+**步骤**：
+1. 导航到组织**设置** > **角色**。
+2. 点击**创建自定义角色**。
+3. 选择要包含在角色中的权限。
+4. 在特定工作区中为用户分配自定义角色。
+
+有关每个操作所需的具体权限的详细信息，请参阅[组织和工作区操作参考](/langsmith/organization-workspace-operations)。
+
+注意以下关于自定义角色的详细信息：
+
+- 自定义角色只能由组织管理员创建和管理。
+- 自定义角色是特定于组织的（不能在组织之间转移）。
+- 每个自定义角色可以有任何工作区级权限的组合。
+- 自定义角色不能有组织级权限。
+- 用户在不同的工作区中可以有不同的角色（包括自定义角色）。
+
+### 了解权限行为
+
+某些权限在自定义角色中使用时提供细粒度控制：
+
+- `workspaces:manage` **不包括**管理工作区成员的能力。要允许自定义角色添加、移除或更新工作区成员，您必须明确授予 `workspaces:manage-members`。内置的工作区管理员角色自动包含这两个权限。
+- `projects:increase-trace-tier` 和 `projects:decrease-trace-tier` 是独立的，可以单独授予。例如，您可以允许角色减少保留而不允许增加保留。如果用户缺少这两个权限，保留设置 UI 会完全隐藏。如果他们只有一个，UI 会部分启用（不允许的方向被禁用）。
+- `projects:update` 仅涵盖元数据更新（名称、描述、标签），**不授予**更改追踪保留的能力。要允许自定义角色修改追踪层级，您必须明确授予 `projects:increase-trace-tier`、`projects:decrease-trace-tier` 或两者。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\rbac.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

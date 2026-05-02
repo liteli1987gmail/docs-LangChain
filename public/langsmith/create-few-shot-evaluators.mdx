@@ -1,0 +1,72 @@
+---
+title: 如何使用少样本示例改进您的评估器
+sidebarTitle: 使用少样本示例改进您的评估器
+---
+
+当您无法以编程方式评估系统时，使用大型语言模型作为法官的评估器会非常有用。然而，它们的有效性取决于其质量以及与人类审查员反馈的对齐程度。LangSmith 提供了使用少样本示例来提高大型语言模型作为法官评估器与人类偏好对齐的能力。
+
+人类校正会自动使用少样本示例插入到您的评估器提示词中。少样本示例是一种受[少样本提示](https://www.promptingguide.ai/techniques/fewshot)启发的技术，通过几个高质量示例来指导模型的输出。
+
+本指南涵盖如何将少样本示例设置为大型语言模型作为法官评估器的一部分，并应用校正来反馈分数。
+
+## 少样本示例的工作原理
+
+- 少样本示例使用 `{{Few-shot examples}}` 变量添加到您的评估器提示词中
+- 使用少样本示例创建评估器将自动为您创建一个数据集，一旦您开始进行校正，该数据集将自动填充少样本示例
+- 在运行时，这些示例将被插入到评估器中作为其输出的指导——这将帮助评估器更好地与人类偏好对齐
+
+## 配置您的评估器
+
+<Note>
+少样本示例目前不支持使用提示词中心的巨型语言模型作为法官评估器，仅与使用 mustache 格式的提示词兼容。
+</Note>
+
+在启用少样本示例之前，请设置您的大型语言模型作为法官评估器。如果您还没有这样做，请遵循[大型语言模型作为法官评估器指南](/langsmith/llm-as-judge)中的步骤。
+
+### 1. 配置变量映射
+
+每个少样本示例根据配置中指定的变量映射进行格式化。少样本示例的变量映射应包含与主提示词相同的变量，外加一个 `few_shot_explanation` 和一个 `score` 变量，该变量应与您的反馈键具有相同的名称。
+
+例如，如果您的提示词具有变量 `question` 和 `response`，并且您的评估器输出 `correctness` 分数，那么您的少样本提示词应具有变量 `question`、`response`、`few_shot_explanation` 和 `correctness`。
+
+### 2. 指定要使用的少样本示例数量
+
+您还可以指定要使用的少样本示例数量。默认值为 5。如果您的示例很长，您可能希望将此数字设置得更低以节省令牌——而如果您的示例通常较短，您可以设置更高的数字，以便为您的评估器提供更多学习示例。如果您的数据集中的示例多于这个数字，我们将随机为您选择。
+
+## 进行校正
+
+<Info>
+[审核评估器分数](/langsmith/audit-evaluator-scores)
+</Info>
+
+当您开始记录追踪或运行实验时，您可能会不同意评估器给出的某些分数。当您[对这些分数进行校正](/langsmith/audit-evaluator-scores)时，您将开始看到填充在校正数据集中的示例。当您进行校正时，请确保附上解释——这些将被填充到评估器提示词中，替代 `few_shot_explanation` 变量。
+
+少样本示例的输入将是链/数据集的输入、输出和参考（如果是离线评估器）中的相关字段。输出将是校正后的评估器分数以及您在留下校正时创建的解释。请随意编辑这些示例以适合您的需求。以下是校正数据集中少样本示例的示例：
+
+![少样本示例](/langsmith/images/few-shot-example.png)
+
+请注意，校正可能需要一到两分钟才能填充到您的少样本数据集中。一旦它们出现在那里，您评估器的未来运行将在提示词中包含它们！
+
+## 查看您的校正数据集
+
+要查看您的校正数据集：
+
+- **在线评估器**：选择您的运行规则并点击 **Edit Rule**
+- **离线评估器**：选择您的评估器并点击 **Edit Evaluator**
+
+![编辑评估器](/langsmith/images/edit-evaluator.png)
+
+前往**使用少样本示例提高评估器准确性**部分中链接的校正数据集。您可以在数据集中查看和更新您的少样本示例。
+
+![查看少样本数据集](/langsmith/images/view-few-shot-ds.png)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\create-few-shot-evaluators.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

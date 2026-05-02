@@ -1,0 +1,43 @@
+---
+title: "Toml integration"
+description: "Integrate with the Toml document loader using LangChain Python."
+---
+
+TOML 是一种用于配置文件的文件格式。它旨在易于阅读和编写，并且被设计为能够无歧义地映射到字典（data structure）。它的规范是开源的。TOML 已在许多编程语言中实现。TOML 这个名字是"Tom's Obvious, Minimal Language"的缩写，指的是其创建者 Tom Preston-Werner。
+
+If you need to load `Toml` files, use the `TomlLoader`.
+
+```python
+from langchain_community.document_loaders import TomlLoader
+```
+
+```python
+loader = TomlLoader("example_data/fake_rule.toml")
+```
+
+```python
+rule = loader.load()
+```
+
+```python
+rule
+```
+
+```json
+[Document(page_content='{"internal": {"creation_date": "2023-05-01", "updated_date": "2022-05-01", "release": ["release_type"], "min_endpoint_version": "some_semantic_version", "os_list": ["operating_system_list"]}, "rule": {"uuid": "some_uuid", "name": "Fake Rule Name", "description": "Fake description of rule", "query": "process where process.name : \\"somequery\\"\\n", "threat": [{"framework": "MITRE ATT&CK", "tactic": {"name": "Execution", "id": "TA0002", "reference": "https://attack.mitre.org/tactics/TA0002/"}}]}}', metadata={'source': 'example_data/fake_rule.toml'})]
+```
+
+```python
+
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\document_loaders\toml.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

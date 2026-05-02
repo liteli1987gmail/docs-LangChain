@@ -1,0 +1,186 @@
+---
+title: 在 UI 中创建和管理数据集
+sidebarTitle: 使用 UI
+icon: "browser"
+---
+
+[_数据集_](/langsmith/evaluation-concepts#datasets) 使您能够使用一致的数据随时间执行可重复的评估。数据集由[_示例_](/langsmith/evaluation-concepts#examples)组成，示例存储输入、输出和可选的参考输出。
+
+本页面概述了在 [UI](https://smith.langchain.com) 中[创建](#create-a-dataset-and-add-examples)和[管理](#manage-a-dataset)数据集的各种方法。
+
+## 创建数据集并添加示例
+
+以下各节说明在 LangSmith 中创建数据集并向其添加示例的不同方法。根据您的工作流程，您可以手动策展示例、自动从追踪中捕获示例、导入文件，甚至生成合成数据：
+
+- [从追踪项目手动创建](#manually-from-a-tracing-project)
+- [从追踪项目自动创建](#automatically-from-a-tracing-project)
+- [从标注队列中的示例创建](#from-examples-in-an-annotation-queue)
+- [从 Playground 创建](#from-the-playground)
+- [从 CSV 或 JSONL 文件导入数据集](#import-a-dataset-from-a-csv-or-jsonl-file)
+- [从数据集页面创建新数据集](#create-a-new-dataset-from-the-datasets-%26-experiments-page)
+- [通过数据集 UI 添加由 LLM 创建的合成示例](#add-synthetic-examples-created-by-an-llm)
+
+### 从追踪项目手动创建
+
+构建数据集的一种常见模式是将应用中的显著追踪转换为数据集示例。这种方法要求您已[配置了到 LangSmith 的追踪](/langsmith/observability-concepts)。
+
+<Check>
+构建数据集的一种技术是过滤最有趣的追踪，例如标记有差用户反馈的追踪，并将它们添加到数据集中。有关如何过滤追踪的提示，请参阅[过滤追踪](/langsmith/filter-traces-in-application)指南。
+</Check>
+
+有两种方法可以手动将数据从追踪项目添加到数据集。导航到**追踪项目**并选择一个项目。
+
+1. 从运行表中多选运行。在**运行**标签上，多选运行。在页面底部，点击 <Icon icon="database" /> **添加到数据集**。
+1. 在**运行**标签上，从表中选择一个运行。在单个运行详情页面右上角，选择 **添加到** -> **数据集**。
+
+    当您从运行详情页面选择数据集时，会弹出一个模式，告知您是否应用了任何[转换](/langsmith/dataset-transformations)或模式验证失败。
+
+    然后，您可以选择在将运行添加到数据集之前编辑运行。
+
+### 从追踪项目自动创建
+
+您可以使用[运行规则](/langsmith/rules)基于某些条件自动将追踪添加到数据集。例如，您可以添加所有[标记](/langsmith/observability-concepts#tags)了特定用例的追踪或具有[低反馈分数](/langsmith/observability-concepts#feedback)的追踪。
+
+### 从标注队列中的示例创建
+
+<Check>
+如果您依赖主题专家来构建有意义的数据集，请使用[标注队列](/langsmith/annotation-queues)为审阅者提供简化的视图。人工审阅者可以在将追踪添加到数据集之前选择性地修改追踪的输入/输出/参考输出。
+</Check>
+
+您可以选择性地配置带有默认数据集的标注队列，尽管您可以使用屏幕底部的数据集切换器将运行添加到任何数据集。选择正确的数据集后，点击**添加到数据集**或按热键 `D` 将运行添加到其中。
+
+您在标注队列中对运行所做的任何修改都将延续到数据集中，与运行关联的所有元数据也将被复制。
+
+<Tip>
+您还可以使用[自动化规则](/langsmith/rules)设置规则，将符合特定条件的运行添加到标注队列中。
+</Tip>
+
+### 从 Playground 创建
+
+在 [**Playground**](/langsmith/prompt-engineering-concepts#playground) 页面上：
+
+1. 选择**设置评估**。
+1. 如果您要开始新数据集，请点击 **+New**，或从现有数据集中选择。
+
+    <Note>
+    不支持在 Playground 中内联创建具有嵌套键的数据集。为了添加/编辑具有嵌套键的示例，您必须从[数据集页面](/langsmith/manage-datasets-in-application#create-a-new-dataset-from-the-datasets-%26-experiments-page)进行编辑。
+    </Note>
+
+1. 编辑示例：
+
+    - 使用 **+Row** 向数据集添加新示例。
+    - 使用表格右侧的 **⋮** 下拉菜单删除示例。
+    - 如果您要创建无参考数据集，请使用列中的 **x** 按钮删除**参考输出**列。请注意，此操作不可逆。
+
+### 从 CSV 或 JSONL 文件导入数据集
+
+在**数据集与实验**页面，点击 **+New Dataset**，然后**导入**现有数据集从 CSV 或 JSONL 文件。
+
+### 从数据集与实验页面创建新数据集
+
+1. 从左侧菜单导航到**数据集与实验**页面。
+1. 点击 **+ New Dataset**。
+1. 在**新数据集**页面上，选择**从头创建**标签。
+1. 为数据集添加名称和描述。
+1. （可选）创建[数据集模式](#create-a-dataset-schema)来验证您的数据集。
+1. 点击**创建**，这将创建一个空数据集。
+1. 要内联添加示例，请转到数据集页面上的**示例**标签。点击 **+ Example**。
+1. 在 JSON 中定义示例并点击**提交**。有关数据集分割的更多详细信息，请参阅[创建和管理数据集分割](#create-and-manage-dataset-splits)。
+
+### 添加由 LLM 创建的合成示例
+
+如果您有现有示例和在数据集上定义了的[模式](#create-a-dataset-schema)，当您点击 **+ Example** 时，有一个选项可以<Icon icon="sparkles"/>**添加 AI 生成的示例**。这将使用 LLM 创建[合成](/langsmith/evaluation-concepts#building-datasets)示例。
+
+在**生成示例**中，执行以下操作：
+
+1. 点击窗格右上角的 **API Key** 将您的 OpenAI API 密钥设置为[工作区密钥](/langsmith/administration-overview#workspaces)。如果您的工作区已经设置了 OpenAI API 密钥，您可以跳过此步骤。
+1. 选择<Tooltip tip="一些输入-输出对示例，指导模型如何执行任务。">少样本示例</Tooltip>：切换**自动**或**手动**参考示例。您可以从数据集中手动选择这些示例或使用自动选择选项。
+1. 输入您想要生成的合成示例数量。
+1. 点击**生成**。
+
+    <img
+        className="block dark:hidden"
+        src="/langsmith/images/generate-synthetic-light.png"
+        alt="The AI-Generated Examples configuration window. Selections for manual and automatic and number of examples to generate."
+    />
+
+    <img
+        className="hidden dark:block"
+        src="/langsmith/images/generate-synthetic-dark.png"
+        alt="The AI-Generated Examples configuration window. Selections for manual and automatic and number of examples to generate."
+    />
+
+1. 示例将出现在**选择生成的示例**页面上。选择要添加到数据集的示例，并选择在最终确定之前编辑它们的选项。点击**保存示例**。
+1. 每个示例将根据您指定的数据集模式进行验证，并在源元数据中标记为**synthetic**。
+
+    <img
+        className="block dark:hidden"
+        src="/langsmith/images/select-generated-examples-light.png"
+        alt="Select generated examples page with generated examples selected and Save examples button."
+    />
+
+    <img
+        className="hidden dark:block"
+        src="/langsmith/images/select-generated-examples-dark.png"
+        alt="Select generated examples page with generated examples selected and Save examples button."
+    />
+
+## 管理数据集
+
+### 创建数据集模式
+
+LangSmith 数据集存储任意 JSON 对象。我们建议（但不要求）您为数据集定义一个模式，以确保它们符合特定的 JSON 模式。数据集模式使用标准 [JSON 模式](https://json-schema.org/)定义，并添加了一些[预构建类型](/langsmith/dataset-json-types)，使键入常见原语（如消息和工具）变得更容易。
+
+模式中的某些字段有 `+ Transformations` 选项。转换是预处理步骤，如果启用，会在您将示例添加到数据集时更新它们。例如，`convert to OpenAI messages` 转换会将类消息对象（如 LangChain 消息）转换为 OpenAI 消息格式。
+
+有关可用转换的完整列表，请参阅[数据集转换参考](/langsmith/dataset-transformations)。
+
+<Note>
+如果您计划从 LangChain [ChatModels](/oss/python/langchain/models) 或使用 [LangSmith OpenAI 包装器](/langsmith/annotate-code) 的 OpenAI 调用中收集生产追踪到您的数据集中，我们提供了一个预构建的 Chat Model 模式，可将消息和工具转换为行业标准的 openai 格式，可用于下游的任何模型进行测试。您还可以自定义模板设置以匹配您的用例。
+
+请参阅[数据集转换参考](/langsmith/dataset-transformations)获取更多信息。
+</Note>
+
+### 创建和管理数据集分割
+
+有关使用分割的时间和原因的概述，请参阅[数据集组织](/langsmith/evaluation-concepts#dataset-organization)。
+
+要在 UI 中创建和管理分割：
+
+1. 在数据集中选择示例。
+1. 点击**添加到分割**。
+1. 从结果弹出菜单中，您可以为所选示例选择和取消选择分割，或创建新分割。
+
+![Add to Split](/langsmith/images/add-to-split2.png)
+
+### 编辑示例元数据
+
+要为您的示例添加元数据：
+
+1. 点击一个示例，然后点击弹出窗口右上角的**编辑**。
+1. 在此页面上，更新或删除现有元数据，或添加新元数据。
+
+您可以使用它来存储有关示例的信息，例如标签或版本信息，您可以在[分析实验结果时按](/langsmith/analyze-an-experiment#group-results-by-metadata)对它们进行分组，或在 SDK 中调用 `list_examples` 时[按](/langsmith/manage-datasets-programmatically#list-examples-by-metadata)过滤。
+
+### 过滤示例
+
+您可以按分割、元数据键/值过滤示例，或对示例执行全文搜索。这些过滤选项在示例表格的左上方可用：
+
+- **按分割过滤**：选择分割 > 选择要过滤的分割。
+- **按元数据过滤**：过滤器 > 从下拉列表中选择**元数据** > 选择要过滤的元数据键和值。
+- **全文搜索**：过滤器 > 从下拉列表中选择**全文** > 输入您的搜索条件。
+
+您可以添加多个过滤器，并且只有满足所有过滤器条件的示例才会显示在表格中。
+
+![Filters Applied to Examples](/langsmith/images/filters-applied.png)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\manage-datasets-in-application.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

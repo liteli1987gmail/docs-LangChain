@@ -1,0 +1,174 @@
+---
+title: 监控和排查批量导出
+description: 监控批量导出状态、管理运行中的导出以及排查失败。
+---
+
+一旦您[创建了导出作业](/langsmith/data-export#2-create-an-export-job)，您可以使用此页面上的 API 来追踪其进度、检查单个运行并在需要时停止它。本页还介绍了 LangSmith 如何自动处理失败，以及当导出在重试耗尽后失败时该怎么办。
+
+本页涵盖：
+
+- [监控导出状态](#monitor-export-status)和[列出导出的运行](#list-runs-for-an-export)。
+- [列出您工作区中的所有导出](#list-all-exports)。
+- [停止导出](#stop-an-export)。
+- [失败模式和重试策略](#failure-modes-and-retry-policy)，包括自动重试行为、失败场景、状态生命周期、并发限制和进度追踪。
+- [排查失败的导出](#troubleshooting-failed-exports)。
+
+<Note>
+**对于自托管、EU (GCP) 和 US (AWS) SaaS**
+
+对于自托管安装、EU (GCP)（`eu.api.smith.langchain.com`）或 US (AWS)（`aws.api.smith.langchain.com`），请在以下请求中更新 LangSmith URL。
+</Note>
+
+## 监控导出状态
+
+要监控导出作业的状态，请使用以下 cURL 命令：
+
+```bash
+curl --request GET \
+  --url 'https://api.smith.langchain.com/api/v1/bulk-exports/{export_id}' \
+  --header 'Content-Type: application/json' \
+  --header 'X-API-Key: YOUR_API_KEY' \
+  --header 'X-Tenant-Id: YOUR_WORKSPACE_ID'
+```
+
+将 `{export_id}` 替换为您要监控的导出的 ID。此命令检索指定导出作业的当前状态。
+
+## 列出导出的运行
+
+导出通常被分解为多个对应于特定日期分区的运行。要列出与特定导出关联的所有运行，请使用以下 cURL 命令：
+
+```bash
+curl --request GET \
+  --url 'https://api.smith.langchain.com/api/v1/bulk-exports/{export_id}/runs' \
+  --header 'Content-Type: application/json' \
+  --header 'X-API-Key: YOUR_API_KEY' \
+  --header 'X-Tenant-Id: YOUR_WORKSPACE_ID'
+```
+
+此命令获取与指定导出相关的所有运行，提供运行 ID、状态、创建时间、导出的行数等详细信息。
+
+## 列出所有导出
+
+要检索所有导出作业的列表，请使用以下 cURL 命令：
+
+```bash
+curl --request GET \
+  --url 'https://api.smith.langchain.com/api/v1/bulk-exports' \
+  --header 'Content-Type: application/json' \
+  --header 'X-API-Key: YOUR_API_KEY' \
+  --header 'X-Tenant-Id: YOUR_WORKSPACE_ID'
+```
+
+此命令返回所有导出作业及其当前状态和创建时间戳的列表。
+
+## 停止导出
+
+要停止现有导出，请使用以下 cURL 命令：
+
+```bash
+curl --request PATCH \
+  --url 'https://api.smith.langchain.com/api/v1/bulk-exports/{export_id}' \
+  --header 'Content-Type: application/json' \
+  --header 'X-API-Key: YOUR_API_KEY' \
+  --header 'X-Tenant-Id: YOUR_WORKSPACE_ID' \
+  --data '{
+    "status": "Cancelled"
+}'
+```
+
+将 `{export_id}` 替换为您要取消的导出的 ID。请注意，作业一旦取消就无法重启，您需要创建一个新的导出作业。
+
+## 失败模式和重试策略
+
+LangSmith 批量导出自动处理临时失败和基础设施问题以确保弹性。
+
+每个批量导出被分成多个_运行_，每个运行处理特定日期分区（通常按天组织）的数据。运行独立处理，这使得：
+
+- 不同时间段的并行处理成为可能。
+- 每个运行有独立的重试逻辑。
+- 如果中断，可以从特定检查点恢复。
+
+导出中的每个运行都有自己的[失败处理](#failure-scenarios)和[重试预算](#automatic-retry-behavior)。如果运行在耗尽所有重试后失败，整个导出被标记为 `FAILED`。
+
+### 自动重试行为
+
+导出作业自动重试临时失败，具有以下行为：
+
+- **最大重试次数**：每个运行 20 次重试（可能更改）。
+- **重试延迟**：尝试之间 30 秒（固定，无指数退避）。
+- **运行超时**：每个运行最长 4 小时。
+- **整个工作流超时**：整个导出 72 小时。
+
+### 失败场景
+
+| 失败类型 | 原因 | 自动重试？ | 需要操作 |
+|--------------|-------|------------------|-----------------|
+| **基础设施中断** | [部署](/langsmith/deployment)、服务器重启、工作进程崩溃 | 是，自动重新排队并保留剩余重试次数。 | 无，作业自动恢复。 |
+| **运行超时** | 单个运行超过 4 小时限制 | 是，最多重试 20 次（可能更改）。 | 如果持续存在，缩小日期范围、添加过滤器或[限制导出字段](/langsmith/data-export#limit-exported-fields)。 |
+| **工作流超时** | 整个导出超过 72 小时 | 否 | 减小导出范围（日期范围、过滤器）或分成更小的导出。 |
+| **存储/目标错误** | [无效凭据](/langsmith/data-export-destinations#credentials-configuration)、[存储桶缺失](/langsmith/data-export-destinations#configuration-fields)、[权限问题](/langsmith/data-export-destinations#permissions-required) | 否 | 修复目标配置并创建新导出。 |
+| **目标已删除** | 导出期间存储桶被移除 | 否 | 重新创建目标并重启导出。 |
+| **终端处理错误** | 数据序列化问题、资源耗尽 | 是，最多重试 20 次（可能更改）。 | 检查运行错误详情；可能需要调查。 |
+
+<Note>
+任何单个运行失败（在所有重试耗尽后）都会导致整个导出失败。
+</Note>
+
+### 导出状态生命周期
+
+导出可以有以下状态：
+
+| 状态 | 描述 |
+|--------|-------------|
+| `CREATED` | 导出已创建但尚未开始处理。 |
+| `RUNNING` | 导出正在积极处理运行。 |
+| `COMPLETED` | 所有运行成功导出。 |
+| `FAILED` | 一个或多个运行在重试耗尽后失败。 |
+| `CANCELLED` | 导出已被用户手动取消。 |
+| `TIMEDOUT` | 导出超过 48 小时工作流超时。 |
+
+单个运行可以有相同的可能状态：`CREATED`、`RUNNING`、`COMPLETED`、`FAILED`、`CANCELLED` 或 `TIMEDOUT`。
+
+### 并发和速率限制
+
+为确保系统稳定性，导出受到以下限制：
+
+- **每个导出的最大并发运行数**：45
+- **每个工作区的最大并发导出数**：15
+
+如果您有多个导出正在运行，新的运行作业将排队直到有可用容量。
+
+### 进度追踪和可恢复性
+
+导出系统为每个运行维护详细的进度元数据：
+- 数据流中的最新游标位置。
+- 导出的行数。
+- 写入的 Parquet 文件列表。
+
+此进度追踪支持：
+- **优雅恢复**：如果运行被中断（例如，通过部署），它从最后一个检查点恢复而非重新开始。
+- **进度监控**：通过 API 追踪已导出多少数据。
+- **高效重试**：失败的运行不会重新导出已成功写入的数据。
+
+### 排查失败的导出
+
+如果您的导出失败，请按照以下步骤操作：
+
+1. **检查导出状态**：使用 [`GET /api/v1/bulk-exports/{export_id}` 端点](https://api.smith.langchain.com/redoc#tag/bulk-exports)检索导出详情和状态。
+2. **审查运行错误**：您可以使用[列出运行 API](#list-runs-for-an-export) 监控您的运行。每个运行包含一个 `errors` 字段，其中包含按重试尝试划分的详细错误消息（例如 `retry_0`、`retry_1`）。
+3. **验证目标访问**：确保您的[目标存储桶](/langsmith/data-export-destinations#configuration-fields)仍然存在且[凭据](/langsmith/data-export-destinations#credentials-configuration)有效。
+4. **检查运行大小**：如果您看到超时错误，您的日期分区可能包含太多数据。帮助缩小日期范围可能很有用[限制导出字段](/langsmith/data-export#limit-exported-fields)。
+5. **审查系统限制**：确保您没有达到[并发限制](#concurrency-and-rate-limits)（每个导出 5 个运行，每个工作区 3 个导出）。
+
+对于存储相关错误，您可以在重试导出之前使用 AWS CLI 或 gsutil 测试您的目标配置。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\data-export-monitor.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

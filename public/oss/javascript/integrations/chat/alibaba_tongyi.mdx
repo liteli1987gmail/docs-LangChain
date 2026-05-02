@@ -1,0 +1,75 @@
+---
+title: "Alibaba Tongyi 集成"
+description: "使用 LangChain JavaScript 与 Alibaba Tongyi 聊天模型集成。"
+---
+
+LangChain.js 支持阿里巴巴通义千问系列模型。
+
+## 设置
+
+您需要注册一个阿里巴巴 API 密钥，并将其设置为名为 `ALIBABA_API_KEY` 的环境变量。
+
+然后，您需要安装 [`@langchain/community`](https://www.npmjs.com/package/@langchain/community) 包：
+
+<Tip>
+有关安装 LangChain 软件包的常规说明，请参阅[此部分](/oss/javascript/langchain/install)。
+</Tip>
+
+```bash npm
+npm install @langchain/community @langchain/core
+```
+
+## 使用方法
+
+以下是示例：
+
+```typescript
+import { ChatAlibabaTongyi } from "@langchain/community/chat_models/alibaba_tongyi";
+import { HumanMessage } from "@langchain/core/messages";
+
+// Default model is qwen-turbo
+// 默认模型是 qwen-turbo
+const qwenTurbo = new ChatAlibabaTongyi({
+  alibabaApiKey: "YOUR-API-KEY", // In Node.js defaults to process.env.ALIBABA_API_KEY // 在 Node.js 中默认为 process.env.ALIBABA_API_KEY
+});
+
+// Use qwen-plus
+// 使用 qwen-plus
+const qwenPlus = new ChatAlibabaTongyi({
+  model: "qwen-plus", // Available models: qwen-turbo, qwen-plus, qwen-max // 可用模型：qwen-turbo、qwen-plus、qwen-max
+  temperature: 1,
+  alibabaApiKey: "YOUR-API-KEY", // In Node.js defaults to process.env.ALIBABA_API_KEY // 在 Node.js 中默认为 process.env.ALIBABA_API_KEY
+});
+
+const messages = [new HumanMessage("Hello")];
+
+const res = await qwenTurbo.invoke(messages);
+/*
+AIMessage {
+  content: "Hello! How can I help you today? Is there something you would like to talk about or ask about? I'm here to assist you with any questions you may have.",
+}
+*/
+
+const res2 = await qwenPlus.invoke(messages);
+/*
+AIMessage {
+  text: "Hello! How can I help you today? Is there something you would like to talk about or ask about? I'm here to assist you with any questions you may have.",
+}
+*/
+```
+
+## 相关内容
+
+- 聊天模型[概念指南](/oss/javascript/langchain/models)
+- 聊天模型[操作指南](/oss/javascript/langchain/models)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\chat\alibaba_tongyi.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

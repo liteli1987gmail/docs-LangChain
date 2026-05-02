@@ -1,0 +1,43 @@
+---
+title: "Conll-u integration"
+description: "Integrate with the Conll-u document loader using LangChain Python."
+---
+
+>[CoNLL-U](https://universaldependencies.org/format.html) 是 CoNLL-X 格式的修订版本。标注以纯文本文件编码（UTF-8 编码，归一化为 NFC，仅使用 LF 字符作为换行符，文件末尾包含一个 LF 字符），包含三种类型的行：
+
+>- 词语行，包含词语/词元的标注，共 10 个字段，以单个制表符分隔；详见下文。
+>- 空行，标记句子边界。
+>- 注释行，以井号（#）开头。
+
+This is an example of how to load a file in [CoNLL-U](https://universaldependencies.org/format.html) format. The whole file is treated as one document. The example data (`conllu.conllu`) is based on one of the standard UD/CoNLL-U examples.
+
+```python
+from langchain_community.document_loaders import CoNLLULoader
+```
+
+```python
+loader = CoNLLULoader("example_data/conllu.conllu")
+```
+
+```python
+document = loader.load()
+```
+
+```python
+document
+```
+
+```python
+[Document(page_content='They buy and sell books.', metadata={'source': 'example_data/conllu.conllu'})]
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\document_loaders\conll-u.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

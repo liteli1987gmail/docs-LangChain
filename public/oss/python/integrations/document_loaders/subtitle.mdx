@@ -1,0 +1,47 @@
+---
+title: "Subtitle integration"
+description: "Integrate with the Subtitle document loader using LangChain Python."
+---
+
+SubRip文件格式在Matroska多媒体容器格式网站上被描述为"可能是所有字幕格式中最基本的"。SubRip (SubRip Text)文件以.srt为扩展名，包含以空行分隔的格式化纯文本行组。字幕按顺序编号，从1开始。使用的时间码格式为小时:分钟:秒,毫秒，时间单位固定为两位补零数字，分数固定为三位补零数字 (00:00:00,000)。使用的分数分隔符是逗号，因为该程序是法国编写的。
+
+How to load data from subtitle (`.srt`) files
+
+Please, download the [example .srt file from here](https://www.opensubtitles.org/en/subtitles/5575150/star-wars-the-clone-wars-crisis-at-the-heart-en).
+
+```python
+pip install -qU  pysrt
+```
+
+```python
+from langchain_community.document_loaders import SRTLoader
+```
+
+```python
+loader = SRTLoader(
+    "example_data/Star_Wars_The_Clone_Wars_S06E07_Crisis_at_the_Heart.srt"
+)
+```
+
+```python
+docs = loader.load()
+```
+
+```python
+docs[0].page_content[:100]
+```
+
+```text
+'<i>Corruption discovered\nat the core of the Banking Clan!</i> <i>Reunited, Rush Clovis\nand Senator A'
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\document_loaders\subtitle.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

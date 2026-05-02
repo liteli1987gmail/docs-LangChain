@@ -1,0 +1,252 @@
+---
+title: "Context integration"
+description: "Integrate with the Context callback using LangChain Python."
+---
+
+Context 为 LLM 驱动的产品和功能提供用户分析。
+
+With `Context`, you can start understanding your users and improving their experiences in less than 30 minutes.
+
+In this guide we will show you how to integrate with Context.
+
+## Installation and setup
+
+```python
+pip install -qU  langchain langchain-openai langchain-community context-python
+```
+
+### Getting API credentials
+
+To get your Context API token:
+
+1. Go to the settings page within your Context account ([with.context.ai/settings](https://with.context.ai/settings)).
+2. Generate a new API Token.
+3. Store this token somewhere secure.
+
+### Setup context
+
+To use the `ContextCallbackHandler`, import the handler from LangChain and instantiate it with your Context API token.
+
+Ensure you have installed the `context-python` package before using the handler.
+
+```python
+from langchain_community.callbacks.context_callback import ContextCallbackHandler
+```
+
+```python
+import os
+
+token = os.environ["CONTEXT_API_TOKEN"]
+
+context_callback = ContextCallbackHandler(token)
+```
+
+## Usage
+
+### Context callback within a chat model
+
+The Context callback handler can be used to directly record transcripts between users and AI assistants.
+
+```python
+import os
+
+from langchain.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+
+token = os.environ["CONTEXT_API_TOKEN"]
+
+chat = ChatOpenAI(
+    headers={"user_id": "123"}, temperature=0, callbacks=[ContextCallbackHandler(token)]
+)
+
+messages = [
+    SystemMessage(
+        content="You are a helpful assistant that translates English to French."
+    ),
+    HumanMessage(content="I love programming."),
+]
+
+print(chat(messages))
+```
+
+### Context callback within chains
+
+The Context callback handler can also be used to record the inputs and outputs of chains. Note that intermediate steps of the chain are not recorded - only the starting inputs and final outputs.
+
+__Note:__ Ensure that you pass the same context object to the chat model and the chain.
+
+Wrong:
+# LangChain 回调系统代码分析
+
+## 代码解析
+
+```python
+# 初始化 ChatOpenAI
+chat = ChatOpenAI(temperature=0.9, callbacks=[ContextCallbackHandler(token)])
+
+# 创建 LLMChain
+chain = LLMChain(
+    llm=chat,
+    prompt=chat_prompt_template,
+    callbacks=[ContextCallbackHandler(token)]  # 重复设置了 callbacks
+)
+```
+
+## 问题说明
+
+这段代码存在一个潜在问题：**重复设置 callbacks**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      调用链层级                               │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ChatOpenAI (callbacks) ──► LLMChain (callbacks)           │
+│          │                      │                            │
+│          ▼                      ▼                            │
+│   [Handler 1]              [Handler 2]                       │
+│                                                             │
+│   两个地方都设置了回调，可能导致重复处理                       │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 建议修改
+
+### 方案 1：只在 LLMChain 级别设置（推荐）
+
+```python
+# 移除 chat 的 callbacks，只在 chain 级别设置
+chat = ChatOpenAI(temperature=0.9)  # 不设置 callbacks
+
+chain = LLMChain(
+    llm=chat,
+    prompt=chat_prompt_template,
+    callbacks=[ContextCallbackHandler(token)]  # 统一在一处设置
+)
+
+# 调用链时不需要再次传递 callbacks
+result = chain.run({"input": "hello"})
+```
+
+### 方案 2：使用 CallbackManager 统一管理
+
+```python
+from langchain.callbacks import CallbackManager
+
+# 创建统一的回调管理器
+callback_manager = CallbackManager([ContextCallbackHandler(token)])
+
+chat = ChatOpenAI(
+    temperature=0.9,
+    callbacks=callback_manager
+)
+
+chain = LLMChain(
+    llm=chat,
+    prompt=chat_prompt_template
+    # chain 内部会自动继承 llm 的 callbacks
+)
+```
+
+### 方案 3：在 run() 时传递（动态控制）
+
+```python
+# 在需要时传递 callbacks，不在初始化时设置
+chat = ChatOpenAI(temperature=0.9)
+
+chain = LLMChain(
+    llm=chat,
+    prompt=chat_prompt_template
+)
+
+# 动态传递
+result = chain.run(
+    {"input": "hello"},
+    callbacks=[ContextCallbackHandler(token)]
+)
+```
+
+## 完整示例
+
+```python
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import LLMChain
+from langchain.prompts import ChatPromptTemplate
+
+# 定义 prompt
+chat_prompt_template = ChatPromptTemplate.from_template(
+    "Translate this to Chinese: {text}"
+)
+
+# 初始化 LLM（不设置 callbacks）
+chat = ChatOpenAI(temperature=0.9)
+
+# 创建 Chain（统一设置 callbacks）
+chain = LLMChain(
+    llm=chat,
+    prompt=chat_prompt_template,
+    callbacks=[ContextCallbackHandler(token)]  # 集中管理
+)
+
+# 运行
+result = chain.run(text="Hello world")
+print(result)
+```
+
+## 何时使用哪个方案？
+
+| 场景 | 推荐方案 |
+|------|----------|
+| 所有请求使用相同回调 | 方案 1（推荐） |
+| 需要共享回调状态 | 方案 2 |
+| 不同请求使用不同回调 | 方案 3 |
+
+需要我进一步说明回调系统的其他方面吗？
+
+Correct:
+
+```python
+handler = ContextCallbackHandler(token)
+chat = ChatOpenAI(temperature=0.9, callbacks=[callback])
+chain = LLMChain(llm=chat, prompt=chat_prompt_template, callbacks=[callback])
+```
+
+> 注：这是 Python 代码，无需翻译。请告诉我您需要翻译的其他内容。
+
+```python
+import os
+
+from langchain_classic.chains import LLMChain
+from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts.chat import (
+    ChatPromptTemplate,
+    HumanMessagePromptTemplate,
+)
+from langchain_openai import ChatOpenAI
+
+token = os.environ["CONTEXT_API_TOKEN"]
+
+human_message_prompt = HumanMessagePromptTemplate(
+    prompt=PromptTemplate(
+        template="What is a good name for a company that makes {product}?",
+        input_variables=["product"],
+    )
+)
+chat_prompt_template = ChatPromptTemplate.from_messages([human_message_prompt])
+callback = ContextCallbackHandler(token)
+chat = ChatOpenAI(temperature=0.9, callbacks=[callback])
+chain = LLMChain(llm=chat, prompt=chat_prompt_template, callbacks=[callback])
+print(chain.run("colorful socks"))
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\callbacks\context.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

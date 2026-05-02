@@ -1,0 +1,53 @@
+---
+title: "Tensorflow hub integration"
+description: "Integrate with the Tensorflow hub embedding model using LangChain Python."
+---
+
+[TensorFlow Hub](https://www.tensorflow.org/hub) 是一个已训练机器学习模型的仓库，可进行微调并可部署到任何地方。只需几行代码即可复用 `BERT` 和 `Faster R-CNN` 等已训练模型。
+Let's load the TensorflowHub Embedding class.
+
+```python
+from langchain_community.embeddings import TensorflowHubEmbeddings
+```
+
+```python
+embeddings = TensorflowHubEmbeddings()
+```
+
+```text
+2023-01-30 23:53:01.652176: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2023-01-30 23:53:34.362802: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX2 FMA
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+```
+
+```python
+text = "This is a test document."
+```
+
+```python
+query_result = embeddings.embed_query(text)
+```
+
+```python
+doc_results = embeddings.embed_documents(["foo"])
+```
+
+```python
+doc_results
+```
+
+```python
+
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\embeddings\tensorflowhub.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

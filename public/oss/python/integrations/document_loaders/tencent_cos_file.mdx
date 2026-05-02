@@ -1,0 +1,41 @@
+---
+title: "Tencent cos file integration"
+description: "Integrate with the Tencent cos file document loader using LangChain Python."
+---
+
+[腾讯云对象存储（COS）](https://www.tencentcloud.com/products/cos)是一种分布式存储服务，支持通过 HTTP/HTTPS 协议从任意位置存储任意数量的数据。COS 对数据结构或格式没有任何限制，也没有存储桶大小限制和分区管理，适用于数据分发、数据处理、数据湖等几乎任何使用场景。COS 提供 Web 控制台、多语言 SDK 和 API、命令行工具以及图形化工具。它与 Amazon S3 API 良好兼容，让您能够快速访问社区工具和插件。
+
+This covers how to load document object from a `Tencent COS File`.
+
+```python
+pip install -qU  cos-python-sdk-v5
+```
+
+```python
+from langchain_community.document_loaders import TencentCOSFileLoader
+from qcloud_cos import CosConfig
+```
+
+```python
+conf = CosConfig(
+    Region="your cos region",
+    SecretId="your cos secret_id",
+    SecretKey="your cos secret_key",
+)
+loader = TencentCOSFileLoader(conf=conf, bucket="you_cos_bucket", key="fake.docx")
+```
+
+```python
+loader.load()
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\document_loaders\tencent_cos_file.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,157 @@
+---
+title: 权限
+description: 使用声明性权限规则控制深度代理的文件系统访问
+---
+
+使用声明性权限规则控制代理可以读取或写入哪些文件和目录。传递规则列表到 `permissions=`，代理的内置文件系统工具会遵守它们。
+
+
+
+<Note>
+    权限需要 `deepagents>=1.9.1`。
+</Note>
+
+
+权限仅适用于内置文件系统工具（`ls`、`read_file`、`glob`、`grep`、`write_file`、`edit_file`）。不涵盖访问文件系统的自定义工具和 MCP 工具。权限也不适用于[沙箱后端](/oss/javascript/deepagents/sandboxes)，它支持通过 `execute` 工具进行任意命令执行。
+
+<Tip>
+当您需要内置文件系统工具上的**基于路径的允许/拒绝规则**时使用 `permissions`。当您需要自定义验证逻辑（速率限制、审计日志、内容检查）或需要控制自定义工具时，请使用[后端策略钩子](/oss/javascript/deepagents/backends#add-policy-hooks)。
+</Tip>
+
+## 基本用法
+
+python
+
+每个 `FilesystemPermission` 有三个字段：
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `operations` | `list["read" \| "write"]` | 此规则适用的操作。`"read"` 涵盖 `ls`、`read_file`、`glob`、`grep`。`"write"` 涵盖 `write_file`、`edit_file`。 |
+| `paths` | `list[str]` | 用于匹配文件路径的 Glob 模式（例如 `["/workspace/**"]`）。支持 `**` 进行递归匹配和 `{a,b}` 用于交替。 |
+| `mode` | `"allow" \| "deny"` | 是否允许或拒绝匹配的操作。默认为 `"allow"`。 |
+
+规则使用首个匹配优先评估：其 `operations` 和 `paths` 与当前调用匹配的第一个规则决定结果。如果没有规则匹配，则调用**被允许**（ permissive 默认）。
+
+::
+
+## 示例
+
+python
+
+[子代理](/oss/javascript/deepagents/subagents) 默认继承父代理的权限。要给子代理不同的权限，请在它的规范中设置 `permissions` 字段。这**完全替换**父级的规则。
+
+```python
+agent = create_deep_agent(
+    model=model,
+    backend=backend,
+    permissions=[
+        FilesystemPermission(
+            operations=["read", "write"],
+            paths=["/workspace/**"],
+            mode="allow",
+        ),
+        FilesystemPermission(
+            operations=["read", "write"],
+            paths=["/**"],
+            mode="deny",
+        ),
+    ],
+    subagents=[
+        {
+            "name": "auditor",
+            "description": "只读代码审查员",
+            "system_prompt": "审查代码问题。",
+            "permissions": [
+                FilesystemPermission(
+                    operations=["write"],
+                    paths=["/**"],
+                    mode="deny",
+                ),
+                FilesystemPermission(
+                    operations=["read"],
+                    paths=["/workspace/**"],
+                    mode="allow",
+                ),
+                FilesystemPermission(
+                    operations=["read"],
+                    paths=["/**"],
+                    mode="deny",
+                ),
+            ],
+        }
+    ],
+)
+```
+
+::
+
+## 复合后端
+
+:::python
+
+当使用带有沙箱默认的 [`CompositeBackend`](https://reference.langchain.com/python/deepagents/backends/composite/CompositeBackend) 时，每个权限路径必须限定在已知路由前缀下。沙箱支持任意命令执行，因此仅基于路径的限制无法防止通过 shell 命令的文件系统访问。将权限限定于特定路由的[后端](/oss/javascript/deepagents/backends)可以避免这种冲突。
+
+```python
+from deepagents.backends import CompositeBackend
+
+composite = CompositeBackend(
+    default=sandbox,
+    routes={"/memories/": memories_backend},
+)
+
+# 有效：权限被限定在 /memories/ 路由
+agent = create_deep_agent(
+    model=model,
+    backend=composite,
+    permissions=[
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/memories/**"],
+            mode="deny",
+        ),
+    ],
+)
+```
+
+包含任何路由外路径的权限会引发 `NotImplementedError`：
+
+```python
+# 引发 NotImplementedError：/workspace/** 命中沙箱默认
+agent = create_deep_agent(
+    model=model,
+    backend=composite,
+    permissions=[
+        FilesystemPermission(
+            operations=["write"],
+            paths=["/workspace/**"],
+            mode="deny",
+        ),
+    ],
+)
+
+# 也会引发：/** 覆盖路由和默认
+agent = create_deep_agent(
+    model=model,
+    backend=composite,
+    permissions=[
+        FilesystemPermission(
+            operations=["read"],
+            paths=["/**"],
+            mode="deny",
+        ),
+    ],
+)
+```
+
+::
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\permissions.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

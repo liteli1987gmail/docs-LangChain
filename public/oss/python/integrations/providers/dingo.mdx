@@ -1,0 +1,44 @@
+---
+title: "Dingodb integrations"
+description: "Integrate with Dingodb using LangChain Python."
+---
+
+[DingoDB](https://github.com/dingodb) 是一个分布式多模态向量数据库。它将数据湖和向量数据库的功能相结合，支持存储任意类型的数据（key-value、PDF、音频、视频等），不受数据大小限制。通过使用 DingoDB，你可以构建自己的 Vector Ocean（这是继数据仓库和数据湖之后的下一代数据架构）。这使得通过单一 SQL 以极低延迟实时分析结构化和非结构化数据成为可能。
+
+## Installation and setup
+
+Install the Python SDK
+
+<CodeGroup>
+```bash pip
+pip install dingodb
+```
+
+```bash uv
+uv add dingodb
+```
+</CodeGroup>
+
+## VectorStore
+
+There exists a wrapper around DingoDB indexes, allowing you to use it as a vectorstore,
+whether for semantic search or example selection.
+
+To import this vectorstore:
+
+```python
+from langchain_community.vectorstores import Dingo
+```
+
+For a more detailed walkthrough of the DingoDB wrapper, see [this notebook](/oss/python/integrations/vectorstores/dingo)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\dingo.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

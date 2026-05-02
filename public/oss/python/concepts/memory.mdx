@@ -1,0 +1,215 @@
+---
+title: Memory 概述
+sidebarTitle: Memory
+---
+
+
+
+[Memory](/oss/python/langgraph/add-memory) 是一个记住先前交互信息的系统。对于 AI 代理来说，记忆至关重要，因为它使代理能够记住之前的交互、从反馈中学习并适应用户偏好。随着代理处理更复杂的任务和大量用户交互，这种能力对于效率和用户满意度都变得必不可少。
+
+本概念指南根据召回范围涵盖两种类型的记忆：
+
+* [短期记忆](#short-term-memory)，或[线程（thread）](/oss/python/langgraph/persistence#threads)作用域的记忆，通过在会话内维护消息历史来跟踪当前对话。LangGraph 将短期记忆作为代理[状态](/oss/python/langgraph/graph-api#state)的一部分进行管理。状态通过[检查点（checkpointer）](/oss/python/langgraph/persistence#checkpoints)持久化到数据库，以便可以随时恢复线程。短期记忆在图被调用或步骤完成时更新，状态在每个步骤开始时读取。
+* [长期记忆](#long-term-memory) 在会话之间存储用户特定或应用级别的数据，并在对话线程之间共享。它可以随时在任何线程中被召回。记忆作用于任何自定义命名空间，而不仅限于单个线程 ID。LangGraph 提供[存储（store）](/oss/python/langgraph/persistence#memory-store)（[参考文档](https://langchain-ai.github.io/langgraph/reference/store/#langgraph.store.base.BaseStore)）让你保存和召回长期记忆。
+
+![Short vs long](/oss/images/short-vs-long.png)
+
+## 短期记忆
+
+[短期记忆](/oss/python/langgraph/add-memory#add-short-term-memory)让你的应用记住单个[线程](/oss/python/langgraph/persistence#threads)或对话中的先前交互。[线程](/oss/python/langgraph/persistence#threads)在一个会话中组织多个交互，类似于电子邮件将消息分组在单个对话中的方式。
+
+LangGraph 将短期记忆作为代理状态的一部分进行管理，通过线程作用域的检查点持久化。该状态通常可以包括对话历史以及其他有状态数据，例如上传的文件、检索的文档或生成的产物。通过将这些存储在图的状态中，机器人可以访问给定对话的完整上下文，同时保持不同线程之间的分离。
+
+### 管理短期记忆
+
+对话历史是最常见的短期记忆形式，长对话对当今的大型语言模型构成了挑战。完整历史可能无法容纳在大型语言模型的上下文窗口中，导致无法恢复的错误。即使你的大型语言模型支持完整的上下文长度，大多数大型语言模型在长上下文上的表现仍然不佳。它们会被过时或离题的内容"分心"，同时还要承受更慢的响应速度和更高的成本。
+
+聊天模型使用消息接受上下文，其中包括开发者提供的指令（系统消息）和用户输入（人类消息）。在聊天应用中，消息在人类输入和模型响应之间交替，导致消息列表随着时间增长而变长。由于上下文窗口有限且富 Token 的消息列表可能成本高昂，许多应用可以受益于使用技术来手动删除或忘记过时信息。
+
+![Filter](/oss/images/filter.png)
+
+有关管理消息的常用技术的更多信息，请参阅[添加和管理记忆](/oss/python/langgraph/add-memory#manage-short-term-memory)指南。
+
+## 长期记忆
+
+LangGraph 中的[长期记忆](/oss/python/langgraph/add-memory#add-long-term-memory)允许系统跨不同对话或会话保留信息。与**线程作用域**的短期记忆不同，长期记忆保存在自定义的"命名空间"中。
+
+长期记忆是一个复杂的挑战，没有一刀切的解决方案。然而，以下问题提供了一个框架来帮助你导航不同的技术：
+
+* 记忆的类型是什么？人类使用记忆来记住事实（[语义记忆](#semantic-memory)）、经历（[情景记忆](#episodic-memory)）和规则（[程序性记忆](#procedural-memory)）。 AI 代理可以以相同的方式使用记忆。例如，AI 代理可以使用记忆来记住关于用户的特定事实以完成任务。
+* [何时更新记忆？](#writing-memories) 记忆可以作为代理应用逻辑的一部分更新（例如，"在热路径上"）。在这种情况下，代理通常在响应用户之前决定记住事实。或者，记忆可以作为后台任务更新（在后台/异步运行的逻辑并生成记忆）。我们在[下文](#writing-memories)中解释这些方法之间的权衡。
+
+不同的应用需要各种类型的记忆。虽然类比并不完美，但研究[人类记忆类型](https://www.psychologytoday.com/us/basics/memory/types-of-memory?ref=blog.langchain.dev)可以很有启发性。一些研究（例如，[CoALA 论文](https://arxiv.org/pdf/2309.02427)）甚至将这些人类记忆类型映射到 AI 代理使用的记忆类型。
+
+| 记忆类型 | 存储内容 | 人类例子 | 代理例子 |
+|-------------|----------------|---------------|---------------|
+| [语义](#semantic-memory) | 事实 | 我在学校学到的东西 | 关于用户的事实 |
+| [情景](#episodic-memory) | 经历 | 我做过的事情 | 过去的代理动作 |
+| [程序性](#procedural-memory) | 指令 | 本能或运动技能 | 代理系统提示词 |
+
+### 语义记忆
+
+[语义记忆](https://en.wikipedia.org/wiki/Semantic_memory)，无论是在人类还是 AI 代理中，都涉及保留特定事实和概念。在人类中，它可以包括在学校学到的信息以及对概念及其关系的理解。对于 AI 代理，语义记忆通常用于通过记住过去交互中的事实或概念来个性化应用。
+
+<Note>
+语义记忆不同于"语义搜索"，后者是使用"含义"（通常作为嵌入向量）查找相似内容的技术。语义记忆是一个心理学术语，指存储事实和知识，而语义搜索是一种基于含义而非精确匹配来检索信息的方法。
+</Note>
+
+语义记忆可以以不同方式管理：
+
+#### 画像（Profile）
+
+记忆可以是一个持续更新的"画像"，包含关于用户、组织或其他实体（包括代理本身）的精心界定和特定的信息。画像通常只是一个 JSON 文档，包含你选择表示你的领域的各种键值对。
+
+在记住画像时，你需要确保每次都**更新**画像。因此，你需要传入之前的画像并[让模型生成一个新画像](https://github.com/langchain-ai/memory-template)（或一些[JSON patch](https://github.com/hinthornw/trustcall)应用于旧画像）。随着画像变大，这可能容易出错，并且可能受益于将画像拆分为多个文档或在生成文档时使用**严格**解码以确保记忆模式保持有效。
+
+![Update profile](/oss/images/update-profile.png)
+
+#### 集合（Collection）
+
+或者，记忆可以是一个随时间不断更新和扩展的文档集合。每个单独的记忆可以范围更窄、更容易生成，这意味着你随着时间推移不太可能**丢失**信息。对于大型语言模型来说，为新信息生成_新_对象比将新信息与现有画像协调更容易。因此，文档集合往往会在下游产生[更高的召回率](https://en.wikipedia.org/wiki/Precision_and_recall)。
+
+然而，这会将一些复杂性转移到记忆更新上。模型现在必须_删除_或_更新_列表中的现有项目，这可能很棘手。此外，一些模型可能默认过度插入，而其他模型可能默认过度更新。请参阅 [Trustcall](https://github.com/hinthornw/trustcall) 包来了解管理此问题的一种方法，并考虑使用评估（例如，使用 [LangSmith](/langsmith/evaluation) 之类的工具）来帮助你调整行为。
+
+使用文档集合也会将复杂性转移到记忆**搜索**上。`Store` 当前同时支持[语义搜索](https://langchain-ai.github.io/langgraph/reference/store/#langgraph.store.base.SearchOp.query)和[内容过滤](https://langchain-ai.github.io/langgraph/reference/store/#langgraph.store.base.SearchOp.filter)。
+
+最后，使用记忆集合可能使向模型提供全面上下文变得具有挑战性。虽然单个记忆可能遵循特定模式，但这种结构可能无法捕捉记忆之间的完整上下文或关系。因此，在使用这些记忆生成响应时，模型可能缺少在统一画像方法中更容易获得的宝贵上下文信息。
+
+![Update list](/oss/images/update-list.png)
+
+无论记忆管理方法如何，核心点是代理将使用语义记忆来[为响应提供依据](/oss/python/langchain/retrieval)，这通常会导致更个性化和相关的交互。
+
+### 情景记忆
+
+[情景记忆](https://en.wikipedia.org/wiki/Episodic_memory)，无论是在人类还是 AI 代理中，都涉及回忆过去的事件或动作。[CoALA 论文](https://arxiv.org/pdf/2309.02427)很好地阐述了这一点：事实可以被写入语义记忆，而*经历*可以被写入情景记忆。对于 AI 代理，情景记忆通常用于帮助代理记住如何完成任务。
+
+在实践中，情景记忆通常通过少量示例提示来实现，代理从过去的序列中学习以正确执行任务。有时候"展示"比"讲述"更容易，大型语言模型从示例中学习得很好。少量学习让你可以通过更新提示词来"编程"你的大型语言模型，用输入-输出示例说明预期行为。虽然可以使用各种最佳实践来生成少量示例，但通常挑战在于根据用户输入选择最相关的示例。
+
+
+
+
+请注意，记忆[存储](/oss/python/langgraph/persistence#memory-store)只是将数据存储为少量示例的一种方式。如果你希望有更多的开发者参与，或将少量示例更紧密地绑定到你的评估工具，你也可以使用 LangSmith Dataset 来存储你的数据并实现你自己的检索逻辑，以根据用户输入选择最相关的示例。
+
+参阅这篇[博客文章](https://blog.langchain.dev/few-shot-prompting-to-improve-tool-calling-performance/)展示使用少量提示来提高工具调用性能，以及这篇[博客文章](https://blog.langchain.dev/aligning-llm-as-a-judge-with-human-preferences/)使用少量示例将大型语言模型与人类偏好对齐。
+
+
+
+
+### 程序性记忆
+
+[程序性记忆](https://en.wikipedia.org/wiki/Procedural_memory)，无论是在人类还是 AI 代理中，都涉及记住用于执行任务的规则。在人类中，程序性记忆就像执行任务的内化知识，例如通过基本运动技能和平衡骑自行车。另一方面，情景记忆涉及回忆特定经历，例如你第一次成功骑自行车不靠辅助轮或一次难忘的自行车骑行穿越风景秀丽的路线。对于 AI 代理，程序性记忆是模型权重、代理代码和代理提示词的组合，共同决定代理的功能。
+
+在实践中，代理修改其模型权重或重写其代码的情况相当少见。但是，代理修改自己的提示词更为常见。
+
+完善代理指令的一种有效方法是通过["反思"](https://blog.langchain.dev/reflection-agents/)或元提示。这涉及用其当前指令（例如，系统提示词）以及最近的对话或明确的用户反馈来提示代理。然后代理根据此输入完善自己的指令。这种方法对于预先难以指定指令的任务特别有用，因为它允许代理从其交互中学习和适应。
+
+例如，我们使用外部反馈和提示词重写构建了一个[推文生成器](https://www.youtube.com/watch?v=Vn8A3BxfplE)，为 Twitter 生成高质量的论文摘要。在这种情况下，具体的摘要提示词很难预先指定，但用户很容易批评生成的推文并提供关于如何改进摘要过程的反馈。
+
+下面的伪代码展示瞭如何使用 LangGraph 记忆[存储](/oss/python/langgraph/persistence#memory-store)实现这一点，使用存储保存提示词，`update_instructions` 节点获取当前提示词（以及从 `state["messages"]` 中捕获的与用户对话中的反馈），更新提示词，并将新提示词保存回存储。然后，`call_model` 从存储中获取更新的提示词并使用它生成响应。
+
+```python
+# Node that *uses* the instructions
+def call_model(state: State, store: BaseStore):
+    namespace = ("agent_instructions", )
+    instructions = store.get(namespace, key="agent_a")[0]
+    # Application logic
+    prompt = prompt_template.format(instructions=instructions.value["instructions"])
+    ...
+
+# Node that updates instructions
+def update_instructions(state: State, store: BaseStore):
+    namespace = ("instructions",)
+    instructions = store.search(namespace)[0]
+    # Memory logic
+    prompt = prompt_template.format(instructions=instructions.value["instructions"], conversation=state["messages"])
+    output = llm.invoke(prompt)
+    new_instructions = output['new_instructions']
+    store.put(("agent_instructions",), "agent_a", {"instructions": new_instructions})
+    ...
+```
+
+
+
+
+![Update instructions](/oss/images/update-instructions.png)
+
+### 写入记忆
+
+代理写入记忆主要有两种方法：["在热路径上"](#in-the-hot-path)和["在后台"](#in-the-background)。
+
+![Hot path vs background](/oss/images/hot_path_vs_background.png)
+
+#### 在热路径上
+
+在运行时创建记忆既有优点也有挑战。从积极的一面来看，这种方法允许实时更新，使新记忆立即可用于后续交互。它还支持透明性，因为用户可以在记忆被创建和存储时收到通知。
+
+但是，这种方法也面临挑战。如果代理需要一个新工具来决定将什么提交到记忆，可能会增加复杂性。此外，关于要保存到记忆的内容的推理过程会影响代理延迟。最后，代理必须在记忆创建和其他职责之间进行多任务处理，这可能会影响创建的记忆的数量和质量。
+
+例如，ChatGPT 使用 [save_memories](https://openai.com/index/memory-and-new-controls-for-chatgpt/) 工具将记忆作为内容字符串进行 upsert，决定是否以及如何使用此工具处理每个用户消息。请参阅我们的 [memory-agent](https://github.com/langchain-ai/memory-agent) 模板作为参考实现。
+
+#### 在后台
+
+作为单独的后台任务创建记忆有几个优点。它消除了主应用程序的延迟，将应用逻辑与记忆管理分离，并允许代理更专注于任务完成。这种方法还提供了灵活的记忆创建时间安排，以避免冗余工作。
+
+但是，这种方法有其自身的挑战。确定记忆写入的频率变得至关重要，因为不频繁的更新可能使其他线程没有新上下文。决定何时触发记忆形成也很重要。常见策略包括在一段时间后安排（如果有新事件则重新安排）、使用 cron 计划或允许用户或应用逻辑手动触发。
+
+请参阅我们的 [memory-service](https://github.com/langchain-ai/memory-template) 模板作为参考实现。
+
+### 记忆存储
+
+LangGraph 将长期记忆存储为 [store](/oss/python/langgraph/persistence#memory-store) 中的 JSON 文档。每条记忆都组织在一个自定义的 `namespace`（类似于文件夹）下和一个不同的 `key`（类似于文件名）下。命名空间通常包含用户或组织 ID 或其他标签，以便更容易组织信息。这种结构支持记忆的层次组织。然后通过内容过滤器支持跨命名空间搜索。
+
+```python
+from langgraph.store.memory import InMemoryStore
+
+
+def embed(texts: list[str]) -> list[list[float]]:
+    # Replace with an actual embedding function or LangChain embeddings object
+    return [[1.0, 2.0] * len(texts)]
+
+
+# InMemoryStore saves data to an in-memory dictionary. Use a DB-backed store in production use.
+store = InMemoryStore(index={"embed": embed, "dims": 2})
+user_id = "my-user"
+application_context = "chitchat"
+namespace = (user_id, application_context)
+store.put(
+    namespace,
+    "a-memory",
+    {
+        "rules": [
+            "User likes short, direct language",
+            "User only speaks English & python",
+        ],
+        "my-key": "my-value",
+    },
+)
+# get the "memory" by ID
+item = store.get(namespace, "a-memory")
+# search for "memories" within this namespace, filtering on content equivalence, sorted by vector similarity
+items = store.search(
+    namespace, filter={"my-key": "my-value"}, query="language preferences"
+)
+```
+
+
+
+
+有关记忆存储的更多信息，请参阅[持久化](/oss/python/langgraph/persistence#memory-store)指南。
+
+## 了解更多
+
+- [上下文概念概述](/oss/python/concepts/context)
+- [LangChain 中的短期记忆](/oss/python/langchain/short-term-memory)
+- [LangGraph 中的记忆](/oss/python/langgraph/add-memory)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\concepts\memory.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

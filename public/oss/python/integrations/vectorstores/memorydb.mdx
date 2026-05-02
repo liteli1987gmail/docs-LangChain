@@ -1,0 +1,486 @@
+---
+title: "Amazon memorydb integration"
+description: "Integrate with the Amazon memorydb vector store using LangChain Python."
+---
+
+# Vector Search（向量搜索）介绍与 LangChain 集成指南
+
+## 什么是向量搜索？
+
+向量搜索是一种基于**向量相似度**的信息检索技术。它将数据（如文本、图片）转换为高维向量，通过计算向量之间的距离来找到最相似的结果。
+
+```
+传统搜索：关键词匹配 → 精确匹配 → 有限结果
+向量搜索：语义理解 → 距离计算 → 相似性排序
+```
+
+### 核心应用场景
+
+| 场景 | 说明 |
+|------|------|
+| **语义搜索** | 理解查询意图而非简单关键词匹配 |
+| **RAG (检索增强生成)** | 为 LLM 提供相关上下文 |
+| **推荐系统** | 基于相似度推荐内容 |
+| **图像/音频检索** | 多模态内容搜索 |
+
+---
+
+## AWS MemoryDB 向量搜索
+
+### 主要特性
+
+```python
+# MemoryDB 支持的关键特性
+features = {
+    "向量维度": "支持最多 4096 维向量",
+    "索引类型": "HNSW (Hierarchical Navigable Small World) 近似最近邻算法",
+    "距离度量": "COSINE (余弦相似度), L2 (欧几里得距离), DOT_PRODUCT (点积)",
+    "性能": "毫秒级查询延迟，支持数百万向量"
+}
+```
+
+### 基本操作示例
+
+```python
+import redis
+
+# 连接 MemoryDB
+client = redis.Redis(host="your-memorydb-endpoint", port=6379, ssl=True)
+
+# 存储向量数据
+doc = {
+    "id": "doc1",
+    "content": "人工智能是计算机科学的一个分支",
+    "embedding": [0.123, 0.456, ...]  # 1536维向量 (OpenAI)
+}
+client.hset("docs", mapping=doc)
+
+# 执行向量搜索
+query_vector = [0.1, 0.2, ...]  # 查询向量
+results = client.ft("idx").search(
+    "*=>[KNN 10 @vector $query_vector AS score]",
+    params={"query_vector": query_vector}
+)
+```
+
+---
+
+## LangChain 集成指南
+
+### 安装依赖
+
+```bash
+pip install langchain langchain-community redis
+```
+
+### 完整集成示例
+
+```python
+from langchain_community.vectorstores import RedisVectorStore
+from langchain_openai import OpenAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# 1. 配置嵌入模型
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# 2. 初始化 MemoryDB 向量存储
+vector_store = RedisVectorStore(
+    embedding=embeddings,
+    index_name="my_index",
+    redis_url="rediss://your-memorydb-endpoint:6379",
+    distance_strategy="COSINE"
+)
+
+# 3. 文档处理与存储
+texts = [
+    "LangChain 是一个用于构建 LLM 应用的框架",
+    "向量数据库用于存储和检索高维向量"
+]
+vector_store.add_texts(texts)
+
+# 4. 相似度检索
+results = vector_store.similarity_search(
+    query="什么是 LangChain?",
+    k=3  # 返回最相似的3个结果
+)
+
+print(results[0].page_content)
+```
+
+### RAG 完整流程
+
+```python
+from langchain_openai import ChatOpenAI
+from langchain.chains import RetrievalQA
+
+# 构建 RAG 问答系统
+llm = ChatOpenAI(model="gpt-4")
+
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm,
+    retriever=vector_store.as_retriever(search_kwargs={"k": 5}),
+    return_source_documents=True
+)
+
+# 执行查询
+response = qa_chain.invoke({
+    "query": "向量数据库有什么应用场景？"
+})
+
+print(response["result"])
+```
+
+### 自定义向量搜索
+
+```python
+from langchain_community.vectorstores import RedisVectorStore
+
+# 使用 HNSW 参数优化搜索
+vector_store = RedisVectorStore(
+    embedding=embeddings,
+    index_name="my_index",
+    redis_url="rediss://your-memorydb-endpoint:6379",
+    
+    # HNSW 参数
+    hnsw_space="cosine",        # 距离度量
+    hnsw_ef_construction=200,   # 构建时的搜索深度 (越高越精确但越慢)
+    hnsw_ef=128,                # 查询时的搜索深度
+    hnsw_m=16                    # 节点的连接数
+)
+```
+
+---
+
+## 最佳实践
+
+### 向量维度选择
+
+```python
+# 不同 Embedding 模型的维度
+dimension_guide = {
+    "OpenAI text-embedding-3-small": 1536,  # 可缩减到256/512/1024
+    "OpenAI text-embedding-3-large": 3072,  # 可缩减到256/512/1024/2048
+    "Cohere embed-multilingual-v3.0": 1024,
+}
+```
+
+### 性能优化建议
+
+| 优化项 | 建议 |
+|--------|------|
+| **索引配置** | HNSW 参数 M=16, ef=100 适合大多数场景 |
+| **批量写入** | 使用 `add_texts()` 批量操作而非单条 |
+| **连接池** | 生产环境配置连接池复用 |
+| **缓存** | 对频繁查询结果进行应用层缓存 |
+
+### 监控与调试
+
+```python
+# 查看索引信息
+info = client.ft("my_index").info()
+print(f"向量数量: {info['num_vectors']}")
+print(f"索引大小: {info['bytes']}")
+```
+
+---
+
+## 资源链接
+
+- [AWS MemoryDB 向量搜索文档](https://docs.aws.amazon.com/memorydb/latest/devguide/vector-search.html/)
+- [LangChain Redis Vector Store](https://python.langchain.com/docs/integrations/vectorstores/redis)
+- [向量搜索最佳实践](https://docs.aws.amazon.com/memorydb/latest/devguide/vector-search-best-practices.html)
+
+## What is Amazon MemoryDB?
+
+MemoryDB is compatible with Redis OSS, a popular open source data store, enabling you to quickly build applications using the same flexible and friendly Redis OSS data structures, APIs, and commands that they already use today. With MemoryDB, all of your data is stored in memory, which enables you to achieve microsecond read and single-digit millisecond write latency and high throughput. MemoryDB also stores data durably across multiple Availability Zones (AZs) using a Multi-AZ transactional log to enable fast failover, database recovery, and node restarts.
+
+## Vector search for MemoryDB
+
+Vector search for MemoryDB extends the functionality of MemoryDB. Vector search can be used in conjunction with existing MemoryDB functionality. Applications that do not use vector search are unaffected by its presence. Vector search is available in all Regions that MemoryDB is available. You can use your existing MemoryDB data or Redis OSS API to build machine learning and generative AI use cases, such as retrieval-augmented generation, anomaly detection, document retrieval, and real-time recommendations.
+
+* Indexing of multiple fields in Redis hashes and `JSON`
+* Vector similarity search (with `HNSW` (ANN) or `FLAT` (KNN))
+* Vector Range Search (e.g. find all vectors within a radius of a query vector)
+* Incremental indexing without performance loss
+
+## Setting up
+
+### Install Redis Python client
+
+`Redis-py` is a python  client that can be used to connect to MemoryDB
+
+```python
+pip install -qU  redis langchain-aws
+```
+
+```python
+from langchain_aws.embeddings import BedrockEmbeddings
+
+embeddings = BedrockEmbeddings()
+```
+
+### MemoryDB connection
+
+Valid Redis Url schemas are:
+
+1. `redis://`  - Connection to Redis cluster, unencrypted
+2. `rediss://` - Connection to Redis cluster, with TLS encryption
+
+More information about additional connection parameters can be found in the [redis-py documentation](https://redis-py.readthedocs.io/en/stable/connections.html).
+
+### Sample data
+
+First we will describe some sample data so that the various attributes of the Redis vector store can be demonstrated.
+
+```python
+metadata = [
+    {
+        "user": "john",
+        "age": 18,
+        "job": "engineer",
+        "credit_score": "high",
+    },
+    {
+        "user": "derrick",
+        "age": 45,
+        "job": "doctor",
+        "credit_score": "low",
+    },
+    {
+        "user": "nancy",
+        "age": 94,
+        "job": "doctor",
+        "credit_score": "high",
+    },
+    {
+        "user": "tyler",
+        "age": 100,
+        "job": "engineer",
+        "credit_score": "high",
+    },
+    {
+        "user": "joe",
+        "age": 35,
+        "job": "dentist",
+        "credit_score": "medium",
+    },
+]
+texts = ["foo", "foo", "foo", "bar", "bar"]
+index_name = "users"
+```
+
+### Create MemoryDB vector store
+
+The InMemoryVectorStore instance can be initialized using the below methods
+* `InMemoryVectorStore.__init__` - Initialize directly
+* `InMemoryVectorStore.from_documents` - Initialize from a list of `LangChain.docstore.Document` objects
+* `InMemoryVectorStore.from_texts` - Initialize from a list of texts (optionally with metadata)
+* `InMemoryVectorStore.from_existing_index` - Initialize from an existing MemoryDB index
+
+```python
+from langchain_aws.vectorstores.inmemorydb import InMemoryVectorStore
+
+vds = InMemoryVectorStore.from_texts(
+    embeddings,
+    redis_url="rediss://cluster_endpoint:6379/ssl=True ssl_cert_reqs=none",
+)
+```
+
+```python
+vds.index_name
+```
+
+```text
+'users'
+```
+
+## Querying
+
+There are multiple ways to query the `InMemoryVectorStore`  implementation based on what use case you have:
+
+* `similarity_search`: Find the most similar vectors to a given vector.
+* `similarity_search_with_score`: Find the most similar vectors to a given vector and return the vector distance
+* `similarity_search_limit_score`: Find the most similar vectors to a given vector and limit the number of results to the `score_threshold`
+* `similarity_search_with_relevance_scores`: Find the most similar vectors to a given vector and return the vector similarities
+* `max_marginal_relevance_search`: Find the most similar vectors to a given vector while also optimizing for diversity
+
+```python
+results = vds.similarity_search("foo")
+print(results[0].page_content)
+```
+
+```text
+foo
+```
+
+```python
+# with scores (distances)
+results = vds.similarity_search_with_score("foo", k=5)
+for result in results:
+    print(f"Content: {result[0].page_content} --- Score: {result[1]}")
+```
+
+```text
+Content: foo --- Score: 0.0
+Content: foo --- Score: 0.0
+Content: foo --- Score: 0.0
+Content: bar --- Score: 0.1566
+Content: bar --- Score: 0.1566
+```
+
+```python
+# limit the vector distance that can be returned
+results = vds.similarity_search_with_score("foo", k=5, distance_threshold=0.1)
+for result in results:
+    print(f"Content: {result[0].page_content} --- Score: {result[1]}")
+```
+
+```text
+Content: foo --- Score: 0.0
+Content: foo --- Score: 0.0
+Content: foo --- Score: 0.0
+```
+
+```python
+# with scores
+results = vds.similarity_search_with_relevance_scores("foo", k=5)
+for result in results:
+    print(f"Content: {result[0].page_content} --- Similarity: {result[1]}")
+```
+
+```text
+Content: foo --- Similarity: 1.0
+Content: foo --- Similarity: 1.0
+Content: foo --- Similarity: 1.0
+Content: bar --- Similarity: 0.8434
+Content: bar --- Similarity: 0.8434
+```
+
+```python
+# you can also add new documents as follows
+new_document = ["baz"]
+new_metadata = [{"user": "sam", "age": 50, "job": "janitor", "credit_score": "high"}]
+# both the document and metadata must be lists
+vds.add_texts(new_document, new_metadata)
+```
+
+```python
+['doc:users:b9c71d62a0a34241a37950b448dafd38']
+```
+
+## MemoryDB as retriever
+
+Here we go over different options for using the vector store as a retriever.
+
+There are three different search methods we can use to do retrieval. By default, it will use semantic similarity.
+
+```python
+query = "foo"
+results = vds.similarity_search_with_score(query, k=3, return_metadata=True)
+
+for result in results:
+    print("Content:", result[0].page_content, " --- Score: ", result[1])
+```
+
+```text
+Content: foo  --- Score:  0.0
+Content: foo  --- Score:  0.0
+Content: foo  --- Score:  0.0
+```
+
+```python
+retriever = vds.as_retriever(search_type="similarity", search_kwargs={"k": 4})
+```
+
+```python
+docs = retriever.invoke(query)
+docs
+```
+
+```python
+[Document(page_content='foo', metadata={'id': 'doc:users_modified:988ecca7574048e396756efc0e79aeca', 'user': 'john', 'job': 'engineer', 'credit_score': 'high', 'age': '18'}),
+ Document(page_content='foo', metadata={'id': 'doc:users_modified:009b1afeb4084cc6bdef858c7a99b48e', 'user': 'derrick', 'job': 'doctor', 'credit_score': 'low', 'age': '45'}),
+ Document(page_content='foo', metadata={'id': 'doc:users_modified:7087cee9be5b4eca93c30fbdd09a2731', 'user': 'nancy', 'job': 'doctor', 'credit_score': 'high', 'age': '94'}),
+ Document(page_content='bar', metadata={'id': 'doc:users_modified:01ef6caac12b42c28ad870aefe574253', 'user': 'tyler', 'job': 'engineer', 'credit_score': 'high', 'age': '100'})]
+```
+
+There is also the `similarity_distance_threshold` retriever which allows the user to specify the vector distance
+
+```python
+retriever = vds.as_retriever(
+    search_type="similarity_distance_threshold",
+    search_kwargs={"k": 4, "distance_threshold": 0.1},
+)
+```
+
+```python
+docs = retriever.invoke(query)
+docs
+```
+
+```python
+[Document(page_content='foo', metadata={'id': 'doc:users_modified:988ecca7574048e396756efc0e79aeca', 'user': 'john', 'job': 'engineer', 'credit_score': 'high', 'age': '18'}),
+ Document(page_content='foo', metadata={'id': 'doc:users_modified:009b1afeb4084cc6bdef858c7a99b48e', 'user': 'derrick', 'job': 'doctor', 'credit_score': 'low', 'age': '45'}),
+ Document(page_content='foo', metadata={'id': 'doc:users_modified:7087cee9be5b4eca93c30fbdd09a2731', 'user': 'nancy', 'job': 'doctor', 'credit_score': 'high', 'age': '94'})]
+```
+
+Lastly, the `similarity_score_threshold` allows the user to define the minimum score for similar documents
+
+```python
+retriever = vds.as_retriever(
+    search_type="similarity_score_threshold",
+    search_kwargs={"score_threshold": 0.9, "k": 10},
+)
+```
+
+```python
+retriever.invoke("foo")
+```
+
+```python
+[Document(page_content='foo', metadata={'id': 'doc:users_modified:988ecca7574048e396756efc0e79aeca', 'user': 'john', 'job': 'engineer', 'credit_score': 'high', 'age': '18'}),
+ Document(page_content='foo', metadata={'id': 'doc:users_modified:009b1afeb4084cc6bdef858c7a99b48e', 'user': 'derrick', 'job': 'doctor', 'credit_score': 'low', 'age': '45'}),
+ Document(page_content='foo', metadata={'id': 'doc:users_modified:7087cee9be5b4eca93c30fbdd09a2731', 'user': 'nancy', 'job': 'doctor', 'credit_score': 'high', 'age': '94'})]
+```
+
+```python
+retriever.invoke("foo")
+```
+
+```python
+[Document(page_content='foo', metadata={'id': 'doc:users:8f6b673b390647809d510112cde01a27', 'user': 'john', 'job': 'engineer', 'credit_score': 'high', 'age': '18'}),
+ Document(page_content='bar', metadata={'id': 'doc:users:93521560735d42328b48c9c6f6418d6a', 'user': 'tyler', 'job': 'engineer', 'credit_score': 'high', 'age': '100'}),
+ Document(page_content='foo', metadata={'id': 'doc:users:125ecd39d07845eabf1a699d44134a5b', 'user': 'nancy', 'job': 'doctor', 'credit_score': 'high', 'age': '94'}),
+ Document(page_content='foo', metadata={'id': 'doc:users:d6200ab3764c466082fde3eaab972a2a', 'user': 'derrick', 'job': 'doctor', 'credit_score': 'low', 'age': '45'})]
+```
+
+## Delete index
+
+To delete your entries you have to address them by their keys.
+
+```python
+# delete the indices too
+InMemoryVectorStore.drop_index(
+    index_name="users", delete_documents=True, redis_url="redis://localhost:6379"
+)
+InMemoryVectorStore.drop_index(
+    index_name="users_modified",
+    delete_documents=True,
+    redis_url="redis://localhost:6379",
+)
+```
+
+```text
+True
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\vectorstores\memorydb.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

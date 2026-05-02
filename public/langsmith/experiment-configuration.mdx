@@ -1,0 +1,45 @@
+---
+title: 实验配置
+sidebarTitle: 实验配置
+---
+
+LangSmith 支持以下实验配置选项：
+
+- [重复](#repetitions)
+- [并发](#concurrency)
+- [缓存](#caching)
+
+### 重复
+
+_重复_ 多次运行实验以考虑 LLM 输出可变性。由于 LLM 输出是非确定性的，多次重复可以提供更准确的性能估计。
+
+通过将 `num_repetitions` 参数传递给 `evaluate` / `aevaluate`（[Python](https://reference.langchain.com/python/langsmith/evaluation/_runner/evaluate)，[TypeScript](https://reference.langchain.com/javascript/langsmith/evaluation/EvaluateOptions#member-numRepetitions-9)）来配置重复。每次重复都会重新运行目标函数和所有评估器。
+
+在[重复操作指南](/langsmith/repetition)中了解更多。
+
+### 并发
+
+_并发_ 控制实验期间同时运行多少个示例。通过将 `max_concurrency` 参数传递给 `evaluate` / `aevaluate` 来配置它。这两个函数的语义有所不同：
+
+#### `evaluate`
+
+`max_concurrency` 参数指定运行目标函数和评估器的最大并发线程数。
+
+#### `aevaluate`
+
+`max_concurrency` 参数使用信号量来限制并发任务。`aevaluate` 为每个示例创建一个任务，每个任务运行该示例的目标函数和所有评估器。`max_concurrency` 参数指定要处理的最大并发示例数。
+
+### 缓存
+
+_缓存_ 将 API 调用结果存储到磁盘以加快未来实验的速度。将 `LANGSMITH_TEST_CACHE` 环境变量设置为具有写访问权限的有效文件夹路径。未来进行相同 API 调用的实验将重用缓存结果，而不是发出新请求。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\experiment-configuration.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

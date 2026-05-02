@@ -1,0 +1,113 @@
+---
+title: 流式处理
+---
+
+import NostreamTagPy from '/snippets/code-samples/nostream-tag-py.mdx';
+import NostreamTagJs from '/snippets/code-samples/nostream-tag-js.mdx';
+
+LangGraph 实现了流式系统以展示实时更新。流式处理对于增强建立在大型语言模型之上的应用程序的响应能力至关重要。通过渐进地显示输出，即使在完整响应准备好之前，流式处理显著改善了用户体验（UX），特别是在处理大型语言模型的延迟时。
+
+## 开始使用
+
+### 基本用法
+
+
+
+LangGraph 图暴露了 [`stream`](https://reference.langchain.com/javascript/classes/_langchain_langgraph.pregel.Pregel.html#stream) 方法以生成流式输出作为迭代器。
+
+```typescript
+for await (const chunk of await graph.stream(inputs, {
+  streamMode: "updates",
+})) {
+  console.log(chunk);
+}
+```
+
+
+
+
+## 流模式
+
+
+将以下一个或多个流模式作为列表传递给 [`stream`](https://reference.langchain.com/javascript/classes/_langchain_langgraph.index.CompiledStateGraph.html#stream) 方法：
+
+| 模式 | 描述 |
+| :--- | :---------- |
+| [values](#graph-state) | 每步后的完整状态。 |
+| [updates](#graph-state) | 每步后的状态更新。同一时刻的多个更新会分别流式传输。 |
+| [messages](#llm-tokens) | 来自 LLM 调用的 2 元组（LLM token，元数据）。 |
+| [custom](#custom-data) | 通过 `writer` 配置参数从节点发出的自定义数据。 |
+| [tools](#tool-progress) | 工具调用生命周期事件（`on_tool_start`、`on_tool_event`、`on_tool_end`、`on_tool_error`）。 |
+| [debug](#debug) | 图执行过程中所有可用信息。 |
+
+<a id="messages"></a>
+
+### 图状态
+
+使用流模式 `updates` 和 `values` 来流式传输图执行时的状态。
+
+* `updates` 流式传输每步后状态的**更新**。
+* `values` 流式传输每步后状态的**完整值**。
+
+
+
+```typescript
+import { StateGraph, StateSchema, START, END } from "@langchain/langgraph";
+import { z } from "zod/v4";
+
+const State = new StateSchema({
+  topic: z.string(),
+  joke: z.string(),
+});
+
+const graph = new StateGraph(State)
+  .addNode("refineTopic", (state) => {
+    return { topic: state.topic + " and cats" };
+  })
+  .addNode("generateJoke", (state) => {
+    return { joke: `This is a joke about ${state.topic}` };
+  })
+  .addEdge(START, "refineTopic")
+  .addEdge("refineTopic", "generateJoke")
+  .addEdge("generateJoke", END)
+  .compile();
+```
+
+
+<Tabs>
+    <Tab title="updates">
+    使用此选项仅流式传输每步后节点返回的**状态更新**。流式输出包括节点名称以及更新。
+
+
+
+    ```typescript
+    for await (const chunk of await graph.stream(
+      { topic: "ice cream" },
+      { streamMode: "updates" }
+    )) {
+      for (const [nodeName, state] of Object.entries(chunk)) {
+        console.log(`Node ${nodeName} updated:`, state);
+      }
+    }
+    ```
+
+    </Tab>
+    <Tab title="values">
+    使用此选项流式传输每步后图的**完整状态**。
+
+
+
+    :::js
+    ```typescript
+    for await (const chunk of await graph.stream(
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\streaming.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

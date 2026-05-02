@@ -1,0 +1,160 @@
+---
+title: LangSmith 数据平面
+sidebarTitle: 数据平面
+---
+
+_数据平面_ 由您的 [Agent Servers](/langsmith/agent-server)（部署）、其支持基础设施以及持续轮询 [LangSmith 控制平面](/langsmith/control-plane)更新的"监听器"应用程序组成。
+
+## 服务器基础设施
+
+除了 [Agent Server](/langsmith/agent-server) 本身，每个服务器的以下基础设施组件也被包含在"数据平面"的广义定义中：
+
+- **PostgreSQL**：用于用户、运行和内存数据的持久化层。
+- **Redis**：用于工作进程的通信和临时元数据。
+- **密钥存储**：安全的环境密钥管理。
+- **自动扩展器**：根据负载扩展服务器容器。
+
+## "监听器"应用程序
+
+数据平面"监听器"应用程序定期调用[控制平面 API](/langsmith/control-plane#control-plane-api)以：
+
+* 确定是否应创建新部署。
+* 确定是否应更新现有部署（即新修订版）。
+* 确定是否应删除现有部署。
+
+换句话说，数据平面"监听器"读取控制平面的最新状态（期望状态）并采取措施来协调现有部署（当前状态）以匹配最新状态。
+
+## PostgreSQL
+
+PostgreSQL 存储服务器资源（线程、运行、助手、cron）和保存在[长期内存存储](/oss/python/langgraph/persistence#memory-store)中的项目。它也是[检查点](/oss/python/langgraph/persistence)（图执行状态）的默认后端。您可以选择将检查点存储在 MongoDB 中——请参阅[配置检查点存储后端](/langsmith/configure-checkpointer)。无论检查点后端如何，PostgreSQL 始终是必需的。
+
+## Redis
+
+Redis 在每个 Agent Server 中用作服务器和队列工作进程之间的通信方式，并存储临时元数据。Redis 中不存储任何用户或运行数据。
+
+### 通信
+
+Agent Server 中的所有运行都由作为每个部署一部分的后台工作进程池执行。为了为这些运行启用某些功能（如取消和输出流式传输），我们需要一个服务器和处理特定运行的 worker 之间双向通信的通道。我们使用 Redis 来组织该通信。
+
+1. Redis 列表用作在创建新运行时立即唤醒工作进程的机制。此列表中仅存储一个哨兵值，不存储实际运行信息。然后 worker 从 PostgreSQL 检索运行信息。
+2. Redis 字符串和 Redis PubSub 通道的组合用于服务器将运行取消请求传达给相应的工作进程。
+3. Redis PubSub 通道用于 worker 在运行被处理时广播代理的流式输出。服务器中任何打开的 `/stream` 请求都将订阅该通道，并在事件到达时将事件转发到响应。不会在任何时候在 Redis 中存储事件。
+
+### 临时元数据
+
+Agent Server 中的运行可能会因特定失败而重试（目前仅针对运行期间遇到的临时 PostgreSQL 错误）。为了限制重试次数（目前限制为每次运行 3 次尝试），我们在拾取运行时在 Redis 字符串中记录尝试次数。这除了其 ID 外不包含任何特定于运行的信息，并且会在短延迟后过期。
+
+## 数据平面功能
+
+本节描述数据平面的各种功能。
+
+### 数据区域
+
+<Info>
+**仅适用于云**
+数据区域仅适用于[云](/langsmith/cloud)部署。
+</Info>
+
+部署可以在 2 个数据区域中创建：美国和欧盟
+
+部署的数据区域由创建部署的 LangSmith 组织的数据区域决定。部署及其底层数据库无法在数据区域之间迁移。
+
+### 自动扩展
+
+[`Production` 类型](/langsmith/control-plane#deployment-types)部署自动扩展至 10 个容器。扩展基于 3 个指标：
+
+1. CPU 利用率
+2. 内存利用率
+3. 待处理（进行中）[运行](/langsmith/runs)的数量
+
+对于 CPU 利用率，自动扩展器针对 75% 利用率。这意味着自动扩展器将向上或向下扩展容器数量，以确保 CPU 利用率保持在 75% 或接近 75%。对于内存利用率，自动扩展器也针对 75% 利用率。
+
+对于待处理运行数量，自动扩展器针对 10 个待处理运行。例如，如果当前容器数为 1，但待处理运行数为 20，则自动扩展器将把部署扩展到 2 个容器（20 个待处理运行 / 2 个容器 = 每个容器 10 个待处理运行）。
+
+每个指标独立计算，自动扩展器将根据导致最大容器数量的指标确定扩展操作。
+
+这些指标并非都适用于每种容器类型。[队列工作进程](/langsmith/agent-server#runtime-architecture)根据待处理运行数量进行扩展——当积压增长时，会启动更多工作进程来消耗它。[API 服务器](/langsmith/agent-server#runtime-architecture)根据 CPU 和内存进行扩展，响应客户端请求量。这意味着运行提交的高峰不会减慢读取操作（如获取线程状态）。有关自托管配置详情，请参阅[为规模配置 Agent Server](/langsmith/agent-server-scale)。
+
+缩减操作在采取任何操作之前会延迟 30 分钟。换句话说，如果自动扩展器决定缩减部署，它将首先等待 30 分钟再进行缩减。30 分钟后，将重新计算指标，如果重新计算的指标导致容器数量低于当前数量，则部署将缩减。否则，部署将保持扩展状态。这个"冷却"期确保部署不会过于频繁地扩展和缩减。
+
+### 静态 IP 地址
+
+<Info>
+**仅适用于云**
+静态 IP 地址仅适用于[云](/langsmith/cloud)部署。
+</Info>
+
+2025 年 1 月 6 日之后创建的所有部署的流量都将通过 NAT 网关。此 NAT 网关将根据数据区域拥有多个静态 IP 地址。有关静态 IP 地址列表，请参阅[允许列表 IP 地址表](/langsmith/deploy-to-cloud#allowlist-ip-addresses)。
+
+### 负载大小
+
+<Info>
+**仅适用于云**
+负载大小限制仅适用于[云](/langsmith/cloud)部署。
+</Info>
+发送到[云](/langsmith/cloud)部署的所有请求的最大负载大小为 25 MB。尝试发送大于 25 MB 的请求将导致 `413 Payload Too Large` 错误。
+
+### 自定义 PostgreSQL
+
+<Info>
+自定义 PostgreSQL 实例仅适用于[混合](/langsmith/hybrid)和[自托管](/langsmith/self-hosted)部署。
+</Info>
+
+可以使用自定义 PostgreSQL 实例而非[控制平面自动创建的 PostgreSQL](/langsmith/control-plane#database-provisioning)。指定 [`POSTGRES_URI_CUSTOM`](/langsmith/env-var#postgres_uri_custom) 环境变量以使用自定义 PostgreSQL 实例。
+
+多个部署可以共享同一个 PostgreSQL 实例。例如，对于 `Deployment A`，`POSTGRES_URI_CUSTOM` 可以设置为 `postgres://<user>:<password>@/<database_name_1>?host=<hostname_1>`，对于 `Deployment B`，`POSTGRES_URI_CUSTOM` 可以设置为 `postgres://<user>:<password>@/<database_name_2>?host=<hostname_1>`。`<database_name_1>` 和 `database_name_2` 是同一实例内的不同数据库，但 `<hostname_1>` 是共享的。**同一个数据库不能用于单独的部署**。
+
+### 自定义 Redis
+
+<Info>
+自定义 Redis 实例仅适用于[混合](/langsmith/hybrid)和[自托管](/langsmith/self-hosted)部署。
+</Info>
+
+可以使用自定义 Redis 实例而非控制平面自动创建的 Redis。指定 [REDIS_URI_CUSTOM](/langsmith/env-var#redis_uri_custom) 环境变量以使用自定义 Redis 实例。
+
+多个部署可以共享同一个 Redis 实例。例如，对于 `Deployment A`，`REDIS_URI_CUSTOM` 可以设置为 `redis://<hostname_1>:<port>/1`，对于 `Deployment B`，`REDIS_URI_CUSTOM` 可以设置为 `redis://<hostname_1>:<port>/2`。`1` 和 `2` 是同一实例内的不同数据库编号，但 `<hostname_1>` 是共享的。**同一个数据库编号不能用于单独的部署**。
+
+### MongoDB 检查点
+
+<Info>
+适用于[云](/langsmith/cloud)（使用外部管理的 MongoDB 实例）和[独立](/langsmith/deploy-standalone-server)部署。
+</Info>
+
+您可以使用 MongoDB 作为检查点存储的替代后端。配置后，MongoDB 仅处理检查点数据——PostgreSQL 仍需要用于所有其他服务器资源。
+
+请参阅[配置检查点存储后端](/langsmith/configure-checkpointer)了解设置说明。
+
+### LangSmith 追踪
+
+Agent Server 自动配置为向 LangSmith 发送追踪。请参阅下表了解每种部署选项的详细信息。
+
+| 云 | 混合 | 自托管 |
+|------------|------------------------|----------------------|
+| 必需<br />追踪到 LangSmith SaaS。 | 可选<br />禁用追踪或追踪到 LangSmith SaaS。 | 可选<br />禁用追踪、追踪到 LangSmith SaaS 或追踪到自托管 LangSmith。 |
+
+### 遥测
+
+Agent Server 自动配置为报告用于计费的遥测元数据。请参阅下表了解每种部署选项的详细信息。
+
+| 云 | 混合 | 自托管 |
+|------------|------------------------|----------------------|
+| 遥测发送到 LangSmith SaaS。 | 遥测发送到 LangSmith SaaS。 | 气隙许可证密钥的自我报告使用情况（审计）。<br />LangSmith 许可证密钥的遥测发送到 LangSmith SaaS。 |
+
+### 许可
+
+Agent Server 自动配置为执行许可证密钥验证。请参阅下表了解每种部署选项的详细信息。
+
+| 云 | 混合 | 自托管 |
+|------------|------------------------|----------------------|
+| 针对 LangSmith SaaS 验证 LangSmith API 密钥。 | 针对 LangSmith SaaS 验证 LangSmith API 密钥。 | 针对 LangSmith SaaS 验证气隙许可证密钥或平台许可证密钥。 |
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\data-plane.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,100 @@
+---
+title: 配置提示词设置
+sidebarTitle: 配置提示词设置
+---
+
+[Playground](/langsmith/prompt-engineering-concepts#playground) 使您可以控制提示词的各种设置。**Prompt Settings** 窗口包含：
+
+- [模型配置](#model-configurations)
+- [工具设置](#tool-settings)
+- [提示词格式](#prompt-formatting)
+
+要访问 **Prompt Settings**：
+
+1. 导航到左侧边栏中的 **Playground**。
+1. 在 **Prompts** 标题下选择模型名称旁边的齿轮 <Icon icon="settings" iconType="solid" /> 图标，这将启动 **Prompt Settings** 窗口。
+
+    <div style={{ textAlign: 'center' }}>
+    <img
+        className="block dark:hidden"
+        src="/langsmith/images/model-config-light.png"
+        alt="Model Configuration window in the LangSmith UI, settings for Provider, Model, Temperature, Max Output Tokens, Top P, Presence Penalty, Frequency Penalty, Reasoning Effort, etc."
+    />
+
+    <img
+        className="hidden dark:block"
+        src="/langsmith/images/model-config-dark.png"
+        alt="Model Configuration window in the LangSmith UI, settings for Provider, Model, Temperature, Max Output Tokens, Top P, Presence Penalty, Frequency Penalty, Reasoning Effort, etc."
+    />
+    </div>
+
+## 模型配置
+
+[模型配置](/langsmith/model-configurations) 定义您的提示词运行的参数。配置在工作区之间共享——此处保存的任何配置可用于其他 LangSmith 功能，并且对 **Settings** > **Model configurations** 中的管理员可见。有关特定设置的详细信息，请参阅您的模型提供商的文档（例如，[Anthropic](https://platform.claude.com/docs/en/api/messages) 或 [OpenAI](https://platform.openai.com/docs/api-reference/responses/create)）。
+
+### 创建保存的配置
+
+1. 在 **Model Configurations** 选项卡中，根据需要调整模型配置——您可以选择[保存的配置进行编辑](#edit-configurations)。
+1. 点击顶部栏中的 **Save As** 按钮。
+1. 输入配置的名称和可选描述，然后确认。
+1. 现在您已经保存了配置，您组织中的任何[工作区](/langsmith/administration-overview#workspaces)成员都可以访问它。所有保存的配置都在 **Model Configuration** 下拉菜单中可用。
+1. 创建保存的配置后，您可以将其设置为默认值，这样您创建的每个新提示词都将自动使用此配置。要将配置设置为默认值，请点击下拉菜单中模型名称旁边的 **Set as default** <Icon icon="pinned" iconType="solid" /> 图标。
+
+### 编辑配置
+
+1. 要重命名保存的配置或更新描述，请选择配置名称或描述并进行必要的更改。
+1. 根据需要更新当前配置的参数，然后点击顶部的 **Save** 按钮。
+
+### 删除配置
+
+1. 选择您想要移除的配置。
+1. 点击垃圾桶 <Icon icon="trash" iconType="solid" /> 图标删除它。
+
+### 额外参数
+
+**Extra Parameters** 字段允许您传递 LangSmith 界面中不直接支持的额外模型参数。这在两种场景中特别有用：
+
+1. 当模型提供商发布尚未集成到 LangSmith 界面的新参数时。您可以 JSON 格式指定这些参数以立即使用它们。例如：
+
+    ```json
+    {
+        "reasoning_effort": "medium"
+    }
+    ```
+
+1. 当在 Playground 中排查参数相关错误时，例如：
+
+    ```
+    TypeError: AsyncCompletions.create() got an unexpected keyword argument 'max_concurrency'
+    ```
+
+如果您收到关于不必要参数的错误（在使用 [LangChain JS](/oss/python/langchain/overview) 进行运行追踪时更常见），您可以使用此字段删除额外参数。
+
+## 工具设置
+
+[_工具_](/langsmith/prompt-engineering-concepts#tools) 使您的大型语言模型能够执行搜索网络、查找信息等任务。在 **Tools Settings** 选项卡中，您可以管理您的提示词中定义的工具的使用和访问方式，包括：
+
+- **并行工具调用**：在适当的时候并行调用多个工具。这允许模型同时从不同来源收集信息。（取决于模型对并行执行的支持。）
+- **工具选择**：选择模型可以访问的工具。有关更多详细信息，请参阅[在提示词中使用工具](/langsmith/use-tools)。
+
+<Callout icon="tool" color="#A855F7" iconType="regular">
+要管理工作区中可用的工具，包括跨提示词启用、禁用和编辑工具，请参阅[使用注册表管理工具](/langsmith/use-tools#manage-tools-with-the-registry)。
+</Callout>
+
+## 提示词格式
+
+**Prompt Format** 选项卡允许您指定：
+
+- **Prompt type**。有关聊天和完成提示词的详细信息，请参阅[提示词工程](/langsmith/prompt-engineering-concepts#prompt-types)概念。
+- **Template format**。有关提示词模板化和使用变量的详细信息，请参阅 [F-string vs. mustache](/langsmith/prompt-engineering-concepts#f-string-vs-mustache)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\managing-model-configurations.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

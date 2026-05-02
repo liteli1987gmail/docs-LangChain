@@ -1,0 +1,728 @@
+---
+title: 配置
+sidebarTitle: 配置
+description: 使用 config.toml、钩子和 MCP 服务器配置深度代理 CLI
+---
+
+CLI 将其配置存储在 `~/.deepagents/` 目录中。主要配置文件有：
+
+| 文件 | 格式 | 用途 |
+|------|--------|---------|
+| `config.toml` | TOML | 模型默认值、提供商设置、构造函数参数、配置文件覆盖、主题、更新设置、MCP 信任存储 |
+| `.env` | Dotenv | 全局 API 密钥和密钥 |
+| `hooks.json` | JSON | 外部工具订阅到 CLI 生命周期事件 |
+| `.mcp.json` | JSON | 全局 MCP 服务器定义 |
+
+## 环境变量
+
+CLI 从 dotenv 文件加载环境变量，这样您就不需要在 shell 配置文件中 `export` API 密钥或在项目间复制 `.env` 文件。
+
+### 加载顺序和优先级
+
+两个 `.env` 文件在启动时加载：
+
+1. **项目 `.env`** — 您当前工作目录中的 `.env` 文件（如果存在）
+2. **全局 `~/.deepagents/.env`** — 作为所有项目回退的单个共享文件
+
+有效优先级是：**shell 环境 > 项目 `.env` > 全局 `.env`**。已在 shell 中设置的值永远不会被覆盖——包括在 `/reload` 上。
+
+### `DEEPAGENTS_CLI_` 前缀
+
+所有 CLI 特定的环境变量使用 `DEEPAGENTS_CLI_` 前缀（例如 `DEEPAGENTS_CLI_AUTO_UPDATE`、`DEEPAGENTS_CLI_DEBUG`）。请参阅 [CLI 环境变量参考](#cli-environment-variable-reference) 获取完整列表。
+
+此前缀还可用作 CLI 读取的任何环境变量（包括第三方凭证）的覆盖机制。CLI 首先检查 `DEEPAGENTS_CLI_{NAME}`，然后回退到 `{NAME}`：
+
+```bash title="~/.deepagents/.env"
+# 仅覆盖 CLI 的 OPENAI_API_KEY，不影响其他工具
+DEEPAGENTS_CLI_OPENAI_API_KEY=sk-cli-only
+
+# 通过将前缀变量设置为空来阻止 shell 导出的密钥
+DEEPAGENTS_CLI_ANTHROPIC_API_KEY=
+```
+
+在 `/reload` 上，CLI 重新读取 `.env` 文件并获取前缀值，因此您可以轮换密钥而无需重启。
+
+### 示例
+
+将 API 密钥一次存储在 `~/.deepagents/.env` 中：
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+LANGSMITH_API_KEY=lsv2_...
+TAVILY_API_KEY=tvly-...
+
+# 如果 OPENAI_API_KEY 已为您 shell 中的其他工具导出，
+# 使用前缀给予 CLI 其自己的密钥而不冲突
+DEEPAGENTS_CLI_OPENAI_API_KEY=sk-cli-only-...
+```
+
+然后通过在项目目录中放置一个 `.env` 来按项目覆盖需要的内容。
+
+---
+
+## 配置文件
+
+`~/.deepagents/config.toml` 让您自定义模型提供商、设置默认值以及将额外参数传递给模型构造函数。
+
+### 默认和最近模型
+
+```toml
+[models]
+default = "ollama:qwen3:4b"             # 您的长期偏好
+recent = "google_genai:gemini-3.1-pro-preview"   # 最后一次 /model 切换（自动写入）
+```
+
+`[models].default` 始终优先于 `[models].recent`。`/model` 命令只写入 `[models].recent`，因此您配置的默认永远不会被会话中的切换覆盖。要删除默认值，使用 `/model --default --clear` 或从配置文件中删除 `default` 键。
+
+### 最近的代理
+
+```toml
+[agents]
+recent = "backend-dev"   # 最后一次 /agents 切换（自动写入）
+```
+
+通过 `/agents` 斜杠命令选择代理会将名称写入 `[agents].recent`。下一次裸 `deepagents` 启动会自动恢复该代理。显式 `-a`/`--agent` 始终覆盖，`-r`/`--resume` 绕过最近条目以恢复线程的原始代理。请参阅[切换代理](/oss/javascript/deepagents/cli/overview#switch-agents)了解完整的优先级链。
+
+### 提供商配置
+
+每个提供商是一个 TOML 表，放在 `[models.providers]` 下：
+
+```toml
+[models.providers.<name>]
+models = ["gpt-4o"]
+api_key_env = "OPENAI_API_KEY"
+base_url = "https://api.openai.com/v1"
+class_path = "my_package.models:MyChatModel"
+enabled = true
+
+[models.providers.<name>.params]
+temperature = 0
+max_tokens = 4096
+
+[models.providers.<name>.params."gpt-4o"]
+temperature = 0.7
+```
+
+提供商具有以下配置选项：
+
+<ResponseField name="models" type="string[]" post={["optional"]}>
+    要在此提供商的交互式 `/model` 选择器中显示的模型名称列表。对于已经随模型配置文件一起发布的提供商，您在此处添加的任何名称都会与捆绑的名称一起显示，对于尚未添加到包中的新发布模型很有用。对于[任意提供商](#arbitrary-providers)，此列表是选择器中模型的唯一来源。
+
+    在此处列出的模型**绕过**基于配置文件的[过滤条件](/oss/javascript/deepagents/cli/providers#which-models-appear-in-the-switcher)，始终出现在选择器中。这使得它成为展示因配置文件缺少 `tool_calling` 支持或尚不存在而被排除的模型的推荐方式。
+
+    此键是可选的。无论它是否出现在选择器中，您始终可以将任何模型名称直接传递给 `/model` 或 `--model`；提供商在请求时验证名称。
+</ResponseField>
+
+<ResponseField name="api_key_env" type="string" post={["optional"]}>
+    持有 API 密钥的环境变量的**名称**（例如 `"OPENAI_API_KEY"`），而不是密钥本身。CLI 在创建模型之前在启动时从此环境变量读取凭证以验证访问权限。大多数聊天模型包自动从默认环境变量读取。请参阅[提供商参考](/oss/javascript/deepagents/cli/providers#provider-reference)表，了解每个提供商检查的变量。
+</ResponseField>
+
+<ResponseField name="base_url" type="string" post={["optional"]}>
+    如果支持，覆盖提供商使用的默认基础 URL。请参阅您的提供商包的[参考文档](https://reference.langchain.com/python/integrations/)了解更多。
+</ResponseField>
+
+<ResponseField name="params" type="object" post={["optional"]}>
+    转发到模型构造函数的额外关键字参数。平面键（例如 `temperature = 0`）应用于来自此提供商的所有模型。模型键控的子表（例如 `[params."gpt-4o"]`）仅覆盖该模型的单个值；合并是浅层的（模型在冲突时获胜）。
+
+    不要将凭证（例如 `api_key`）放在 `params` 中。使用 [`api_key_env`](#provider-configuration) 指向环境变量。
+</ResponseField>
+
+<ResponseField name="profile" type="object" post={["optional"]}>
+    （高级）覆盖模型运行时[配置文件](/oss/javascript/langchain/models#model-profiles)中的字段（例如 `max_input_tokens`）。平面键应用于来自此提供商的所有模型。模型键控的子表（例如 `[profile."claude-sonnet-4-5"]`）仅覆盖该模型的单个值；合并是浅层的（模型在冲突时获胜）。这些覆盖在模型创建后应用，因此它们对上下文限制显示、自动总结和任何其他读取配置文件的特性生效。
+</ResponseField>
+
+<ResponseField name="class_path" type="string" post={["optional"]}>
+    用于[任意模型](#arbitrary-providers)提供商。完全限定的 Python 类，格式为 `module.path:ClassName`。设置后，CLI 直接导入并实例化此类作为提供商 `<name>`。该类必须是 `BaseChatModel` 子类。
+</ResponseField>
+
+<ResponseField name="enabled" type="boolean" default="true" post={["optional"]}>
+    此提供商是否出现在 `/model` 选择器中。设置为 `false` 以隐藏从已安装包自动发现的提供商（例如您不想让选择器混乱的传递依赖项）。您仍然可以直接通过 `/model 提供商:模型` 或 `--model` 使用已禁用的提供商。
+</ResponseField>
+
+### 模型构造函数参数
+
+任何提供商都可以使用 `params` 表将额外参数传递给模型构造函数：
+
+```toml
+[models.providers.ollama.params]
+temperature = 0
+num_ctx = 8192
+```
+
+#### 每个模型的覆盖
+
+如果特定模型需要不同的参数，在 `params` 下添加模型键控的子表以覆盖单个值，而不是复制整个提供商配置：
+
+```toml
+[models.providers.ollama]
+models = ["qwen3:4b", "llama3"]
+
+[models.providers.ollama.params]
+temperature = 0
+num_ctx = 8192
+
+[models.providers.ollama.params."qwen3:4b"]
+temperature = 0.5
+num_ctx = 4000
+```
+
+使用此配置：
+
+* `ollama:qwen3:4b` 获取 `{temperature: 0.5, num_ctx: 4000}` — 模型覆盖获胜。
+* `ollama:llama3` 获取 `{temperature: 0, num_ctx: 8192}` — 无覆盖，仅提供商级参数。
+
+合并是浅层的：模型子表中存在的任何键都会替换提供商级参数中的相同键，而仅在提供商级别的键会被保留。
+
+#### CLI 覆盖与 `--model-params`
+
+对于一次性调整而不编辑配置文件，请在启动时或会话中通过 `/model` 命令传递 JSON 对象：
+
+```bash
+deepagents --model ollama:llama3 --model-params '{"temperature": 0.9, "num_ctx": 16384}'
+
+# 在非交互模式下
+deepagents -n "Summarize this repo" --model ollama:llama3 --model-params '{"temperature": 0}'
+```
+
+```txt title="在 TUI 内部"
+/model --model-params '{"temperature": 0.9}' ollama:llama3
+/model --model-params '{"num_ctx": 16384}'  # 打开选择器，将参数应用到所选模型
+```
+
+这些具有最高优先级，覆盖配置文件 params 中的值。会话中的参数仅适用于当前会话，不会持久化。`--model-params` 不能与 `--default` 结合使用。
+
+### 配置文件覆盖（高级）
+
+覆盖模型运行时配置文件中的字段，以更改 CLI 解释模型能力的方式。最常见的用例是降低 `max_input_tokens` 以更早触发自动总结——用于测试或约束上下文使用：
+
+```toml
+# 应用到此提供商的所有模型
+[models.providers.anthropic.profile]
+max_input_tokens = 4096
+```
+
+每个模型的子表与 `params` 的工作方式相同——模型级值在冲突时获胜：
+
+```toml
+[models.providers.anthropic.profile]
+max_input_tokens = 4096
+
+# 此模型获得更高的限制
+[models.providers.anthropic.profile."claude-sonnet-4-5"]
+max_input_tokens = 8192
+```
+
+配置文件覆盖在模型创建后合并到模型的配置文件中。任何读取配置文件的特性——状态栏中的上下文限制显示、自动总结阈值、能力检查——都会看到覆盖的值。
+
+#### CLI 配置文件覆盖与 `--profile-override`（高级）
+
+要在运行时覆盖模型配置字段而无需编辑配置文件，请传递 JSON 对象 `--profile-override`：
+
+```bash
+deepagents --profile-override '{"max_input_tokens": 4096}'
+
+# 结合 --model
+deepagents --model google_genai:gemini-3.1-pro-preview --profile-override '{"max_input_tokens": 4096}'
+
+# 在非交互模式下
+deepagents -n "Summarize this repo" --profile-override '{"max_input_tokens": 4096}'
+```
+
+这些在配置文件配置文件覆盖之上合并（CLI 获胜）。优先级链是：模型默认值 < config.toml 配置文件 < CLI `--profile-override`。
+
+`--profile-override` 值在会话中的 `/model` 热切换时保持应用——切换模型会重新应用覆盖到新模型。
+
+### 自定义基础 URL
+
+某些提供商包接受 `base_url` 来覆盖默认端点。例如，`langchain-ollama` 通过底层 `ollama` 客户端默认为 `http://localhost:11434`。要指向其他地方，请在配置中设置 `base_url`：
+
+```toml
+[models.providers.ollama]
+base_url = "http://your-host-here:port"
+```
+
+有关兼容性信息和额外注意事项，请参阅提供商的参考文档。
+
+### 兼容的 API
+
+对于提供与 OpenAI 或 Anthropic 线路兼容的 API 的提供商，您可以通过将 `base_url` 指向提供商的端点来使用现有的 `langchain-openai` 或 `langchain-anthropic` 包：
+
+```toml
+[models.providers.openai]
+base_url = "https://api.example.com/v1"
+api_key_env = "EXAMPLE_API_KEY"
+models = ["my-model"]
+```
+
+```toml
+[models.providers.anthropic]
+base_url = "https://api.example.com"
+api_key_env = "EXAMPLE_API_KEY"
+models = ["my-model"]
+```
+
+<Note>
+    提供商在官方规范之上添加的任何功能都不会被捕获。如果提供商提供专用的 LangChain 集成包，请优先使用该包。
+</Note>
+
+### 添加模型到交互式选择器
+
+某些提供商（例如 `langchain-ollama`）不捆绑模型配置文件数据（请参阅[提供商参考](/oss/javascript/deepagents/cli/providers#provider-reference)了解完整列表）。在这种情况下，交互式 `/model` 选择器不会列出该提供商的模型。您可以通过在配置文件中为提供商定义 `models` 列表来填补这一空白：
+
+```toml
+[models.providers.ollama]
+models = ["llama3", "mistral", "codellama"]
+```
+
+`/model` 选择器现在将包含一个 Ollama 部分，列出了这些模型。
+
+这是完全可选的。您始终可以通过直接指定其完整名称来切换到任何模型：
+
+```txt
+/model ollama:llama3
+```
+
+### 任意提供商
+
+您可以使用 `class_path` 使用任何 [LangChain `BaseChatModel`](https://reference.langchain.com/python/langchain_core/language_models/#langchain_core.language_models.BaseChatModel) 子类。CLI 直接导入并实例化类——不需要内置提供商包。
+
+```toml
+[models.providers.my_custom]
+class_path = "my_package.models:MyChatModel"
+api_key_env = "MY_API_KEY"
+base_url = "https://my-endpoint.example.com"
+
+[models.providers.my_custom.params]
+temperature = 0
+max_tokens = 4096
+```
+
+`api_key_env` 和 `base_url` 是可选的。`class_path` 提供商应该在内部处理自己的身份验证——当您的模型使用自定义身份验证（JWT 令牌、专有标头、mTLS 等）而不是标准 API 密钥时，这很有用：
+
+```toml
+[models.providers.xyz]
+class_path = "abc.integrations.deepagents:DeepAgentsXYZChat"
+models = ["abc-xyz-1"]
+
+[models.providers.xyz.params]
+bypass_auth = true
+temperature = 0
+```
+
+使用此配置，通过 `/model xyz:abc-xyz-1` 或 `--model xyz:abc-xyz-1` 切换到模型。
+
+<Note>
+    深度代理 CLI 需要**工具调用**支持。如果您的自定义模型支持工具调用但 CLI 不知道，请在提供商配置文件中声明：
+
+    ```toml
+    [models.providers.xyz.profile]
+    tool_calling = true
+    max_input_tokens = 128000
+    ```
+
+    设置 `max_input_tokens` 为您的模型支持的数值，以启用准确的上下文长度跟踪和自动总结。
+</Note>
+
+提供商包必须与 `deepagents-cli` 安装在同一 Python 环境中：
+
+```bash
+# 如果 deepagents-cli 是用 uv tool 安装的：
+uv tool install deepagents-cli --with my_package
+```
+
+当您切换到 `my_custom:my-model-v1`（通过 `/model` 或 `--model`）时，模型名称（`my-model-v1`）作为 `model` kwarg 传递：
+
+```python
+MyChatModel(model="my-model-v1", base_url="...", api_key="...", temperature=0, max_tokens=4096)
+```
+
+<Warning>
+    `class_path` 执行配置文件中的任意 Python 代码。这与 `pyproject.toml` 构建脚本具有相同的信任模型——您控制自己的机器。
+</Warning>
+
+您的提供商包可以选择在 `<package>.data._profiles` 中提供模型配置文件，而不是在 `models` 键下定义它们。请参阅 LangChain [模型配置文件](https://github.com/langchain-ai/langchain/tree/master/libs/model-profiles)了解更多。
+
+---
+
+## 技能额外允许目录
+
+默认情况下，当 CLI 加载技能时，它会验证解析后的技能文件路径保持在标准[技能目录](/oss/javascript/deepagents/data-locations#skills)之一内。这可以防止技能目录内的符号链接读取这些根之外的文件。
+
+如果您将共享技能资产存储在非标准位置，并使用来自标准技能目录的符号链接来引用它们，您可以将该位置添加到包含允许列表中。这**不会**添加新的技能发现位置：技能仍然仅从标准目录中发现。
+
+<ResponseField name="extra_allowed_dirs" type="string[]" post={["optional"]}>
+    添加到技能包含允许列表的路径。支持 `~` 展开。
+
+    ```toml
+    [skills]
+    extra_allowed_dirs = [
+        "~/shared-skills",
+        "/opt/team-skills",
+    ]
+    ```
+</ResponseField>
+
+或者，设置 `DEEPAGENTS_CLI_EXTRA_SKILLS_DIRS` 环境变量作为冒号分隔的列表：
+
+```bash
+export DEEPAGENTS_CLI_EXTRA_SKILLS_DIRS="~/shared-skills:/opt/team-skills"
+```
+
+当环境变量设置时，它优先于配置文件值。变更在 `/reload` 上生效。
+
+---
+
+## 主题
+
+使用 `/theme` 打开交互式主题选择器。导航列表以实时预览主题，按 Enter 将您的选择持久化到 `config.toml`。
+
+CLI 随附许多内置主题。默认主题是 `langchain`，一个具有 LangChain 品牌颜色的深色主题。选中的主题在 `[ui]` 下持久化：
+
+```toml
+[ui]
+theme = "langchain-dark"
+```
+
+### 用户定义的主题
+
+在 `config.toml` 中的 `[themes.<name>]` 部分下定义自定义主题。每个部分需要 `label`（str）。`dark`（bool）如果省略默认为 `false`——设置为 `true` 表示深色主题。所有颜色字段都是可选的——省略的字段根据 `dark` 标志回退到内置的深色或浅色调色板。
+
+```toml
+[themes.my-solarized]
+label = "My Solarized"
+dark = true
+primary = "#268BD2"
+warning = "#B58900"
+
+# 带有空格的主题名称需要 TOML 引号
+[themes."ocean breeze"]
+label = "Ocean Breeze"
+primary = "#0077B6"
+background = "#CAF0F8"
+```
+
+用户定义的主题与内置主题一起出现在 `/theme` 选择器中。
+
+### 覆盖内置主题颜色
+
+要在不创建新主题的情况下调整内置主题的颜色，请使用 `[themes.<builtin-name>]` 部分。只读取颜色字段——`label` 和 `dark` 从内置继承：
+
+```toml
+[themes.langchain]
+primary = "#FF5500"
+```
+
+省略的颜色字段保留现有的内置值。
+
+对 `[themes.*]` 部分的更改在 `/reload` 上生效。
+
+---
+
+## 自动更新
+
+CLI 可以自动检查并安装更新。
+
+<Tabs>
+    <Tab title="配置文件">
+        ```toml
+        [update]
+        auto_update = true
+        ```
+    </Tab>
+    <Tab title="环境变量">
+        ```bash
+        export DEEPAGENTS_CLI_AUTO_UPDATE=1
+        ```
+    </Tab>
+</Tabs>
+
+环境变量优先于配置文件。
+
+启用后，CLI 在会话开始时检查 PyPI 是否有更新版本，并使用检测到的安装方式（uv、Homebrew 或 pip）自动升级。禁用时（默认），CLI 显示带有适当安装命令的更新提示。
+
+您也可以随时使用 `/update` 斜杠命令手动检查并安装更新，这会绕过缓存并内联报告成功或失败。
+
+升级后，CLI 在下次启动时显示"新增功能"横幅并带有指向更新日志的链接。
+
+在会话退出时，如果在会话期间检测到更新版本，则显示更新横幅作为提醒。
+
+---
+
+## 托管部署
+
+[安装脚本](https://github.com/langchain-ai/deepagents/blob/main/libs/cli/scripts/install.sh) 支持以 root 运行，针对 macOS MDM 工具（Kandji、Jamf 等）执行在最小 root 环境中运行的脚本。
+
+当 `id -u` 是 `0` 时，脚本：
+
+1. 解析真实控制台用户的 `HOME`（通过 `/dev/console` 或 `/Users` 目录扫描）
+2. 在每个安装步骤后将所有创建的文件 `chown` 回目标用户
+
+非 root 安装不受影响：不在 root 运行时所有 root 特定代码路径都会短路。
+
+要为托管安装预配置自动更新，请在用户的 shell 配置文件中设置 `DEEPAGENTS_CLI_AUTO_UPDATE=1`，或将带有 `[update] auto_update = true` 的 `config.toml` 部署到 `~/.deepagents/config.toml`。要完全禁止自动更新和更新检查，请设置 `DEEPAGENTS_CLI_NO_UPDATE_CHECK=1`。
+
+---
+
+## CLI 环境变量参考
+
+所有 CLI 特定的环境变量使用 `DEEPAGENTS_CLI_` 前缀。请参阅[`DEEPAGENTS_CLI_` 前缀](#deepagents_cli_-prefix)了解此前缀如何用作第三方凭证的覆盖。
+
+<ResponseField name="DEEPAGENTS_CLI_AUTO_UPDATE" type="string" post={["optional"]}>
+    启用自动 CLI 更新（`1`、`true` 或 `yes`）。
+</ResponseField>
+
+<ResponseField name="DEEPAGENTS_CLI_DEBUG" type="string" post={["optional"]}>
+    启用详细调试日志到文件。接受 `1`、`true`、`yes`、`on`（不区分大小写）作为启用；`0`、`false`、`no`、`off`、空字符串或未设置则禁用。启用时，每个会话的服务器日志文件在关闭时被保留，其路径被打印到 stderr 以供分类。
+</ResponseField>
+
+<ResponseField name="DEEPAGENTS_CLI_DEBUG_FILE" type="string" default="/tmp/deepagents_debug.log" post={["optional"]}>
+    调试日志文件的路径。
+</ResponseField>
+
+<ResponseField name="DEEPAGENTS_CLI_EXTRA_SKILLS_DIRS" type="string" post={["optional"]}>
+    冒号分隔的路径，添加到[技能包含允许列表](#skills-extra-allowed-directories)。
+</ResponseField>
+
+<ResponseField name="DEEPAGENTS_CLI_LANGSMITH_PROJECT" type="string" post={["optional"]}>
+    覆盖代理追踪的 LangSmith 项目名称。请参阅[使用 LangSmith 追踪](/oss/javascript/deepagents/cli/overview#tracing-with-langsmith)。
+</ResponseField>
+
+<ResponseField name="DEEPAGENTS_CLI_NO_UPDATE_CHECK" type="string" post={["optional"]}>
+    设置时禁用自动更新检查。
+</ResponseField>
+
+<ResponseField name="DEEPAGENTS_CLI_SHELL_ALLOW_LIST" type="string" post={["optional"]}>
+    逗号分隔的 shell 命令以允许（或 `recommended` / `all`）。
+</ResponseField>
+
+<ResponseField name="DEEPAGENTS_CLI_USER_ID" type="string" post={["optional"]}>
+    将用户标识符附加到 LangSmith 追踪元数据。
+</ResponseField>
+
+---
+
+## 外部编辑器
+
+按 `Ctrl+X` 或输入 `/editor` 在外部编辑器中编写提示词。CLI 检查 `$VISUAL`，然后 `$EDITOR`，然后回退到 `vi`（macOS/Linux）或 `notepad`（Windows）。GUI 编辑器（VS Code、Cursor、Zed、Sublime Text、Windsurf）自动接收 `--wait` 标志，因此 CLI 会阻止直到您关闭文件。
+
+```bash
+# 在您的 shell 配置文件（~/.zshrc、~/.bashrc 等）中设置
+export VISUAL="code"    # GUI 编辑器（--wait 自动注入）
+export EDITOR="nvim"    # 终端回退
+```
+
+---
+
+## 钩子
+
+钩子让外部程序对 CLI 生命周期事件做出反应。在 `~/.deepagents/hooks.json` 中配置命令，当事件触发时 CLI 将 JSON 负载管道传输到每个匹配命令的 stdin。
+
+钩子在后台线程中 fire-and-forget 运行——它们永远不会阻塞 CLI，失败被记录而不会中断您的会话。
+
+### 设置
+
+创建 `~/.deepagents/hooks.json`：
+
+```json
+{
+  "hooks": [
+    {
+      "command": ["bash", "-c", "cat >> ~/deepagents-events.log"],
+      "events": ["session.start", "session.end"]
+    }
+  ]
+}
+```
+
+现在每次会话开始或结束时，CLI 将事件负载追加到 `~/deepagents-events.log`。
+
+### 钩子配置
+
+配置文件包含一个 `hooks` 数组。每个条目有：
+
+<ResponseField name="command" type="list[str]" required>
+    要运行的命令和参数。没有 shell 扩展：如果需要，使用 `["bash", "-c", "..."]`。
+</ResponseField>
+
+<ResponseField name="events" type="list[str]" post={["optional"]}>
+    订阅的事件名称。省略或留空以接收**所有**事件。
+</ResponseField>
+
+```json
+{
+  "hooks": [
+    {
+      "command": ["python3", "my_handler.py"],
+      "events": ["session.start", "task.complete"]
+    },
+    {
+      "command": ["bash", "log_everything.sh"]
+    }
+  ]
+}
+```
+
+上面的第二个钩子没有 `events` 过滤器，因此它接收 CLI 发出的每个事件。
+
+### 负载格式
+
+每个钩子命令在 stdin 上接收一个 JSON 对象，带有 `"event"` 键以及事件特定字段：
+
+```json
+{
+  "event": "session.start",
+  "thread_id": "abc123"
+}
+```
+
+### 事件参考
+
+#### `session.start`
+
+当代理会话开始时触发（交互式和非交互式模式）。
+
+<ResponseField name="thread_id" type="string" required>
+    会话线程标识符。
+</ResponseField>
+
+#### `session.end`
+
+当会话退出时触发。
+
+<ResponseField name="thread_id" type="string" required>
+    会话线程标识符。
+</ResponseField>
+
+#### `user.prompt`
+
+在交互模式下当用户提交聊天消息时触发。
+
+无额外字段。
+
+#### `input.required`
+
+当代理需要人工输入时触发（人在回路中中断）。
+
+无额外字段。
+
+#### `permission.request`
+
+在批准对话框之前触发，当一个或多个工具调用需要用户权限时。
+
+<ResponseField name="tool_names" type="list[str]" required>
+    请求批准的工具名称。
+</ResponseField>
+
+#### `tool.error`
+
+当工具调用返回错误时触发。
+
+<ResponseField name="tool_names" type="list[str]" required>
+    出错的工具名称。
+</ResponseField>
+
+#### `task.complete`
+
+当代理完成其当前任务时触发（流式循环结束，没有进一步的中断）。
+
+<ResponseField name="thread_id" type="string" required>
+    会话线程标识符。
+</ResponseField>
+
+#### `context.compact`
+
+在 CLI 压缩（总结）对话上下文之前触发。
+
+无额外字段。
+
+### 执行模型
+
+- **后台线程**：钩子子进程通过 `asyncio.to_thread` 在线程中运行，因此主事件循环永远不会被阻塞。
+- **并发调度**：当多个钩子匹配事件时，它们在线程池中并发运行。
+- **5 秒超时**：每个命令有 5 秒超时。超过此时间的命令被终止。
+- **Fire-and-forget**：错误被每个钩子捕获并以调试/警告级别记录。失败的钩子永远不会导致 CLI 崩溃或停滞。
+- **惰性加载**：配置文件在第一次事件调度时读取一次，并在会话的剩余部分被缓存。
+- **无 shell 扩展**：命令直接执行（不通过 shell）。如果您需要 shell 功能（如管道或变量展开），用 `["bash", "-c", "..."]` 包装。
+
+### 钩子示例
+
+<Accordion title="将所有事件记录到文件">
+```json
+{
+  "hooks": [
+    {
+      "command": ["bash", "-c", "jq -c . >> ~/.deepagents/hook-events.jsonl"],
+      "events": []
+    }
+  ]
+}
+```
+</Accordion>
+
+<Accordion title="任务完成时桌面通知 (macOS)">
+```json
+{
+  "hooks": [
+    {
+      "command": [
+        "bash", "-c",
+        "osascript -e 'display notification \"Agent finished\" with title \"Deep Agents\"'"
+      ],
+      "events": ["task.complete"]
+    }
+  ]
+}
+```
+</Accordion>
+
+<Accordion title="Python 处理程序">
+编写从 stdin 读取 JSON 负载的处理程序脚本：
+
+```python title="my_handler.py"
+import json
+import sys
+
+payload = json.load(sys.stdin)
+event = payload["event"]
+
+if event == "session.start":
+    print(f"Session started: {payload['thread_id']}", file=sys.stderr)
+elif event == "permission.request":
+    print(f"Approval needed for: {payload['tool_names']}", file=sys.stderr)
+```
+
+```json title="~/.deepagents/hooks.json"
+{
+  "hooks": [
+    {
+      "command": ["python3", "my_handler.py"],
+      "events": ["session.start", "permission.request"]
+    }
+  ]
+}
+```
+</Accordion>
+
+### 安全考虑
+
+钩子遵循与 Git 钩子或 shell 别名相同的信任模型——任何可以写入 `~/.deepagents/hooks.json` 的用户都可以执行任意命令。这是设计决定的：
+
+- **无命令注入**：负载数据仅作为 JSON 发送到 stdin，从不发送到命令行参数。`json.dumps` 处理转义。
+- **默认无 shell**：命令用 `shell=False` 执行，防止 shell 注入。
+- **格式错误的配置**：无效的 JSON 或意外类型会产生记录的警告，而不是安全问题。
+
+<Warning>
+    只添加您信任的来源的钩子。钩子具有与您的用户帐户相同的权限。
+</Warning>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\cli\configuration.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

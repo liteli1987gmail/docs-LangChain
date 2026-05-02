@@ -1,0 +1,80 @@
+---
+title: 设置自动化规则
+sidebarTitle: 设置自动化规则
+---
+
+虽然您可以手动筛选和处理来自大型语言模型应用程序的生产日志，但随着您的应用程序扩展到更多用户，这通常会变得困难。LangSmith 提供**自动化**，允许您对追踪数据触发某些操作。您可以通过**过滤器**、**采样率**和**操作**定义自动化。
+
+自动化规则可以触发以下操作：将追踪添加到数据集、添加到标注队列、触发 webhook（例如，用于远程评估）或延长数据保留期。您可以设置的一些自动化示例：
+
+- 将带有负面反馈的所有追踪发送到标注队列进行人工审查。
+- 将 10% 的所有追踪发送到标注队列进行人工审查以抽查问题。
+- 升级所有带有错误的追踪以延长数据保留期。
+
+<Info>
+要配置在线评估，请访问[在线评估](/langsmith/online-evaluations-llm-as-judge)页面。
+</Info>
+
+<Note>如果自动化规则匹配追踪中的任何运行，追踪将自动升级到[扩展数据保留](/langsmith/administration-overview#data-retention-auto-upgrades)。此升级将影响追踪定价，但可确保符合您自动化标准的追踪（通常对分析最有价值的追踪）被保留以供调查。</Note>
+
+## 自动化规则如何执行
+
+每个自动化规则在独立的轮询计划上运行。如果您在同一个项目上有多个规则，webhook 规则可能会在评估器规则对其评分之前处理一个运行，反之亦然。
+
+在单个规则内，如果配置了多个操作，它们按以下顺序执行：
+
+1. 添加到标注队列。
+1. 添加到数据集。
+1. 触发 webhook。
+1. 运行在线评估器。
+1. 运行自定义代码评估器。
+1. 触发警报。
+
+如果您的工作流需要一条规则产生的数据在另一条规则触发时存在——例如，您希望 webhook 包含评估分数——请对下游规则使用过滤器来明确创建该依赖关系。有关示例，请参阅[确保 webhook 触发前评估完成](/langsmith/webhooks#ensuring-evaluations-complete-before-the-webhook-fires)。
+
+## 查看自动化规则
+
+在 [UI](https://smith.langchain.com) 中，导航到侧边栏中的**追踪**并选择一个追踪项目。要查看该追踪项目的现有自动化规则，请点击**自动化**标签。
+
+## 创建规则
+
+1. 在 [UI](https://smith.langchain.com) 中，导航到侧边栏中的**追踪**并选择一个追踪项目。点击追踪项目页面右上角的 **+ 新建**，然后点击**新建自动化**。
+1. 为您的规则命名。
+1. 创建过滤器。自动化规则过滤器的工作方式与应用于项目中追踪的过滤器相同。有关过滤器的更多信息，请参阅[过滤追踪](/langsmith/filter-traces-in-application)。
+1. 配置**采样率**以控制触发自动化操作的过滤后运行的百分比。您可以为自动化指定 0 到 1 之间的采样率。这将控制发送到操作中的过滤后运行的百分比。例如，如果您将采样率设置为 0.5，则 50% 通过过滤器的追踪将被发送到操作。
+1. （可选）通过切换**应用于过去的运行**并输入**回填开始日期**来将规则应用于过去的运行。这仅在创建规则时才能完成。
+
+    <Note>
+    回填作为后台作业处理，因此您不会立即看到结果。要跟踪回填的进度，您可以[查看自动化的日志](#view-logs-for-your-automations)。
+    </Note>
+
+1. 选择规则应用时触发的操作。您可以通过自动化规则执行四个操作：
+
+    - **添加到数据集**：将追踪的输入和输出添加到[数据集](/langsmith/evaluation-concepts#datasets)。
+    - **添加到标注队列**：将追踪添加到[标注队列](/langsmith/annotation-queues)。
+    - **触发 webhook**：使用追踪数据触发 [webhook](/langsmith/use-webhooks)。
+    - **延长数据保留期**：在使用基本保留期的匹配追踪上延长数据保留期限[（请参阅数据保留文档了解更多详细信息）](/langsmith/administration-overview#data-retention)。
+    请注意，所有其他规则也将通过数据保留文档中描述的自动升级机制延长匹配追踪的数据保留期，
+    但此规则不会采取额外操作。
+
+## 查看自动化的日志
+
+日志让您可以相信您的规则按预期工作。您可以通过导航到追踪项目中的**自动化**标签并为您创建的规则点击**日志**按钮来查看自动化的日志。
+
+日志标签允许您：
+
+- 查看给定规则在所选时间段内处理的所有运行。
+- 如果某个特定规则执行触发了错误，您可以通过将鼠标悬停在错误图标上来查看错误消息。
+- 您可以通过过滤到规则创建时间戳来监控回填作业的进度。这是因为回填从规则创建时开始。
+- 使用**查看运行**按钮检查自动化规则应用于的运行。对于将运行添加为数据集示例的规则，您可以查看生成的示例。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\resource-auth.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

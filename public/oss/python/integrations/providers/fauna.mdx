@@ -1,0 +1,43 @@
+---
+title: "Fauna integrations"
+description: "Integrate with Fauna using LangChain Python."
+---
+
+Fauna 是一个分布式文档关系型数据库，它结合了文档的灵活性与关系型 ACID 兼容数据库的强大功能，可跨区域、云或全球扩展。
+
+
+## Installation and setup
+
+We have to get the secret key.
+See the detailed [guide](https://docs.fauna.com/fauna/current/learn/security_model/).
+
+We have to install the `fauna` package.
+
+<CodeGroup>
+```bash pip
+pip install -U fauna
+```
+
+```bash uv
+uv add fauna
+```
+</CodeGroup>
+
+## Document loader
+
+See a [usage example](/oss/python/integrations/document_loaders/fauna).
+
+```python
+from langchain_community.document_loaders.fauna import FaunaLoader
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\fauna.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

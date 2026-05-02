@@ -1,0 +1,110 @@
+---
+title: "Facebook - Meta integrations"
+description: "Integrate with Facebook - Meta using LangChain Python."
+---
+
+> [Meta Platforms, Inc.](https://www.facebook.com/) 商业名称为 `Meta`，原名为 `Facebook, Inc.` 和 `TheFacebook, Inc.`，是一家美国跨国科技集团。该公司拥有并运营 `Facebook`、`Instagram`、`Threads` 和 `WhatsApp`，以及其他产品和服务。
+
+## Embedding models
+
+### LASER
+
+[LASER](https://github.com/facebookresearch/LASER) 是一个由 `Meta AI Research` 团队开发的 Python 库，用于创建多语言句子嵌入，支持[截至2024年2月25日超过147种语言](https://github.com/facebookresearch/flores/blob/main/flores200/README.md#languages-in-flores-200)。
+
+<CodeGroup>
+```bash pip
+pip install laser_encoders
+```
+
+```bash uv
+uv add laser_encoders
+```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/embeddings/laser).
+
+```python
+from langchain_community.embeddings.laser import LaserEmbeddings
+```
+
+## Document loaders
+
+### Facebook messenger
+
+Messenger是一款由Meta Platforms开发的即时通讯应用和平台。该应用最初于2008年作为Facebook Chat推出，后于2010年对该通讯服务进行了重大改版。
+
+See a [usage example](/oss/python/integrations/document_loaders/facebook_chat).
+
+```python
+from langchain_community.document_loaders import FacebookChatLoader
+```
+
+## Vector stores
+
+### Facebook faiss
+
+[Facebook AI Similarity Search (Faiss)](https://engineering.fb.com/2017/03/29/data-infrastructure/faiss-a-library-for-efficient-similarity-search/) 是一个用于高效相似性搜索和稠密向量聚类的库。它包含的算法可以在任意大小的向量集合中进行搜索，甚至可以处理可能无法完全放入 RAM 的向量。它还包含用于评估和参数调优的辅助代码。
+
+[Faiss documentation](https://faiss.ai/).
+
+We need to install `faiss` python package.
+
+<CodeGroup>
+```bash pip
+pip install faiss-gpu # For CUDA 7.5+ supported GPU's.
+```
+
+```bash uv
+uv add faiss-gpu # For CUDA 7.5+ supported GPUs.
+```
+</CodeGroup>
+
+OR
+
+<CodeGroup>
+```bash pip
+pip install faiss-cpu # For CPU Installation
+```
+
+```bash uv
+uv add faiss-cpu # For CPU Installation
+```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/vectorstores/faiss).
+
+```python
+from langchain_community.vectorstores import FAISS
+```
+
+## Chat loaders
+
+### Facebook messenger
+
+>[Messenger](https://en.wikipedia.org/wiki/Messenger_(software))是一款由 Meta Platforms 开发的即时通讯应用和平台。它最初于2008年作为 Facebook Chat 开发，后来在2010年重新设计了其消息服务。
+
+See a [usage example](/oss/python/integrations/chat_loaders/facebook).
+
+```python
+from langchain_community.chat_loaders.facebook_messenger import (
+    FolderFacebookMessengerChatLoader,
+    SingleFileFacebookMessengerChatLoader,
+)
+```
+
+### Facebook WhatsApp
+
+```python
+from langchain_community.chat_loaders.whatsapp import WhatsAppChatLoader
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\facebook.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

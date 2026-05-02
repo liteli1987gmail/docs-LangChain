@@ -1,0 +1,734 @@
+---
+title: 投入生产
+description: 使用持久记忆、沙箱、弹性中间件和部署选项将深度代理投入生产
+---
+
+本指南涵盖了将深度代理从本地原型到生产部署的注意事项。它涵盖了内存作用域、执行环境配置、保护措施和连接前端。
+
+
+## 概述
+
+代理使用来自记忆及其执行环境的信息来完成任务。
+在生产中，有几个原语决定了信息如何共享和访问：
+
+- **Thread（线程）**：一次对话。消息历史和草稿文件默认作用域为线程，不会延续。
+- **User（用户）**：与你的代理交互的人。记忆和文件可以私有或跨用户共享。身份和授权来自你的[auth 层](/langsmith/auth)。
+- **Assistant（助手）**：配置的代理实例。记忆和文件可以绑定到一个助手或跨所有助手共享。
+
+本页面涵盖：
+- **[LangSmith Deployments](#langsmith-deployments)**：带有 auth、webhooks 和 cron 的托管基础设施
+- **[生产注意事项](#production-considerations)**：多租户、认证、凭证、异步和持久性
+- **[记忆](#memory)**：跨对话持久化信息
+- **[执行环境](#execution-environment)**：文件存储和代码执行
+- **[保护措施](#guardrails)**：速率限制、错误处理和数据隐私
+- **[前端](#frontend)**：将你的 UI 连接到部署的代理
+
+## LangSmith Deployments
+
+![`deepagents deploy` 打包你的代理配置 — 记忆、沙箱、技能、MCP 服务器 — 并将其运送到 LangSmith Deployment](/oss/images/deepagents/production/deepagents-deploy-config.png)
+
+将深度代理投入生产的最快方式是 [`deepagents deploy`](/oss/javascript/deepagents/deploy)，它打包你的代理配置并将其部署为 LangSmith Deployment，一条命令即可。或者，你可以直接配置 [LangSmith Deployment](/langsmith/deployment)。任一路径都会配置你的代理需要的基础设施：[assistants](/langsmith/assistants)、[threads](/langsmith/use-threads)、[runs](/langsmith/runs)、store 和 checkpointer，所以你无需自己设置这些。它还为你提供开箱即用的[认证](/langsmith/auth)、[webhooks](/langsmith/use-webhooks)、[cron jobs](/langsmith/cron-jobs)和[可观测性](/langsmith/observability)，并且可以通过 [MCP](/langsmith/server-mcp) 或 [A2A](/langsmith/server-a2a) 暴露你的代理。
+
+有关基于 CLI 的方法，参见[使用 CLI 部署](/oss/javascript/deepagents/deploy)。有关手动设置，参见 [LangSmith Deployments quickstart](/langsmith/deployment-quickstart)。
+
+除非另有说明，否则本页的所有代码片段使用以下 `langgraph.json`：
+
+
+
+```json langgraph.json
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./src/agent.ts:agent"
+  },
+  "env": ".env"
+}
+```
+
+
+`langgraph.json` 是告诉 LangGraph 平台如何构建和运行应用程序的配置文件。它位于项目根目录，对于本地开发（使用 `langgraph dev`）和生产部署都是必需的。关键字段是：
+
+| 字段 | 说明 |
+| --- | --- |
+| `dependencies` | 要安装的包。`["."]` 将当前目录安装为一个包（从 `requirements.txt`、`pyproject.toml` 或 `package.json` 读取）。 |
+| `graphs` | 将图 ID 映射到其代码位置。每个条目是 `"<id>": "./<file>:<variable>"`，其中 `<id>` 是你通过 API 调用图的名称，`<variable>` 是从 `<file>` 导出的编译图或构造函数。 |
+| `env` | 带有环境变量（API 密钥、密钥）的 `.env` 文件路径。这些在构建时设置，在运行时可用。 |
+
+有关配置选项的完整集合（自定义 Docker 步骤、存储索引、auth 处理程序等），参见[应用程序结构](/oss/javascript/langgraph/application-structure)。
+
+## 生产注意事项
+
+### 多租户
+
+当你的代理为多个用户提供服务时，你需要处理三个问题：验证每个用户是谁、控制他们可以访问什么，以及管理代理代表他们行事的凭证。
+
+![三个认证层组合：最终用户 auth、代理作为用户 auth 和团队 RBAC](/oss/images/deepagents/production/auth-layers.png)
+
+#### 用户身份和访问控制
+
+[LangSmith Deployments](/langsmith/deployment) 支持[自定义认证](/langsmith/custom-auth)来建立用户身份，以及[授权处理程序](/langsmith/auth)来控制对线程、助手和存储命名空间等资源的访问。授权处理程序在认证成功后运行，可以：
+
+- 用所有权元数据标记资源（例如 `owner: user_id`）
+- 返回过滤器以便用户只能看到自己的资源
+- 对于未经授权的操作返回 HTTP 403 拒绝访问
+
+有关分步教程，参见[使对话私有](/langsmith/resource-auth)。有关演练，观看[自定义 auth 视频](https://www.youtube.com/watch?v=DkNqgCz8cjE)。
+
+你如何[作用域记忆](#scoping)和[执行环境](#execution-environment)决定了用户之间共享哪些数据。参见下面的部分获取详情。
+
+#### 团队访问控制（RBAC）
+
+LangSmith 的[基于角色的访问控制](/langsmith/rbac)管理你团队中谁可以部署、配置和监控代理。这与上面的最终用户授权是分开的。
+
+| 角色 | 访问 |
+| --- | --- |
+| Workspace Admin | 完整权限，包括设置和成员管理 |
+| Workspace Editor | 创建和修改资源，但无法删除运行或管理成员 |
+| Workspace Viewer | 只读访问 |
+
+企业计划提供具有细粒度权限的自定义角色。参见 [RBAC 参考](/langsmith/rbac)获取完整的权限模型。
+
+#### 最终用户凭证
+
+当你的代理需要代表用户调用外部 API 时（例如读取他们的 GitHub 仓库、发送 Slack 消息、查询他们的数据仓库），你需要一种方法将用户的凭证传递到代理，而不是将它们硬编码。
+
+**通过 Agent Auth 的 OAuth。** [Agent Auth](/langsmith/agent-auth) 提供托管的 OAuth 2.0 流程。配置一个 OAuth 提供商，代理可以请求每个用户作用域的令牌。首次使用时，代理[中断](/oss/javascript/langgraph/interrupts)执行并呈现 OAuth 同意 URL。用户认证后，代理使用有效令牌恢复。令牌自动存储和刷新。
+
+
+
+```typescript
+import { Client } from "@langchain/auth";
+
+const authClient = new Client();
+
+// 在你的代理工具内部：
+// 通过 runtime.serverInfo 访问认证用户
+const authResult = await authClient.authenticate({
+  provider: "github",
+  scopes: ["repo", "read:org"],
+  userId: runtime.serverInfo.user.identity,  // [!code highlight]
+});
+// 使用 authResult.token 代表用户调用 GitHub API
+```
+
+
+**沙箱凭证注入。** 如果你的代理在[沙箱](#sandboxes)内运行代码调用外部 API，[sandbox auth proxy](/langsmith/sandbox-auth-proxy) 可以自动将凭证注入出站请求，因此沙箱代码永远不会收到原始 API 密钥。参见[管理密钥](#managing-secrets)获取设置详情。
+
+**工作区密钥。** 对于跨所有用户共享的 API 密钥（例如你的组织的 LLM 提供商密钥、搜索 API 密钥），将它们存储为 LangSmith 中的[工作区密钥](/langsmith/set-up-hierarchy#configure-workspace-settings)。参见[管理密钥](#managing-secrets)获取详情。
+
+### 异步
+
+基于 LLM 的应用程序是严重的 I/O 密集型：调用语言模型、数据库和外部服务。异步编程让这些操作并发运行而不是阻塞，提高吞吐量和响应能力。
+
+<Note>
+LangChain 遵循在异步方法名称前添加 `a` 前缀的约定（例如 `ainvoke`、`abefore_agent`、`astream`）。同步和异步变体位于同一个类或命名空间中。
+</Note>
+
+在构建生产环境时：
+
+- **创建异步工具。** LangChain 在单独线程中运行同步工具以避免阻塞，但原生异步完全避免线程开销。
+- **使用异步中间件方法。** 自定义[中间件](/oss/javascript/langchain/middleware/custom)应实现异步钩子（例如 `abefore_agent` 而不是 `before_agent`）。
+- **使用异步进行外部资源生命周期。** 创建[沙箱](#sandboxes)或连接 [MCP 服务器](/oss/javascript/langchain/mcp) 涉及网络调用，应该等待。这就是[图工厂](/langsmith/graph-rebuild)配置这些资源是异步的原因。
+
+### 持久性
+
+深度代理运行在 LangGraph 上，LangGraph 默认提供[持久执行](/oss/javascript/langgraph/durable-execution)。[持久性](/oss/javascript/langgraph/persistence)层在每一步检查状态，因此被失败、超时或 [human-in-the-loop](/oss/javascript/langgraph/interrupts) 暂停中断的运行从其最后记录的状态恢复，而无需重新处理之前的步骤。对于产生许多子代理的长期运行深度代理，这意味着中途失败不会丢失已完成的工作。
+
+![持久执行：当 worker 在运行中途崩溃时，另一个 worker 从最新检查点捡起运行](/oss/images/deepagents/production/durable-execution.png)
+
+检查点还支持：
+
+- **无限[中断](/oss/javascript/langgraph/interrupts)。** Human-in-the-loop 工作流可以暂停几分钟或几天，然后从离开的地方精确恢复。
+- **[时间旅行](/oss/javascript/langgraph/use-time-travel)。** 每个检查点的步骤都是快照，你可以倒回，让你可以在出现问题时从早期状态重放。
+- **敏感操作的安全处理。** 对于涉及支付或其他不可逆操作的工作流，检查点提供审计跟踪和检查导致操作的确切状态的恢复点。
+
+<Tip>
+[LangSmith Deployments](/langsmith/deployment) 自动配置持久检查点。如果你自托管，参见[持久性](/oss/javascript/langgraph/persistence)获取设置说明。
+</Tip>
+
+## 记忆
+
+没有记忆，每次对话都从头开始。记忆让你的代理在对话之间保留信息（用户偏好、学习到的指令、过去的经验），这样它可以随着时间个性化其行为。有关记忆类型的概述，参见[记忆概念指南](/oss/javascript/concepts/memory)。
+
+![短期记忆通过检查点作用域到单个线程；长期记忆通过 store 跨线程持久化](/oss/images/deepagents/production/memory.png)
+
+### 作用域
+
+记忆在对话之间总是持久化的。主要问题是它如何跨用户和助手边界作用域。正确的作用域取决于谁应该看到和修改数据：
+
+| 作用域 | 命名空间 | 用例 | 示例 |
+| --- | --- | --- | --- |
+| **User（推荐默认）** | `(user_id)` | 每用户偏好和上下文 | "我更喜欢简洁的回复" |
+| **Assistant** | `(assistant_id)` | 一个助手的共享指令 | "帖子上限 280 个字符" |
+| **Global** | `(org_id)` | 所有用户和助手的只读策略 | "永不披露内部定价" |
+
+<Warning>
+共享记忆（助手、用户或组织作用域）是提示词注入的载体。如果一个用户可以写入另一个用户对话读取的记忆，恶意的用户可以向该共享状态注入指令。在适当的地方强制执行只读访问。例如，通过应用程序代码而不是代理本身使组织范围的策略可写。使用[权限](/oss/javascript/deepagents/permissions)对共享路径声明性地拒绝写入，或使用[后端策略钩子](/oss/javascript/deepagents/backends#add-policy-hooks)进行自定义验证逻辑。
+</Warning>
+
+### 配置
+
+在深度代理中，记忆作为文件存储在虚拟文件系统中。默认情况下，文件只持续一次对话。要持久化它们，将路径（如 `/memories/`）路由到写入 LangGraph [Store](/langsmith/custom-store) 的 [StoreBackend](https://reference.langchain.com/javascript/deepagents/backends/StoreBackend)。使用 [CompositeBackend](https://reference.langchain.com/javascript/deepagents/backends/CompositeBackend) 给代理同时提供临时草稿空间和持久化[长期记忆](/oss/javascript/deepagents/memory)。
+
+
+
+<Note>
+下面显示的 `rt.serverInfo` 和 `rt.executionInfo` 命名空间模式需要 `deepagents>=1.9.0`。
+</Note>
+
+
+<Tabs>
+  <Tab title="User（推荐）">
+    按 `user_id` 命名空间。每个用户获得自己的私有记忆。这是推荐的默认设置，因为大多数应用程序部署单个助手。
+
+
+
+```typescript src/agent.ts
+import { createDeepAgent, CompositeBackend, StateBackend, StoreBackend } from "deepagents";
+
+export const agent = createDeepAgent({
+  backend: new CompositeBackend(
+    new StateBackend(),
+    {
+      "/memories/": new StoreBackend({
+        namespace: (rt) => [
+          rt.serverInfo.assistantId,  // [!code highlight]
+          rt.serverInfo.user.identity,  // [!code highlight]
+        ],
+      }),
+    },
+  ),
+  systemPrompt: `You have persistent memory at /memories/.
+
+  Read /memories/instructions.txt at the start of each conversation for
+  accumulated knowledge and preferences. When you learn something that
+  should persist, update that file.`,
+});
+```
+
+
+  </Tab>
+  <Tab title="Assistant">
+    按 `assistant_id` 命名空间。记忆在同一助手的所有用户之间共享，因此任何用户都可以读取或更新它。用于适用于使用给定助手的每个人的共享指令或知识（例如，"始终以正式语气回复"）。
+
+
+
+```typescript src/agent.ts
+import { createDeepAgent, CompositeBackend, StateBackend, StoreBackend } from "deepagents";
+
+export const agent = createDeepAgent({
+  backend: new CompositeBackend(
+    new StateBackend(),
+    {
+      "/memories/": new StoreBackend({
+        namespace: (rt) => [rt.serverInfo.assistantId],  // [!code highlight]
+      }),
+    },
+  ),
+});
+```
+
+
+  </Tab>
+  <Tab title="User">
+    仅按 `user_id` 命名空间。记忆跟随用户跨所有助手。使用于全局用户配置文件（姓名、时区、沟通偏好），无论用户与哪个助手交谈都应适用。
+
+
+
+```typescript src/agent.ts
+import { createDeepAgent, CompositeBackend, StateBackend, StoreBackend } from "deepagents";
+
+export const agent = createDeepAgent({
+  backend: new CompositeBackend(
+    new StateBackend(),
+    {
+      "/memories/": new StoreBackend({
+        namespace: (rt) => [rt.serverInfo.user.identity],  // [!code highlight]
+      }),
+    },
+  ),
+});
+```
+
+
+  </Tab>
+  <Tab title="Organization">
+    按 `org_id` 命名空间。记忆在所有用户和所有助手之间共享。通常用于组织范围的策略（合规规则、品牌指南），代理应只读。写访问应限制在应用程序代码以防止提示词注入。
+
+
+
+```typescript src/agent.ts
+import { createDeepAgent, CompositeBackend, StateBackend, StoreBackend } from "deepagents";
+
+export const agent = createDeepAgent({
+  backend: new CompositeBackend(
+    new StateBackend(),
+    {
+      "/memories/": new StoreBackend({
+        namespace: (rt) => [rt.context.orgId],
+      }),
+    },
+  ),
+});
+```
+
+
+  </Tab>
+</Tabs>
+
+你也可以使用 [Store API](/langsmith/custom-store) 从应用程序代码读取和写入存储。参见[高级用法](/oss/javascript/deepagents/memory#advanced-usage)获取示例。
+
+有关完整的命名空间工厂 API，参见[命名空间工厂](/oss/javascript/deepagents/backends#namespace-factories)。有关记忆模式（如自我改进指令和知识库），参见[长期记忆](/oss/javascript/deepagents/memory)。
+
+## 执行环境
+
+在本地，代理可以直接读取和写入磁盘文件并运行 shell 命令。在生产中，你需要考虑隔离和持久性。正确的设置取决于你的代理是否需要执行代码：
+
+- **文件系统后端** 如果你的代理只读取和写入文件就足够了。选择符合你持久性需求的后端：临时草稿空间、持久存储或两者混合。
+- **沙箱** 添加一个带有 `execute` 工具的隔离容器用于运行 shell 命令。如果你的代理需要运行代码、安装包或做任何超出文件 I/O 的事情，使用沙箱。
+
+### 文件系统
+
+根据需要持久化的内容选择后端：
+
+- [StateBackend](https://reference.langchain.com/javascript/deepagents/backends/StateBackend)（默认）：临时草稿空间，作用域到单个对话。每步检查点，所以避免写入大文件。
+- [StoreBackend](https://reference.langchain.com/javascript/deepagents/backends/StoreBackend)：跨对话持久化的存储。使用[命名空间工厂](/oss/javascript/deepagents/backends#namespace-factories)进行作用域。
+- [CompositeBackend](https://reference.langchain.com/javascript/deepagents/backends/CompositeBackend)：混合两者。默认情况下是临时草稿空间，特定路径（如 `/memories/`）有持久化路由。
+
+有关后端的完整列表以及如何构建自定义后端，参见[后端](/oss/javascript/deepagents/backends)。
+
+<Warning>
+`FilesystemBackend` 和 `LocalShellBackend` 直接访问主机。不要在部署的代理中使用它们。
+</Warning>
+
+### 沙箱
+
+如果你的代理需要运行代码（不仅仅是读取和写入文件），使用[沙箱](/oss/javascript/deepagents/sandboxes)。沙箱同时提供文件系统和 `execute` 工具用于运行 shell 命令，全部在隔离容器内。这种隔离也保护你的主机：如果代理的代码耗尽内存或崩溃，只有沙箱受到影响。你的服务器继续运行。
+
+#### 生命周期
+
+关键决策是沙箱存活多长时间。每个对话获得一个新的，还是对话共享一个持久环境？
+
+| 作用域 | 沙箱 ID 存储在 | 生命周期 | 示例用例 |
+|---|---|---|---|
+| **Thread-scoped** | [Thread](/langsmith/use-threads) 元数据 | 每个对话新鲜，TTL 时清理 | 一个数据分析机器人，每个对话开始干净 |
+| **Assistant-scoped** | [Assistant](/langsmith/assistants) 配置 | 跨所有对话共享 | 一个跨对话维护克隆仓库的编码助手 |
+
+<Note>
+下面的示例使用异步[图工厂](/langsmith/graph-rebuild)而不是静态图，因为沙箱需要 `thread_id` 或 `assistant_id` 来查找或创建正确的沙箱。图工厂不接收完整的 `Runtime`（没有 `server_info` 或 `execution_info`）；相反，接受 `RunnableConfig` 并从 `config["configurable"]` 读取 `thread_id` 和 `assistant_id`。工厂是异步的，因为沙箱创建是一个 I/O 密集型操作，需要仅在调用时可用的每运行信息。
+</Note>
+
+<Tabs>
+  <Tab title="Thread-scoped（最常见）">
+    每个对话获得自己的沙箱。[图工厂](/langsmith/graph-rebuild)从运行配置中读取 `thread_id`，因此每个[线程](/langsmith/use-threads)自动获得自己的隔离环境。提供商的基于标签的查找处理跨运行的去重。沙箱在 [TTL](/langsmith/configure-ttl) 过期时被清理。
+
+
+
+```typescript src/agent.ts
+import { Daytona } from "@daytonaio/sdk";
+import { DaytonaSandbox } from "@langchain/daytona";
+import { createDeepAgent } from "deepagents";
+import type { LangGraphRunnableConfig } from "@langchain/langgraph";
+
+const client = new Daytona();
+
+export async function agent(config: LangGraphRunnableConfig) {
+  const threadId = config.configurable?.thread_id as string;  // [!code highlight]
+  let sandbox;
+  try {
+    sandbox = await client.findOne({ labels: { thread_id: threadId } });
+  } catch {
+    sandbox = await client.create({
+      labels: { thread_id: threadId },
+      autoDeleteInterval: 3600, // TTL: idle 时清理
+    });
+  }
+  return createDeepAgent({ backend: await DaytonaSandbox.fromId(sandbox.id) });
+}
+```
+
+
+  </Tab>
+  <Tab title="Assistant-scoped">
+    所有对话共享一个沙箱。[图工厂](/langsmith/graph-rebuild)从 `config["configurable"]` 读取[助手](/langsmith/assistants) ID，因此同一助手上的每个线程返回到相同环境。文件、安装的包和克隆的仓库在对话之间持久化。
+
+
+
+```typescript src/agent.ts
+import { Daytona } from "@daytonaio/sdk";
+import { DaytonaSandbox } from "@langchain/daytona";
+import { createDeepAgent } from "deepagents";
+import type { LangGraphRunnableConfig } from "@langchain/langgraph";
+
+const client = new Daytona();
+
+export async function agent(config: LangGraphRunnableConfig) {
+  const assistantId = config.configurable?.assistant_id as string;  // [!code highlight]
+  let sandbox;
+  try {
+    sandbox = await client.findOne({ labels: { assistant_id: assistantId } });
+  } catch {
+    sandbox = await client.create({ labels: { assistant_id: assistantId } });
+  }
+  return createDeepAgent({ backend: await DaytonaSandbox.fromId(sandbox.id) });
+}
+```
+
+
+    <Warning>
+        Assistant-scoped 沙箱随着时间积累文件、安装的包和其他沙箱内状态。使用沙箱提供商的 TTL 配置，使用快照定期重置，或实现清理逻辑以防止沙箱的磁盘和内存无限增长。
+    </Warning>
+  </Tab>
+</Tabs>
+
+因为 `agent` 变量是一个异步函数（不是编译的图），服务器将其视为[图工厂](/langsmith/graph-rebuild)并在每次运行时调用它，注入配置。工厂通过提供商的基于标签的搜索查找或创建沙箱，并返回连接到该沙箱的新代理图。
+
+使用 `langgraph deploy` 部署后，使用 SDK 从应用程序代码调用代理。客户端代码无论作用域如何都是相同的。作用域完全在上面的代理工厂中处理，但行为不同：
+
+<Tabs>
+  <Tab title="Thread-scoped">
+    每个线程获得自己的沙箱。同一对话中的后续消息重用相同的沙箱，但新线程总是以干净的环境开始，没有之前对话中的剩余文件或已安装的包。
+
+
+
+```typescript client.ts
+import { Client } from "@langchain/langgraph-sdk";
+
+const client = new Client({ apiUrl: "<DEPLOYMENT_URL>", apiKey: "<LANGSMITH_API_KEY>" });
+
+// 对话 1: 安装 pandas 并分析数据
+const thread1 = await client.threads.create();
+for await (const chunk of client.runs.stream(
+  thread1.thread_id,
+  "agent",
+  { input: { messages: [{ role: "human", content: "Install pandas and analyze sales_data.csv" }] } },
+)) {
+  console.log(chunk.data);
+}
+
+// 同一对话中的后续操作 — pandas 仍然安装
+for await (const chunk of client.runs.stream(
+  thread1.thread_id,
+  "agent",
+  { input: { messages: [{ role: "human", content: "Now plot the results" }] } },
+)) {
+  console.log(chunk.data);
+}
+
+// 对话 2: 干净的新沙箱 — pandas 未安装，没有对话 1 的文件
+const thread2 = await client.threads.create();
+for await (const chunk of client.runs.stream(
+  thread2.thread_id,
+  "agent",
+  { input: { messages: [{ role: "human", content: "What packages are installed?" }] } },
+)) {
+  console.log(chunk.data);
+}
+```
+
+
+  </Tab>
+  <Tab title="Assistant-scoped">
+    所有线程共享一个沙箱。当沙箱状态重建成本很高时，这很有用，例如克隆的仓库、安装的依赖项或构建产物。同一助手上的任何对话从上一次对话停止的地方继续，无需重复设置。
+
+
+
+```typescript client.ts
+import { Client } from "@langchain/langgraph-sdk";
+
+const client = new Client({ apiUrl: "<DEPLOYMENT_URL>", apiKey: "<LANGSMITH_API_KEY>" });
+
+// 对话 1: 克隆并设置项目
+const thread1 = await client.threads.create();
+for await (const chunk of client.runs.stream(
+  thread1.thread_id,
+  "agent",
+  { input: { messages: [{ role: "human", content: "Clone https://github.com/org/repo and install dependencies" }] } },
+)) {
+  console.log(chunk.data);
+}
+
+// 对话 2: 仓库和依赖项仍然存在
+const thread2 = await client.threads.create();
+for await (const chunk of client.runs.stream(
+  thread2.thread_id,
+  "agent",
+  { input: { messages: [{ role: "human", content: "Run the test suite and fix any failures" }] } },
+)) {
+  console.log(chunk.data);
+}
+```
+
+
+  </Tab>
+</Tabs>
+
+#### 文件传输
+
+沙箱是隔离容器，所以你的应用程序代码无法直接访问其中的文件。使用 `upload_files()` 和 `download_files()` 在沙箱边界移动数据：
+
+- **在代理运行前植入沙箱**：上传用户文件、[技能](/oss/javascript/deepagents/skills)脚本、配置或[持久记忆](/oss/javascript/deepagents/memory)，以便代理从一开始就有所需的一切
+- **在代理完成后检索结果**：下载生成的产物（报告、图表、导出）并将更新的记忆同步回来供未来对话使用
+
+有关特定于提供商的文件传输示例，参见[使用文件](/oss/javascript/deepagents/sandboxes#working-with-files)。有关提供商设置、安全性和生命周期模式，参见完整的[沙箱指南](/oss/javascript/deepagents/sandboxes)。
+
+<Accordion title="Example: syncing skills and memories with custom middleware">
+  代理需要执行的[技能](/oss/javascript/deepagents/skills)脚本必须在代理运行前上传到沙箱中。你可能还需要同步[记忆](/oss/javascript/deepagents/memory)，以便代理可以在容器内读取和更新它们。使用带有 `before_agent` 和 `after_agent` 钩子的[自定义中间件](/oss/javascript/langchain/middleware/custom)在沙箱边界移动文件：
+
+
+
+```typescript src/agent.ts
+import { createMiddleware } from "langchain";
+import { createDeepAgent, CompositeBackend, StoreBackend } from "deepagents";
+import { DaytonaSandbox } from "@langchain/daytona";
+
+function safeFilename(key: string): string {
+  const name = key.split("/").pop()!;
+  if (name.includes("..") || /[*?]/.test(name)) {
+    throw new Error(`Invalid key: ${key}`);
+  }
+  return name;
+}
+
+const createSandboxSyncMiddleware = (backend: CompositeBackend) => {
+  return createMiddleware({
+    name: "SandboxSyncMiddleware",
+    beforeAgent: async (state, runtime) => {
+      // Upload skill scripts and memories into the sandbox
+      const userId = runtime.serverInfo.user.identity;  // [!code highlight]
+      const store = runtime.store;
+      const encoder = new TextEncoder();
+      const files: [string, Uint8Array][] = [];
+      for (const item of await store.search(["skills", userId])) {
+        const name = safeFilename(item.key);
+        files.push([`/skills/${name}`, encoder.encode(item.value.content)]);
+      }
+      for (const item of await store.search(["memories", userId])) {
+        const name = safeFilename(item.key);
+        files.push([`/memories/${name}`, encoder.encode(item.value.content)]);
+      }
+      if (files.length > 0) {
+        await backend.uploadFiles(files);
+      }
+    },
+    afterAgent: async (state, runtime) => {
+      // Sync updated memories back to the store
+      const userId = runtime.serverInfo.user.identity;  // [!code highlight]
+      const store = runtime.store;
+      const items = await store.search(["memories", userId]);
+      const results = await backend.downloadFiles(
+        items.map((item) => `/memories/${item.key}`),
+      );
+      const decoder = new TextDecoder();
+      for (const result of results) {
+        if (result.content) {
+          await store.put(
+            ["memories", userId],
+            result.path.split("/").pop()!,
+            { content: decoder.decode(result.content) },
+          );
+        }
+      }
+    },
+  });
+};
+
+const backend = new CompositeBackend(
+  await DaytonaSandbox.fromId(sandbox.id),
+  {
+    "/skills/": new StoreBackend({
+      namespace: (rt) => ["skills", rt.serverInfo.user.identity],  // [!code highlight]
+    }),
+    "/memories/": new StoreBackend({
+      namespace: (rt) => ["memories", rt.serverInfo.user.identity],  // [!code highlight]
+    }),
+  },
+);
+
+export const agent = createDeepAgent({
+  backend,
+  middleware: [createSandboxSyncMiddleware(backend)],
+});
+```
+
+
+</Accordion>
+
+#### 管理密钥
+
+沙箱是隔离容器，所以你的主机上的环境变量在它们内部不可用。有两种方法可以将 API 密钥和其他密钥提供给沙箱代码：
+
+**Auth proxy（推荐）。** [sandbox auth proxy](/langsmith/sandbox-auth-proxy) 拦截沙箱的出站请求并自动注入认证 header。沙箱代码正常调用外部 API，代理根据目标主机添加正确的凭证。这意味着 API 密钥永远不会出现在沙箱代码、环境变量或日志中。
+
+![sandbox auth proxy 将凭证注入出站请求，因此密钥永远不会进入沙箱](/oss/images/deepagents/production/sandbox-auth-proxy.png)
+
+```json
+{
+  "proxy_config": {
+    "rules": [
+      {
+        "name": "openai-api",
+        "match_hosts": ["api.openai.com"],
+        "inject_headers": {
+          "Authorization": "Bearer ${OPENAI_API_KEY}"
+        }
+      },
+      {
+        "name": "anthropic-api",
+        "match_hosts": ["api.anthropic.com"],
+        "inject_headers": {
+          "x-api-key": "${ANTHROPIC_API_KEY}"
+        }
+      }
+    ]
+  }
+}
+```
+
+`${SECRET_KEY}` 引用针对存储在 LangSmith [工作区设置](/langsmith/set-up-hierarchy#configure-workspace-settings)中的密钥进行解析。在创建引用它们的模板之前，在那里配置密钥。
+
+**工作区密钥。** 对于不需要代理注入的 API 密钥（例如代理服务器本身使用的密钥，而不是沙箱代码），将它们存储为 LangSmith 中的[工作区密钥](/langsmith/set-up-hierarchy#configure-workspace-settings)。这些在运行时作为环境变量可用，适用于工作区中的所有代理。
+
+<Warning>
+避免通过环境变量或文件上传将密钥传递到沙箱中。代理可以读取沙箱内任何可访问的文件或环境变量，包括凭证。auth 代理将密钥完全保持在沙箱之外。
+</Warning>
+
+## 保护措施
+
+生产中的代理自主运行，这意味着它们可能会无限循环、达到速率限制或处理包含敏感信息的用户数据。深度代理提供两层保护：
+
+- **[权限](/oss/javascript/deepagents/permissions)**：声明式 allow/deny 规则，控制代理可以读取或写入哪些文件和目录。使用权限将代理隔离到工作目录、保护敏感文件或强制执行只读记忆。
+- **[中间件](/oss/javascript/langchain/middleware/built-in)**：包装模型和工具调用的钩子，用于速率限制、错误处理和数据隐私。
+
+![中间件钩子 — before_model、wrap_model_call、wrap_tool_call、after_model — 包装代理循环，以便策略围绕每个相关步骤确定性运行](/oss/images/deepagents/production/middleware-lifecycle.png)
+
+### 速率限制
+
+这里的速率限制是指在一次运行内限制代理自己的大型语言模型和工具使用，而不是用于传入请求的 API 网关速率限制。
+
+如果没有限制，一个困惑的代理可以在几分钟内消耗完你的大型语言模型 API 预算，因为它在同一个工具调用上循环或发出数百个模型调用。在每次运行上设置模型调用和工具执行的上限：
+
+
+
+```typescript
+import { createAgent, modelCallLimitMiddleware, toolCallLimitMiddleware } from "langchain";
+
+const agent = createAgent({
+  model: "google_genai:gemini-3.1-pro-preview",
+  middleware: [
+    modelCallLimitMiddleware({ runLimit: 50 }),
+    toolCallLimitMiddleware({ runLimit: 200 }),
+  ],
+});
+```
+
+
+使用 `run_limit` 限制单次调用的调用（每次交互重置）。使用 `thread_limit` 限制整个对话的调用（需要检查点）。参见 [ModelCallLimitMiddleware](https://reference.langchain.com/javascript/langchain/index/modelCallLimitMiddleware) 和 [ToolCallLimitMiddleware](https://reference.langchain.com/javascript/langchain/index/toolCallLimitMiddleware) 获取完整配置。
+
+### 处理错误
+
+并非所有错误都应以相同方式处理。瞬态失败（网络超时、速率限制）应自动重试。大型语言模型可以恢复的错误（错误的工具输出、解析失败）应反馈给模型。需要人工输入的错误应暂停代理。有关带代码示例的完整细分，参见[适当处理错误](/oss/javascript/langgraph/thinking-in-langgraph#handle-errors-appropriately)。
+
+中间件处理瞬态情况。模型调用和工具调用各自有其带指数退避的重试中间件。如果你的主要模型提供商完全宕机，回退中间件切换到替代方案：
+
+
+
+```typescript
+import {
+  createAgent,
+  modelFallbackMiddleware,
+  modelRetryMiddleware,
+  toolRetryMiddleware,
+} from "langchain";
+
+const agent = createAgent({
+  model: "google_genai:gemini-3.1-pro-preview",
+  middleware: [
+    // 在速率限制、超时和 5xx 错误上重试模型调用
+    modelRetryMiddleware({ maxRetries: 3, backoffFactor: 2.0, initialDelayMs: 1000 }),
+    // 如果主要模型完全宕机，回退到替代方案
+    modelFallbackMiddleware("gpt-5.4"),
+    // 重试命中外部 API 的特定工具（不是所有工具）
+    toolRetryMiddleware({
+      maxRetries: 2,
+      tools: ["search", "fetch_url"],
+      retryOn: [TimeoutError, TypeError],
+    }),
+  ],
+});
+```
+
+
+将 @[ToolRetryMiddleware} 作用域到特定工具，而不是重试所有内容。失败的 filesystem `read_file` 不会从重试中受益，但超时的网络搜索可能会。参见 [ModelRetryMiddleware](https://reference.langchain.com/javascript/langchain/index/modelRetryMiddleware) 和 [ModelFallbackMiddleware](https://reference.langchain.com/javascript/langchain/index/modelFallbackMiddleware) 获取完整配置。
+
+### 数据隐私
+
+如果你的代理处理可能包含电子邮件、信用卡号码或其他 PII 的用户输入，你可以在它到达模型或存储在日志中之前检测和处理它：
+
+
+
+```typescript
+import { createAgent, piiMiddleware } from "langchain";
+
+const agent = createAgent({
+  model: "google_genai:gemini-3.1-pro-preview",
+  middleware: [
+    piiMiddleware("email", { strategy: "redact", applyToInput: true }),
+    piiMiddleware("credit_card", { strategy: "mask", applyToInput: true }),
+  ],
+});
+```
+
+
+策略包括 `redact`（替换为 `[REDACTED_EMAIL]`）、`mask`（部分屏蔽如 `****-****-****-1234`）、`hash`（确定性哈希）和 `block`（引发错误）。你也可以为特定领域的模式编写自定义检测器。
+
+参见 [piiMiddleware](https://reference.langchain.com/javascript/langchain/index/piiMiddleware) 获取完整配置。
+
+
+有关可用的预构建中间件的完整列表，参见[预构建中间件](/oss/javascript/langchain/middleware/built-in)。
+
+## 前端
+
+深度代理使用 [`useStream`](/oss/javascript/langchain/frontend/overview) 将你的 UI 连接到代理后端。`useStream` 是一个前端钩子（可用于 React、Vue、Svelte 和 Angular），可以实时从你的代理流式传输消息、子代理进度和自定义状态。
+
+在本地，`useStream` 指向 `http://localhost:2024`。在生产中，将其指向你的 [LangSmith Deployment](/langsmith/deployment) 并配置重新连接，以便用户如果连接中断不会丢失进度。
+
+```tsx
+import { useStream } from "@langchain/react";
+
+function App() {
+  const stream = useStream<typeof agent>({
+    apiUrl: "https://your-deployment.langsmith.dev",
+    assistantId: "agent",
+    reconnectOnMount: true,    // 页面刷新或导航后恢复流
+    fetchStateHistory: true,   // 挂载时加载完整线程历史
+  });
+}
+```
+
+`reconnectOnMount` 自动捡起一个进行中的运行。如果用户在代理工作时刷新页面，他们会看到它继续而不是空白屏幕。`fetchStateHistory` 加载线程的完整对话历史，因此返回的用户会看到之前的消息。
+
+对于产生许多子代理的深度代理工作流，在提交时设置高 `recursionLimit` 以避免切断长时间运行的执行：
+
+```tsx
+stream.submit(
+  { messages: [{ type: "human", content: text }] },
+  {
+    streamSubgraphs: true,
+    config: { recursionLimit: 10000 },
+  },
+);
+```
+
+有关深度代理特有的 UI 模式（如子代理卡片、待办列表和自定义状态渲染），参见[前端指南](/oss/javascript/deepagents/frontend/overview)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\going-to-production.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

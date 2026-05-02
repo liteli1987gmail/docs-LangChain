@@ -1,0 +1,90 @@
+---
+title: "Elasticsearch BM25 integration"
+description: "Integrate with the Elasticsearch BM25 retriever using LangChain Python."
+---
+
+**翻译（简洁版）：**
+[Elasticsearch](https://www.elastic.co/elasticsearch/) 是一个分布式、RESTful 风格的搜索和数据分析引擎。它提供了一个分布式、多租户支持的全文搜索引擎，配备 HTTP Web 接口，并支持无模式的 JSON 文档。
+
+**翻译（详细版）：**
+[Elasticsearch](https://www.elastic.co/elasticsearch/) 是一个分布式、RESTful（表述性状态转移）风格的搜索与分析引擎。它提供了具备多租户能力的分布式全文搜索引擎，附带 HTTP 网页界面，并支持无需预先定义结构的 JSON 文档。
+
+在信息检索（Information Retrieval）领域，Okapi BM25（BM 是 best matching 的缩写）是一种排名函数（ranking function），被搜索引擎用于估计文档与给定搜索查询之间的相关性。它基于 20 世纪 70 年代和 80 年代由 Stephen E. Robertson、Karen Spärck Jones 等人开发的概率检索框架（Probabilistic Retrieval Framework）。
+
+实际的排名函数名为 BM25。更完整的名称 Okapi BM25 包含了第一个使用它的系统名称，即 Okapi 信息检索系统，该系统于 1980 年代和 1990 年代在伦敦城市大学开发。BM25 及其更新的变体，例如 BM25F（一种可以考虑文档结构和锚文本的 BM25 版本），是用于文档检索的类 TF-IDF 检索函数。
+
+This notebook shows how to use a retriever that uses `ElasticSearch` and `BM25`.
+
+For more information on the details of BM25 see [this blog post](https://www.elastic.co/blog/practical-bm25-part-2-the-bm25-algorithm-and-its-variables).
+
+```python
+pip install -qU  elasticsearch
+```
+
+```python
+from langchain_community.retrievers import (
+    ElasticSearchBM25Retriever,
+)
+```
+
+## Create new retriever
+
+```python
+elasticsearch_url = "http://localhost:9200"
+retriever = ElasticSearchBM25Retriever.create(elasticsearch_url, "langchain-index-4")
+```
+
+```python
+# Alternatively, you can load an existing index
+# import elasticsearch
+# elasticsearch_url="http://localhost:9200"
+# retriever = ElasticSearchBM25Retriever(elasticsearch.Elasticsearch(elasticsearch_url), "langchain-index")
+```
+
+## Add texts (if necessary)
+
+We can optionally add texts to the retriever (if they aren't already in there)
+
+```python
+retriever.add_texts(["foo", "bar", "world", "hello", "foo bar"])
+```
+
+```python
+['cbd4cb47-8d9f-4f34-b80e-ea871bc49856',
+ 'f3bd2e24-76d1-4f9b-826b-ec4c0e8c7365',
+ '8631bfc8-7c12-48ee-ab56-8ad5f373676e',
+ '8be8374c-3253-4d87-928d-d73550a2ecf0',
+ 'd79f457b-2842-4eab-ae10-77aa420b53d7']
+```
+
+## Use retriever
+
+We can now use the retriever!
+
+```python
+result = retriever.invoke("foo")
+```
+
+```python
+result
+```
+
+```python
+[Document(page_content='foo', metadata={}),
+ Document(page_content='foo bar', metadata={})]
+```
+
+```python
+
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\retrievers\elastic_search_bm25.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

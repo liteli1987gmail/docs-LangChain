@@ -1,0 +1,130 @@
+---
+title: 如何为应用程序添加 TTL
+sidebarTitle: 为应用程序添加 TTL
+---
+
+<Tip>
+**先决条件**
+本指南假设您熟悉 [LangSmith](/langsmith/home)、[持久化](/oss/python/langgraph/persistence)和[跨线程持久化](/oss/python/langgraph/persistence#memory-store)概念。
+</Tip>
+
+LangSmith 持久化[检查点](/oss/python/langgraph/persistence#checkpoints)（线程状态）和[跨线程内存](/oss/python/langgraph/persistence#memory-store)（存储项目）。您可以在 [`langgraph.json`](/langsmith/application-structure#configuration-file) 中配置生存时间（TTL）策略以自动管理此数据的生命周期，防止无限积累。
+
+## 配置线程和检查点 TTL
+
+检查点捕获对话线程的状态。设置 TTL 可确保旧检查点和线程元数据被自动删除。
+
+将 `checkpointer.ttl` 配置添加到您的 `langgraph.json` 文件：
+
+```json
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./agent.py:graph"
+  },
+  "checkpointer": {
+    "ttl": {
+      "strategy": "delete",
+      "sweep_interval_minutes": 60,
+      "default_ttl": 43200
+    }
+  }
+}
+```
+
+- `strategy`：指定过期时采取的操作。
+    - `"delete"`：当 TTL 过期时删除整个线程，包括所有相关的运行和检查点数据。
+    - `"keep_latest"`：保留线程和最新检查点，但删除后续运行不需要的旧检查点数据。
+- `sweep_interval_minutes`：定义系统检查过期检查点的频率（以分钟为单位）。
+- `default_ttl`：设置线程（及相应检查点）的默认生命周期（以分钟为单位）（例如，43200 分钟 = 30 天）。仅适用于此配置部署后创建的检查点；现有检查点/线程不会更改。要清除旧数据，请明确删除。
+
+## 配置存储项目 TTL
+
+存储项目允许跨线程数据持久化。为存储项目配置 TTL 有助于通过删除过时数据来管理内存。
+
+将 `store.ttl` 配置添加到您的 `langgraph.json` 文件：
+
+```json
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./agent.py:graph"
+  },
+  "store": {
+    "ttl": {
+      "refresh_on_read": true,
+      "sweep_interval_minutes": 120,
+      "default_ttl": 10080
+    }
+  }
+}
+```
+
+- `refresh_on_read`：（可选，默认为 `true`）如果为 `true`，通过 `get` 或 `search` 访问项目会重置其过期计时器。如果为 `false`，TTL 仅在 `put` 时刷新。
+- `sweep_interval_minutes`：（可选）定义系统检查过期项目的频率（以分钟为单位）。如果省略，则不会进行清理。
+- `default_ttl`：（可选）设置存储项目的默认生命周期（以分钟为单位）（例如，10080 分钟 = 7 天）。仅适用于此配置部署后创建的项目；现有项目不会更改。如果需要清除旧项目，请手动删除。如果省略，项目默认不会过期。
+
+## 组合 TTL 配置
+
+您可以在同一个 `langgraph.json` 文件中为检查点和存储项目配置 TTL，为每种数据类型设置不同的策略。示例如下：
+
+```json
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./agent.py:graph"
+  },
+  "checkpointer": {
+    "ttl": {
+      "strategy": "delete",
+      "sweep_interval_minutes": 60,
+      "default_ttl": 43200
+    }
+  },
+  "store": {
+    "ttl": {
+      "refresh_on_read": true,
+      "sweep_interval_minutes": 120,
+      "default_ttl": 10080
+    }
+  }
+}
+```
+
+## 配置每线程 TTL
+
+您可以[按线程应用 TTL 配置](https://reference.langchain.com/python/langsmith/deployment/sdk/#langgraph_sdk.client.ThreadsClient.create)。
+
+```python
+thread = await client.threads.create(
+    ttl={
+        "strategy": "delete",
+        "ttl": 43200  # 30 days in minutes
+    }
+)
+```
+
+<Note>
+线程级 TTL 也会删除所有关联的检查点。因此，您可以设置线程级 TTL 而不为检查点设置单独的 TTL。
+</Note>
+
+## 运行时覆盖
+
+`langgraph.json` 中的默认 `store.ttl` 设置可以通过在 `get`、`put` 和 `search` 等 SDK 方法调用中提供特定 TTL 值来在运行时覆盖。
+
+## 部署流程
+
+在 `langgraph.json` 中配置 TTL 后，部署或重启您的 LangGraph 应用程序以使更改生效。使用 [`langgraph dev`](/langsmith/local-dev-testing#langgraph-dev) 进行本地开发或 [`langgraph up`](/langsmith/local-dev-testing#langgraph-up) 进行 Docker 部署。
+
+有关其他可配置选项的详细信息，请参阅 [LangGraph CLI 参考页面](/langsmith/cli#configuration-file)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\configure-ttl.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

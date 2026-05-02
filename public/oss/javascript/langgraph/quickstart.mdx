@@ -1,0 +1,652 @@
+---
+title: 快速入门
+---
+
+本快速入门演示如何使用 LangGraph 图 API 或函数式 API 构建计算器代理。
+
+<Tip>
+    **使用 AI 编码助手？**
+
+    - 安装 [LangChain Docs MCP server](/use-these-docs) 为您的代理提供对最新 LangChain 文档和示例的访问。
+    - 安装 [LangChain Skills](https://github.com/langchain-ai/langchain-skills) 以提高您的代理在 LangChain 生态系统任务上的性能。
+</Tip>
+
+- [使用图 API](#use-the-graph-api) 如果您更喜欢将代理定义为节点和边的图。
+- [使用函数式 API](#use-the-functional-api) 如果您更喜欢将代理定义为单个函数。
+
+有关概念信息，请参阅[图 API 概述](/oss/javascript/langgraph/graph-api)和[函数式 API 概述](/oss/javascript/langgraph/functional-api)。
+
+<Info>
+对于此示例，您需要设置一个 [Claude (Anthropic)](https://www.anthropic.com/) 账户并获取 API 密钥。然后，在您的终端中设置 `ANTHROPIC_API_KEY` 环境变量。
+</Info>
+
+<Tabs>
+<Tab title="使用图 API">
+
+## 1. 定义工具和模型
+
+在此示例中，我们将使用 Claude Sonnet 4.5 模型，并定义加法、乘法和除法工具。
+
+
+
+```typescript
+import { ChatAnthropic } from "@langchain/anthropic";
+import { tool } from "@langchain/core/tools";
+import * as z from "zod";
+
+const model = new ChatAnthropic({
+  model: "claude-sonnet-4-6",
+  temperature: 0,
+});
+
+// 定义工具
+const add = tool(({ a, b }) => a + b, {
+  name: "add",
+  description: "Add two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+const multiply = tool(({ a, b }) => a * b, {
+  name: "multiply",
+  description: "Multiply two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+const divide = tool(({ a, b }) => a / b, {
+  name: "divide",
+  description: "Divide two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+// 使用工具增强 LLM
+const toolsByName = {
+  [add.name]: add,
+  [multiply.name]: multiply,
+  [divide.name]: divide,
+};
+const tools = Object.values(toolsByName);
+const modelWithTools = model.bindTools(tools);
+```
+
+
+## 2. 定义状态
+
+图的状态用于存储消息和 LLM 调用次数。
+
+
+
+<Tip>
+    LangGraph 中的状态在代理执行过程中持久化。
+
+    `MessagesValue` 提供了一个用于追加消息的内置归约器。`llmCalls` 字段使用 `ReducedValue` 和 `(x, y) => x + y` 来累积计数。
+</Tip>
+
+
+
+
+
+```typescript
+import {
+  StateGraph,
+  StateSchema,
+  MessagesValue,
+  ReducedValue,
+  GraphNode,
+  ConditionalEdgeRouter,
+  START,
+  END,
+} from "@langchain/langgraph";
+import { z } from "zod/v4";
+
+const MessagesState = new StateSchema({
+  messages: MessagesValue,
+  llmCalls: new ReducedValue(
+    z.number().default(0),
+    { reducer: (x, y) => x + y }
+  ),
+});
+```
+
+
+## 3. 定义模型节点
+
+模型节点用于调用 LLM 并决定是否调用工具。
+
+
+
+```typescript
+import { SystemMessage } from "@langchain/core/messages";
+
+const llmCall: GraphNode<typeof MessagesState> = async (state) => {
+  const response = await modelWithTools.invoke([
+    new SystemMessage(
+      "You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+    ),
+    ...state.messages,
+  ]);
+  return {
+    messages: [response],
+    llmCalls: 1,
+  };
+};
+```
+
+
+## 4. 定义工具节点
+
+工具节点用于调用工具并返回结果。
+
+
+
+```typescript
+import { AIMessage, ToolMessage } from "@langchain/core/messages";
+
+const toolNode: GraphNode<typeof MessagesState> = async (state) => {
+  const lastMessage = state.messages.at(-1);
+
+  if (lastMessage == null || !AIMessage.isInstance(lastMessage)) {
+    return { messages: [] };
+  }
+
+  const result: ToolMessage[] = [];
+  for (const toolCall of lastMessage.tool_calls ?? []) {
+    const tool = toolsByName[toolCall.name];
+    const observation = await tool.invoke(toolCall);
+    result.push(observation);
+  }
+
+  return { messages: result };
+};
+```
+
+
+## 5. 定义结束逻辑
+
+条件边函数用于根据 LLM 是否进行了工具调用来路由到工具节点或结束。
+
+
+
+```typescript
+const shouldContinue: ConditionalEdgeRouter<typeof MessagesState, "toolNode"> = (state) => {
+  const lastMessage = state.messages.at(-1);
+
+  // 在访问 tool_calls 之前检查是否是 AIMessage
+  if (!lastMessage || !AIMessage.isInstance(lastMessage)) {
+    return END;
+  }
+
+  // 如果 LLM 进行了工具调用，则执行操作
+  if (lastMessage.tool_calls?.length) {
+    return "toolNode";
+  }
+
+  // 否则，停止（回复用户）
+  return END;
+};
+```
+
+
+## 6. 构建和编译代理
+
+代理使用 [`StateGraph`](https://reference.langchain.com/javascript/langchain-langgraph/index/StateGraph) 类构建，并使用 [`compile`](https://reference.langchain.com/javascript/classes/_langchain_langgraph.index.StateGraph.html#compile) 方法编译。
+
+
+
+```typescript
+const agent = new StateGraph(MessagesState)
+  .addNode("llmCall", llmCall)
+  .addNode("toolNode", toolNode)
+  .addEdge(START, "llmCall")
+  .addConditionalEdges("llmCall", shouldContinue, ["toolNode", END])
+  .addEdge("toolNode", "llmCall")
+  .compile();
+
+// 调用
+import { HumanMessage } from "@langchain/core/messages";
+const result = await agent.invoke({
+  messages: [new HumanMessage("Add 3 and 4.")],
+});
+
+for (const message of result.messages) {
+  console.log(`[${message.type}]: ${message.text}`);
+}
+```
+
+
+<Tip>
+    要了解如何使用 LangSmith 追踪您的代理，请参阅 [LangSmith 文档](/langsmith/trace-with-langgraph)。
+</Tip>
+
+恭喜！您已经使用 LangGraph 图 API 构建了您的第一个代理。
+
+<Accordion title="完整代码示例">
+
+
+```typescript
+// 步骤 1：定义工具和模型
+
+import { ChatAnthropic } from "@langchain/anthropic";
+import { tool } from "@langchain/core/tools";
+import * as z from "zod";
+
+const model = new ChatAnthropic({
+  model: "claude-sonnet-4-6",
+  temperature: 0,
+});
+
+// 定义工具
+const add = tool(({ a, b }) => a + b, {
+  name: "add",
+  description: "Add two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+const multiply = tool(({ a, b }) => a * b, {
+  name: "multiply",
+  description: "Multiply two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+const divide = tool(({ a, b }) => a / b, {
+  name: "divide",
+  description: "Divide two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+// 使用工具增强 LLM
+const toolsByName = {
+  [add.name]: add,
+  [multiply.name]: multiply,
+  [divide.name]: divide,
+};
+const tools = Object.values(toolsByName);
+const modelWithTools = model.bindTools(tools);
+```
+```typescript
+// 步骤 2：定义状态
+
+import {
+  StateGraph,
+  StateSchema,
+  MessagesValue,
+  ReducedValue,
+  GraphNode,
+  ConditionalEdgeRouter,
+  START,
+  END,
+} from "@langchain/langgraph";
+import * as z from "zod";
+
+const MessagesState = new StateSchema({
+  messages: MessagesValue,
+  llmCalls: new ReducedValue(
+    z.number().default(0),
+    { reducer: (x, y) => x + y }
+  ),
+});
+```
+```typescript
+// 步骤 3：定义模型节点
+
+import { SystemMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
+
+const llmCall: GraphNode<typeof MessagesState> = async (state) => {
+  return {
+    messages: [await modelWithTools.invoke([
+      new SystemMessage(
+        "You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+      ),
+      ...state.messages,
+    ])],
+    llmCalls: 1,
+  };
+};
+
+// 步骤 4：定义工具节点
+
+const toolNode: GraphNode<typeof MessagesState> = async (state) => {
+  const lastMessage = state.messages.at(-1);
+
+  if (lastMessage == null || !AIMessage.isInstance(lastMessage)) {
+    return { messages: [] };
+  }
+
+  const result: ToolMessage[] = [];
+  for (const toolCall of lastMessage.tool_calls ?? []) {
+    const tool = toolsByName[toolCall.name];
+    const observation = await tool.invoke(toolCall);
+    result.push(observation);
+  }
+
+  return { messages: result };
+};
+```
+```typescript
+// 步骤 5：定义决定是否结束的逻辑
+import { ConditionalEdgeRouter, END } from "@langchain/langgraph";
+
+const shouldContinue: ConditionalEdgeRouter<typeof MessagesState, "toolNode"> = (state) => {
+  const lastMessage = state.messages.at(-1);
+
+  // 在访问 tool_calls 之前检查是否是 AIMessage
+  if (!lastMessage || !AIMessage.isInstance(lastMessage)) {
+    return END;
+  }
+
+  // 如果 LLM 进行了工具调用，则执行操作
+  if (lastMessage.tool_calls?.length) {
+    return "toolNode";
+  }
+
+  // 否则，停止（回复用户）
+  return END;
+};
+```
+```typescript
+// 步骤 6：构建和编译代理
+import { HumanMessage } from "@langchain/core/messages";
+import { StateGraph, START, END } from "@langchain/langgraph";
+
+const agent = new StateGraph(MessagesState)
+  .addNode("llmCall", llmCall)
+  .addNode("toolNode", toolNode)
+  .addEdge(START, "llmCall")
+  .addConditionalEdges("llmCall", shouldContinue, ["toolNode", END])
+  .addEdge("toolNode", "llmCall")
+  .compile();
+
+// 调用
+const result = await agent.invoke({
+  messages: [new HumanMessage("Add 3 and 4.")],
+});
+
+for (const message of result.messages) {
+  console.log(`[${message.type}]: ${message.text}`);
+}
+```
+
+</Accordion>
+</Tab>
+
+<Tab title="使用函数式 API">
+
+## 1. 定义工具和模型
+
+在此示例中，我们将使用 Claude Sonnet 4.5 模型，并定义加法、乘法和除法工具。
+
+
+
+```typescript
+import { ChatAnthropic } from "@langchain/anthropic";
+import { tool } from "@langchain/core/tools";
+import * as z from "zod";
+
+const model = new ChatAnthropic({
+  model: "claude-sonnet-4-6",
+  temperature: 0,
+});
+
+// 定义工具
+const add = tool(({ a, b }) => a + b, {
+  name: "add",
+  description: "Add two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+const multiply = tool(({ a, b }) => a * b, {
+  name: "multiply",
+  description: "Multiply two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+const divide = tool(({ a, b }) => a / b, {
+  name: "divide",
+  description: "Divide two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+// 使用工具增强 LLM
+const toolsByName = {
+  [add.name]: add,
+  [multiply.name]: multiply,
+  [divide.name]: divide,
+};
+const tools = Object.values(toolsByName);
+const modelWithTools = model.bindTools(tools);
+
+```
+
+
+## 2. 定义模型节点
+
+模型节点用于调用 LLM 并决定是否调用工具。
+
+
+
+```typescript
+import { task, entrypoint } from "@langchain/langgraph";
+import { SystemMessage } from "@langchain/core/messages";
+
+const callLlm = task({ name: "callLlm" }, async (messages: BaseMessage[]) => {
+  return modelWithTools.invoke([
+    new SystemMessage(
+      "You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+    ),
+    ...messages,
+  ]);
+});
+```
+
+
+## 3. 定义工具节点
+
+工具节点用于调用工具并返回结果。
+
+
+
+```typescript
+import type { ToolCall } from "@langchain/core/messages/tool";
+
+const callTool = task({ name: "callTool" }, async (toolCall: ToolCall) => {
+  const tool = toolsByName[toolCall.name];
+  return tool.invoke(toolCall);
+});
+```
+
+
+## 4. 定义代理
+
+
+
+```typescript
+import { addMessages } from "@langchain/langgraph";
+import { type BaseMessage } from "@langchain/core/messages";
+
+const agent = entrypoint({ name: "agent" }, async (messages: BaseMessage[]) => {
+  let modelResponse = await callLlm(messages);
+
+  while (true) {
+    if (!modelResponse.tool_calls?.length) {
+      break;
+    }
+
+    // 执行工具
+    const toolResults = await Promise.all(
+      modelResponse.tool_calls.map((toolCall) => callTool(toolCall))
+    );
+    messages = addMessages(messages, [modelResponse, ...toolResults]);
+    modelResponse = await callLlm(messages);
+  }
+
+  return messages;
+});
+
+// 调用
+import { HumanMessage } from "@langchain/core/messages";
+
+const result = await agent.invoke([new HumanMessage("Add 3 and 4.")]);
+
+for (const message of result) {
+  console.log(`[${message.getType()}]: ${message.text}`);
+}
+```
+
+
+<Tip>
+    要了解如何使用 LangSmith 追踪您的代理，请参阅 [LangSmith 文档](/langsmith/trace-with-langgraph)。
+</Tip>
+
+恭喜！您已经使用 LangGraph 函数式 API 构建了您的第一个代理。
+
+<Accordion title="完整代码示例" icon="code">
+
+
+```typescript
+import { ChatAnthropic } from "@langchain/anthropic";
+import { tool } from "@langchain/core/tools";
+import {
+  task,
+  entrypoint,
+  addMessages,
+} from "@langchain/langgraph";
+import {
+  SystemMessage,
+  HumanMessage,
+  type BaseMessage,
+} from "@langchain/core/messages";
+import type { ToolCall } from "@langchain/core/messages/tool";
+import * as z from "zod";
+
+// 步骤 1：定义工具和模型
+
+const model = new ChatAnthropic({
+  model: "claude-sonnet-4-6",
+  temperature: 0,
+});
+
+// 定义工具
+const add = tool(({ a, b }) => a + b, {
+  name: "add",
+  description: "Add two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+const multiply = tool(({ a, b }) => a * b, {
+  name: "multiply",
+  description: "Multiply two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+const divide = tool(({ a, b }) => a / b, {
+  name: "divide",
+  description: "Divide two numbers",
+  schema: z.object({
+    a: z.number().describe("First number"),
+    b: z.number().describe("Second number"),
+  }),
+});
+
+// 使用工具增强 LLM
+const toolsByName = {
+  [add.name]: add,
+  [multiply.name]: multiply,
+  [divide.name]: divide,
+};
+const tools = Object.values(toolsByName);
+const modelWithTools = model.bindTools(tools);
+
+// 步骤 2：定义模型节点
+
+const callLlm = task({ name: "callLlm" }, async (messages: BaseMessage[]) => {
+  return modelWithTools.invoke([
+    new SystemMessage(
+      "You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+    ),
+    ...messages,
+  ]);
+});
+
+// 步骤 3：定义工具节点
+
+const callTool = task({ name: "callTool" }, async (toolCall: ToolCall) => {
+  const tool = toolsByName[toolCall.name];
+  return tool.invoke(toolCall);
+});
+
+// 步骤 4：定义代理
+
+const agent = entrypoint({ name: "agent" }, async (messages: BaseMessage[]) => {
+  let modelResponse = await callLlm(messages);
+
+  while (true) {
+    if (!modelResponse.tool_calls?.length) {
+      break;
+    }
+
+    // 执行工具
+    const toolResults = await Promise.all(
+      modelResponse.tool_calls.map((toolCall) => callTool(toolCall))
+    );
+    messages = addMessages(messages, [modelResponse, ...toolResults]);
+    modelResponse = await callLlm(messages);
+  }
+
+  return messages;
+});
+
+// 调用
+
+const result = await agent.invoke([new HumanMessage("Add 3 and 4.")]);
+
+for (const message of result) {
+  console.log(`[${message.type}]: ${message.text}`);
+}
+```
+
+</Accordion>
+</Tab>
+</Tabs>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\quickstart.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

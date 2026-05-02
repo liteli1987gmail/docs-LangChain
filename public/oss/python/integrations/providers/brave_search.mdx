@@ -1,0 +1,45 @@
+---
+title: "Brave search integrations"
+description: "Integrate with Brave search using LangChain Python."
+---
+
+# Brave Search 翻译
+
+[Brave Search](https://en.wikipedia.org/wiki/Brave_Search) 是由 Brave Software 开发的一款搜索引擎。
+
+- **Brave Search** 使用自己的网页索引。截至2022年5月，它覆盖了超过100亿个页面，92%的搜索结果由自身提供，无需依赖任何第三方，其余部分通过 Bing API 在服务器端获取（或在用户选择参与的基础上）通过 Google 在客户端获取。根据 Brave 的说法，他们的索引被"有意保持比 Google 或 Bing 更小"，以帮助避免垃圾信息和其它低质量内容，缺点是"Brave Search 在检索长尾查询方面还不如 Google"。
+
+- **Brave Search Premium**：截至2023年4月，Brave Search 是一个无广告网站，但它最终将转向包含广告的新模式，高级用户将获得无广告体验。默认情况下，不会从用户处收集包括 IP 地址在内的用户数据。选择参与的数据收集需要高级账户。
+
+
+## Installation and setup
+
+To get access to the Brave Search API, you need to [create an account and get an API key](https://api.search.brave.com/app/dashboard).
+
+
+## Document loader
+
+See a [usage example](/oss/python/integrations/document_loaders/brave_search).
+
+```python
+from langchain_community.document_loaders import BraveSearchLoader
+```
+
+## Tool
+
+See a [usage example](/oss/python/integrations/tools/brave_search).
+
+```python
+from langchain.tools import BraveSearch
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\brave_search.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

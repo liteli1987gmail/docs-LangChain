@@ -1,0 +1,51 @@
+---
+title: "Bge on Hugging Face integration"
+description: "Integrate with the Bge on Hugging Face embedding model using LangChain Python."
+---
+
+HuggingFace上的[BGE模型](https://huggingface.co/BAAI/bge-large-en-v1.5)是目前[最好的开源embedding模型](https://huggingface.co/spaces/mteb/leaderboard)之一。
+
+BGE模型由北京人工智能研究院（BAAI）开发。BAAI是一个致力于人工智能研究与开发的非营利性私人机构。
+
+This notebook shows how to use `BGE Embeddings` through `Hugging Face`
+
+```python
+pip install -qU  sentence_transformers
+```
+
+```python
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+
+model_name = "BAAI/bge-small-en"
+model_kwargs = {"device": "cpu"}
+encode_kwargs = {"normalize_embeddings": True}
+hf = HuggingFaceBgeEmbeddings(
+    model_name=model_name, model_kwargs=model_kwargs, encode_kwargs=encode_kwargs
+)
+```
+
+Note that you need to pass `query_instruction=""` for `model_name="BAAI/bge-m3"` see [FAQ BGE M3](https://huggingface.co/BAAI/bge-m3#faq).
+
+```python
+embedding = hf.embed_query("hi this is harrison")
+len(embedding)
+```
+
+```text
+384
+```
+
+```python
+
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\embeddings\bge_huggingface.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

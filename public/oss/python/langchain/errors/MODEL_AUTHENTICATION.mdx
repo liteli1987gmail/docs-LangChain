@@ -1,0 +1,38 @@
+---
+title: MODEL_AUTHENTICATION
+---
+
+<Note>
+    目前仅在 `langchainjs`（JavaScript/TypeScript）中使用。
+</Note>
+
+您的模型提供商拒绝您访问他们的服务。
+
+此错误通常发生在您的身份凭证或 API 密钥出现问题时。
+
+## 故障排除
+
+* 确认您的 API 密钥或身份凭证是准确有效的。
+* 如果使用环境变量身份验证，请验证：
+    - 变量名拼写正确
+    - 变量包含分配的值
+    - 第三方包（如 `dotenv`）没有干扰加载
+* 如果使用代理或非标准端点，请确保您的自定义提供商不期望使用其他身份验证方案。
+* 通过显式传递凭证来绕过环境变量问题：
+
+```python
+from langchain_openai import ChatOpenAI
+
+model = ChatOpenAI(api_key="YOUR_KEY_HERE")
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\errors\MODEL_AUTHENTICATION.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

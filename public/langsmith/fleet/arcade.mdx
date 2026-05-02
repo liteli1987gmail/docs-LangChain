@@ -1,0 +1,43 @@
+---
+title: 支持身份验证的工具响应
+description: 格式化工具响应以触发 OAuth 流程并自动恢复执行。
+sidebarTitle: 身份验证响应
+mode: wide
+---
+
+一些[工具](/langsmith/fleet/tools)需要用户授权（例如 Google、Slack、GitHub）。LangSmith Fleet 包含中间件来检测工具何时需要授权，并暂停运行并向用户显示清晰的提示。用户完成身份验证后，自动重试相同的工具调用。
+
+## 返回形状以请求身份验证
+
+如果工具检测到缺少授权，返回包含以下字段的 JSON 字符串：
+
+```json
+{
+  "auth_required": true,
+  "auth_url": "https://auth.example.com/start",
+  "auth_id": "opaque-tracking-id"
+}
+```
+
+- `auth_required`：设置为 `true` 以表示需要中断。
+- `auth_url`：用户应该被重定向到哪里进行授权。
+- `auth_id`：可选的关联 ID，用于跟踪身份验证会话。
+
+当 Fleet 检测到此响应时，它会中断运行，向用户显示身份验证 UI，并在授权完成后自动重试工具调用。
+
+如果您希望自定义工具重用相同的身份验证所需的中断 + UI，请确保您的工具返回相同形状的 JSON。
+
+<Note>
+仅将此 JSON 作为工具的输出返回。避免包含其他文本或内容。Fleet 解析响应以触发身份验证流程。
+</Note>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\fleet\arcade.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,53 @@
+---
+title: "ChatPrem 集成"
+description: "使用 LangChain JavaScript 与 ChatPrem 聊天模型集成。"
+---
+
+## 设置
+
+1. [创建一个 Prem AI 账户并获取您的 API 密钥](https://studio.premai.io/sign-up)。
+2. 导出或内联设置您的 API 密钥。ChatPrem 类默认为 `process.env.PREM_API_KEY`。
+
+```bash
+export PREM_API_KEY=your-api-key
+```
+
+您可以按如下方式使用 Prem AI 提供的模型：
+
+<Tip>
+有关安装 LangChain 包的常规说明，请参阅[此部分](/oss/javascript/langchain/install)。
+</Tip>
+
+```bash npm
+npm install @langchain/community @langchain/core
+```
+
+```typescript
+import { ChatPrem } from "@langchain/community/chat_models/premai";
+import { HumanMessage } from "@langchain/core/messages";
+
+const model = new ChatPrem({
+  // In Node.js defaults to process.env.PREM_API_KEY // 在 Node.js 中默认为 process.env.PREM_API_KEY
+  apiKey: "YOUR-API-KEY",
+  // In Node.js defaults to process.env.PREM_PROJECT_ID // 在 Node.js 中默认为 process.env.PREM_PROJECT_ID
+  project_id: "YOUR-PROJECT-ID",
+});
+
+console.log(await model.invoke([new HumanMessage("Hello there!")])); // 您好！
+```
+
+## 相关内容
+
+- 聊天模型[概念指南](/oss/javascript/langchain/models)
+- 聊天模型[操作指南](/oss/javascript/langchain/models)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\chat\premai.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

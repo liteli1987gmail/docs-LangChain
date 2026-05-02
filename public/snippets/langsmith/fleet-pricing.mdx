@@ -1,0 +1,37 @@
+## 什么是 Fleet 运行？
+
+LangSmith Fleet 运行是对 Fleet 代理的完整调用，由消息或事件的接收发起，无论是由自动触发还是手动发送。Fleet 运行包括通过配置的触发器传递给代理的任何消息（包括第三方集成或其他连接服务），以及通过 Fleet 用户界面直接发送的消息（例如，通过聊天界面）。如果调用成功或被中断，则计为一次 Fleet 运行。在人工干预中断后恢复执行构成一个单独的 Fleet 运行。执行失败不计入 Fleet 运行。
+
+## Fleet 定价是否包含模型成本？
+
+不包含。模型使用由你的模型提供商单独计费。Fleet 让你选择你想要的模型（例如，Anthropic、OpenAI、Gemini 或其他提供商），并使用你的提供商 API 密钥连接它。有关配置模型的更多信息，请参阅 [Workspace admin](/langsmith/fleet/workspace-admin) 页面。
+
+## Fleet 定价是否包含代理工具？
+
+Fleet 包含内置工具，并通过远程 MCP 服务器支持连接第三方工具。第三方工具通常需要你使用你的账户进行身份验证，任何费用或使用费用由第三方提供商计费。有关设置工具密钥的更多信息，请参阅 [Workspace admin](/langsmith/fleet/workspace-admin) 页面。
+
+## Fleet 运行是否会自动在 LangSmith 中追踪，它们是否计入计费？
+
+是的。每个 Fleet 运行都会自动在 LangSmith 中追踪。这些追踪归属于用户账户，并计入客户 LangShield 计划下的按使用量计费。
+
+## 如何禁用 Fleet？
+
+如果你使用自托管 LangSmith 实例，你可以通过在 `values.yaml` 中将以下内容设置为 `false` 来禁用 Fleet：
+
+```yaml
+backend:
+  agentBootstrap:
+    enabled: false
+
+config:
+  agentBuilder:
+    enabled: false
+
+agentBuilderToolServer:
+  enabled: false
+
+agentBuilderTriggerServer:
+  enabled: false
+```
+
+如果你使用云端 LangSmith，请[联系我们的支持团队](https://support.langchain.com/)以禁用 Fleet。

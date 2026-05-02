@@ -1,0 +1,157 @@
+---
+title: 构建深度研究代理
+sidebarTitle: 概述
+description: 构建能够规划、使用子代理并利用文件系统处理复杂任务的代理
+---
+
+这是使用大型语言模型构建代理和应用程序的最简单方式——内置任务规划、用于上下文管理的文件系统、子代理生成和长期记忆功能。
+您可以将深度代理用于任何任务，包括复杂的、多步骤的任务。
+
+我们将 `deepagents` 视为["代理工具"](/oss/javascript/concepts/products#agent-harnesses-like-the-deep-agents-sdk)。它与其他代理框架的核心工具调用循环相同，但内置了工具和功能。
+
+
+
+[`deepagents`](https://www.npmjs.com/package/deepagents) 是一个独立库，构建在 [LangChain](/oss/javascript/langchain/) 的代理核心构建块之上，并使用 [LangGraph](/oss/javascript/langgraph/) 的工具来运行生产环境中的代理。
+
+
+[`deepagents` 代码库](https://github.com/langchain-ai/deepagents) 包含：
+- **深度代理 SDK**：用于构建能够处理任何任务的代理的包
+- [**深度代理 CLI**](/oss/javascript/deepagents/cli)：基于深度代理 SDK 构建的终端编码代理
+- [**ACP 集成**](/oss/javascript/deepagents/acp)：用于在 Zed 等代码编辑器中使用深度代理的代理客户端协议连接器
+
+[LangChain](/oss/javascript/langchain/) 是为您的代理提供核心构建块的框架。
+要了解 LangChain、LangGraph 和深度代理之间的区别，请参阅[框架、运行时和工具](/oss/javascript/concepts/products)。
+
+## <Icon icon="wand" /> 创建一个深度代理
+
+
+
+```ts
+import * as z from "zod";
+// npm install deepagents langchain @langchain/core
+import { createDeepAgent } from "deepagents";
+import { tool } from "langchain";
+
+const getWeather = tool(
+  ({ city }) => `${city} 永远阳光明媚！`,
+  {
+    name: "get_weather",
+    description: "获取给定城市的天气",
+    schema: z.object({
+      city: z.string(),
+    }),
+  },
+);
+
+const agent = createDeepAgent({
+  tools: [getWeather],
+  systemPrompt: "你是一个有用的助手",
+});
+
+console.log(
+  await agent.invoke({
+    messages: [{ role: "user", content: "东京的天气怎么样？" }],
+  })
+);
+```
+
+
+查看[快速开始](/oss/javascript/deepagents/quickstart/)和[自定义指南](/oss/javascript/deepagents/customization/)以开始使用深度代理构建您自己的代理和应用程序。
+
+<Tip>
+    使用 [LangSmith](/langsmith/home) 来追踪请求、调试代理行为和评估输出。设置 `LANGSMITH_TRACING=true` 和您的 API 密钥以开始使用。
+</Tip>
+
+## 何时使用深度代理
+
+在以下情况下使用**深度代理 SDK**：
+
+- **处理复杂的多步骤任务**，需要规划和分解
+- **通过文件系统工具和[摘要](/oss/javascript/deepagents/context-engineering#summarization)管理大量上下文**
+- **切换文件系统后端**以使用内存状态、本地磁盘、持久存储、[沙箱](/oss/javascript/deepagents/sandboxes)或[您自己的自定义后端](/oss/javascript/deepagents/backends)
+- **在[沙箱后端](/oss/javascript/deepagents/sandboxes)使用时通过 `execute` 工具执行 shell 命令**
+- **委托工作**给专门的子代理以实现上下文隔离
+- **在对话和线程之间持久化记忆**
+- **通过声明性[权限规则](/oss/javascript/deepagents/permissions)控制文件系统访问**
+- **使用[人工介入](/oss/javascript/deepagents/human-in-the-loop)工作流对敏感操作需要人工批准**
+- **使用任何模型**——跨前沿模型和开放模型的[提供商无关](/oss/javascript/deepagents/models)
+
+
+
+对于构建更简单的代理，请考虑使用 LangChain 的[`createAgent`](/oss/javascript/langchain/agents)或构建自定义 [LangGraph](/oss/javascript/langgraph/overview) 工作流。
+
+
+## 核心功能
+
+<Card title="规划和任务分解" icon="timeline">
+    深度代理包含内置的[`write_todos`](/oss/javascript/langchain/middleware/built-in#to-do-list)工具，使代理能够将复杂任务分解为离散步骤、跟踪进度并在出现新信息时调整计划。
+</Card>
+<Card title="上下文管理" icon="scissors">
+    文件系统工具（[`ls`](/oss/javascript/deepagents/harness#virtual-filesystem-access)、[`read_file`](/oss/javascript/deepagents/harness#virtual-filesystem-access)、[`write_file`](/oss/javascript/deepagents/harness#virtual-filesystem-access)、[`edit_file`](/oss/javascript/deepagents/harness#virtual-filesystem-access)）允许代理将大量上下文卸载到内存或文件系统存储，防止上下文窗口溢出并支持处理可变长度的工具结果。当上下文窗口变长时，自动摘要会压缩旧的对话消息，保持代理在长时间会话中的有效性。
+</Card>
+<Card title="Shell 执行" icon="terminal">
+    使用[沙箱后端](/oss/javascript/deepagents/sandboxes)时，代理会获得一个 `execute` 工具来运行 shell 命令以进行测试、构建、git 操作和系统任务。沙箱后端提供隔离，使代理能够执行代码而不会危及您的主机系统。
+</Card>
+<Card title="可插拔文件系统后端" icon="plug">
+    虚拟文件系统由[可插拔后端](/oss/javascript/deepagents/backends)提供支持，您可以更换以适应您的用例。从内存状态、本地磁盘、LangGraph 存储（用于跨线程持久化）、[沙箱](/oss/javascript/deepagents/sandboxes)（用于隔离代码执行，Modal、Daytona、Deno）或结合多个后端与复合路由中进行选择。您还可以实现自己的自定义后端。
+</Card>
+<Card title="子代理生成" icon="users-group">
+    内置的 `task` 工具使代理能够生成专门的子代理以实现上下文隔离。这可以保持主代理的上下文清晰，同时仍然能够深入研究特定的子任务。
+</Card>
+<Card title="长期记忆" icon="database">
+    使用 LangGraph 的[记忆存储](/oss/javascript/langgraph/persistence#memory-store)在线程之间扩展具有持久记忆的代理。代理可以从之前的对话中保存和检索信息。
+</Card>
+<Card title="文件系统权限" icon="lock">
+    声明[权限规则](/oss/javascript/deepagents/permissions)来控制代理可以读取或写入哪些文件和目录。子代理可以继承或覆盖父级的规则。
+</Card>
+<Card title="人工介入" icon="user-check">
+    使用 LangGraph 的中断功能配置对敏感工具操作的[人工批准](/oss/javascript/deepagents/human-in-the-loop)。控制哪些工具需要在执行前确认。
+</Card>
+<Card title="技能" icon="puzzle">
+    使用可重用的[技能](/oss/javascript/deepagents/skills)扩展代理，这些技能提供专门的工作流、领域知识和自定义指令。
+</Card>
+<Card title="智能默认设置" icon="wand">
+    配备教模型如何有效使用其工具的固执己见的系统提示——在行动前计划、验证工作和管理上下文。根据需要自定义或替换默认值。
+</Card>
+
+## 开始使用
+
+
+
+<CardGroup cols={2}>
+    <Card title="快速开始" icon="rocket" href="/oss/javascript/deepagents/quickstart">
+        构建您的第一个深度代理
+    </Card>
+    <Card title="自定义" icon="adjustments" href="/oss/javascript/deepagents/customization">
+        了解自定义选项
+    </Card>
+    <Card title="模型" icon="cpu" href="/oss/javascript/deepagents/models">
+        配置模型和提供商
+    </Card>
+    <Card title="后端" icon="plug" href="/oss/javascript/deepagents/backends">
+        选择和配置可插拔文件系统后端
+    </Card>
+    <Card title="权限" icon="lock" href="/oss/javascript/deepagents/permissions">
+        使用权限规则控制文件系统访问
+    </Card>
+    <Card title="人工介入" icon="user-check" href="/oss/javascript/deepagents/human-in-the-loop">
+        配置对敏感操作的批准
+    </Card>
+    <Card title="CLI" icon="terminal" href="/oss/javascript/deepagents/cli/overview">
+        使用深度代理 CLI
+    </Card>
+    <Card title="参考" icon="external-link" href="https://reference.langchain.com/javascript/modules/deepagents.html">
+        查看 `deepagents` 接口参考
+    </Card>
+</CardGroup>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\overview.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

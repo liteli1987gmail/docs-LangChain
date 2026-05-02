@@ -1,0 +1,72 @@
+---
+title: INVALID_PROMPT_INPUT
+---
+
+{/* TODO: fix link when porting page */}
+当[提示词模板](https://github.com/langchain-ai/langchain/blob/v0.3/docs/docs/concepts/prompt_templates.mdx)接收到缺失或无效的输入变量时会发生此错误。
+
+一个意想不到的导致此错误的方式是如果您直接向提示词模板添加一个 JSON 对象：
+
+```typescript
+import { PromptTemplate } from "@langchain/core/prompts";
+import { ChatOpenAI } from "@langchain/openai";
+
+const prompt = PromptTemplate.fromTemplate(`You are a helpful assistant.
+
+Here is an example of how you should respond:
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "age": 21
+}
+
+Now, answer the following question:
+
+{question}`);
+```
+
+您可能认为上述提示词模板需要一个名为 question 的单一输入键，但由于花括号（`{`）未转义，JSON 对象将被解释为一个额外的变量，因此应该在前面加上第二个花括号，像这样：
+
+```typescript
+import { PromptTemplate } from "@langchain/core/prompts";
+import { ChatOpenAI } from "@langchain/openai";
+
+const prompt = PromptTemplate.fromTemplate(`You are a helpful assistant.
+
+Here is an example of how you should respond:
+
+{{
+  "firstName": "John",
+  "lastName": "Doe",
+  "age": 21
+}}
+
+Now, answer the following question:
+
+{question}`);
+```
+
+
+
+## 故障排除
+
+要解决此错误，您可以：
+
+1. 检查您的提示词模板是否正确。使用 f-string 格式时，确保正确转义花括号：
+   * 在 f-string 中使用 `{{` 表示单个花括号
+   * 在 f-string 中使用 `{{{{` 表示双花括号
+2. 使用 `MessagesPlaceholder` 组件时，确认您正在传递消息数组或类似消息的对象。如果您使用简写元组，请将变量名包裹在花括号中，如 `["placeholder", "{messages}"]`
+3. 通过使用 [LangSmith](/langsmith/home) 或日志记录来调试，检查实际输入到提示词模板的内容以验证它们是否符合预期
+4. 如果从 LangChain [Prompt Hub](https://smith.langchain.com/prompts) 获取提示词，请使用示例输入隔离和测试提示词以确保它按预期工作
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\errors\INVALID_PROMPT_INPUT.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

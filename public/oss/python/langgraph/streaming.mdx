@@ -1,0 +1,249 @@
+---
+title: 流式处理
+---
+
+import NostreamTagPy from '/snippets/code-samples/nostream-tag-py.mdx';
+import NostreamTagJs from '/snippets/code-samples/nostream-tag-js.mdx';
+
+LangGraph 实现了流式系统以展示实时更新。流式处理对于增强建立在大型语言模型之上的应用程序的响应能力至关重要。通过渐进地显示输出，即使在完整响应准备好之前，流式处理显著改善了用户体验（UX），特别是在处理大型语言模型的延迟时。
+
+## 开始使用
+
+### 基本用法
+
+LangGraph 图暴露了 [`stream`](https://reference.langchain.com/python/langgraph/pregel/#langgraph.pregel.Pregel.stream)（同步）和 [`astream`](https://reference.langchain.com/python/langgraph/pregel/#langgraph.pregel.Pregel.astream)（异步）方法，以生成流式输出作为迭代器。传递一个或多个[流模式](#stream-modes)来控制您接收的数据。
+
+```python
+for chunk in graph.stream(
+    {"topic": "ice cream"},
+    stream_mode=["updates", "custom"],  # [!code highlight]
+    version="v2",  # [!code highlight]
+):
+    if chunk["type"] == "updates":
+        for node_name, state in chunk["data"].items():
+            print(f"Node {node_name} updated: {state}")
+    elif chunk["type"] == "custom":
+        print(f"Status: {chunk['data']['status']}")
+```
+
+```shell title="Output"
+Status: thinking of a joke...
+Node generate_joke updated: {'joke': 'Why did the ice cream go to school? To get a sundae education!'}
+```
+
+<Accordion title="完整示例">
+```python
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langgraph.config import get_stream_writer
+
+
+class State(TypedDict):
+    topic: str
+    joke: str
+
+
+def generate_joke(state: State):
+    writer = get_stream_writer()
+    writer({"status": "thinking of a joke..."})
+    return {"joke": f"Why did the {state['topic']} go to school? To get a sundae education!"}
+
+graph = (
+    StateGraph(State)
+    .add_node(generate_joke)
+    .add_edge(START, "generate_joke")
+    .add_edge("generate_joke", END)
+    .compile()
+)
+
+for chunk in graph.stream(
+    {"topic": "ice cream"},
+    stream_mode=["updates", "custom"],
+    version="v2",
+):
+    if chunk["type"] == "updates":
+        for node_name, state in chunk["data"].items():
+            print(f"Node {node_name} updated: {state}")
+    elif chunk["type"] == "custom":
+        print(f"Status: {chunk['data']['status']}")
+```
+
+```shell title="Output"
+Status: thinking of a joke...
+Node generate_joke updated: {'joke': 'Why did the ice cream go to school? To get a sundae education!'}
+```
+</Accordion>
+
+
+
+
+### 流输出格式 (v2)
+
+<Note>
+需要 LangGraph >= 1.1。本页上的所有示例都使用 `version="v2"`。
+</Note>
+
+传递 `version="v2"` 到 `stream()` 或 `astream()` 以获取统一输出格式。每个块是一个具有一致形状的 `StreamPart` 字典——无论流模式、模式数量或子图设置如何：
+
+```python
+{
+    "type": "values" | "updates" | "messages" | "custom" | "checkpoints" | "tasks" | "debug",
+    "ns": (),           # namespace tuple, populated for subgraph events
+    "data": ...,        # the actual payload (type varies by stream mode)
+}
+```
+
+每个流模式都有对应的 `TypedDict`，包含 [`ValuesStreamPart`](https://reference.langchain.com/python/langgraph/types/ValuesStreamPart)、[`UpdatesStreamPart`](https://reference.langchain.com/python/langgraph/types/UpdatesStreamPart)、[`MessagesStreamPart`](https://reference.langchain.com/python/langgraph/types/MessagesStreamPart)、[`CustomStreamPart`](https://reference.langchain.com/python/langgraph/types/CustomStreamPart)、[`CheckpointStreamPart`](https://reference.langchain.com/python/langgraph/types/CheckpointStreamPart)、[`TasksStreamPart`](https://reference.langchain.com/python/langgraph/types/TasksStreamPart)、[`DebugStreamPart`](https://reference.langchain.com/python/langgraph/types/DebugStreamPart)。您可以从 `langgraph.types` 导入这些类型。联合类型 [`StreamPart`](https://reference.langchain.com/python/langgraph/types/StreamPart) 是关于 `part["type"` 的不相交联合，在编辑器和类型检查器中实现完整类型细化。
+
+使用 v1（默认）时，输出格式会根据您的流选项而变化（单模式返回原始数据，多模式返回 `(mode, data)` 元组，子图返回 `(namespace, data)` 元组）。使用 v2 时，格式始终相同：
+
+<CodeGroup>
+```python v2 (new)
+for chunk in graph.stream(inputs, stream_mode="updates", version="v2"):
+    print(chunk["type"])  # "updates"
+    print(chunk["ns"])    # ()
+    print(chunk["data"])  # {"node_name": {"key": "value"}}
+```
+```python v1 (current default)
+for chunk in graph.stream(inputs, stream_mode="updates"):
+    print(chunk)  # {"node_name": {"key": "value"}}
+```
+</CodeGroup>
+
+v2 格式还支持类型细化，这意味着您可以按 `chunk["type"]` 过滤块，并获得该模式的正确有效载荷类型。每个分支将 `part["data"]` 细化到该模式的特定类型：
+
+```python
+for part in graph.stream(
+    {"topic": "ice cream"},
+    stream_mode=["values", "updates", "messages", "custom"],
+    version="v2",
+):
+    if part["type"] == "values":
+        # ValuesStreamPart — full state snapshot after each step
+        print(f"State: topic={part['data']['topic']}")
+    elif part["type"] == "updates":
+        # UpdatesStreamPart — only the changed keys from each node
+        for node_name, state in part["data"].items():
+            print(f"Node `{node_name}` updated: {state}")
+    elif part["type"] == "messages":
+        # MessagesStreamPart — (message_chunk, metadata) from LLM calls
+        msg, metadata = part["data"]
+        print(msg.content, end="", flush=True)
+    elif part["type"] == "custom":
+        # CustomStreamPart — arbitrary data from get_stream_writer()
+        print(f"Progress: {part['data']['progress']}%")
+```
+
+
+## 流模式
+
+将以下一个或多个流模式作为列表传递给 [`stream`](https://reference.langchain.com/python/langgraph/graphs/#langgraph.graph.state.CompiledStateGraph.stream) 或 [`astream`](https://reference.langchain.com/python/langgraph/graphs/#langgraph.graph.state.CompiledStateGraph.astream) 方法：
+
+| 模式 | 类型 | 描述 |
+| :--- | :--- | :---------- |
+| [values](#graph-state) | [`ValuesStreamPart`](https://reference.langchain.com/python/langgraph/types/ValuesStreamPart) | 每步后的完整状态。 |
+| [updates](#graph-state) | [`UpdatesStreamPart`](https://reference.langchain.com/python/langgraph/types/UpdatesStreamPart) | 每步后的状态更新。同一时刻的多个更新会分别流式传输。 |
+| [messages](#llm-tokens) | [`MessagesStreamPart`](https://reference.langchain.com/python/langgraph/types/MessagesStreamPart) | 来自 LLM 调用的 2 元组（LLM token，元数据）。 |
+| [custom](#custom-data) | [`CustomStreamPart`](https://reference.langchain.com/python/langgraph/types/CustomStreamPart) | 通过 [`get_stream_writer`](https://reference.langchain.com/python/langgraph/config/get_stream_writer) 从节点发出的自定义数据。 |
+| [checkpoints](#checkpoints) | [`CheckpointStreamPart`](https://reference.langchain.com/python/langgraph/types/CheckpointStreamPart) | 检查点事件（与 `get_state()` 格式相同）。需要检查点。 |
+| [tasks](#tasks) | [`TasksStreamPart`](https://reference.langchain.com/python/langgraph/types/TasksStreamPart) | 任务开始/完成事件，带结果和错误。需要检查点。 |
+| [debug](#debug) | [`DebugStreamPart`](https://reference.langchain.com/python/langgraph/types/DebugStreamPart) | 所有可用信息——结合 `checkpoints` 和 `tasks` 以及额外元数据。 |
+
+
+<a id="messages"></a>
+
+### 图状态
+
+使用流模式 `updates` 和 `values` 来流式传输图执行时的状态。
+
+* `updates` 流式传输每步后状态的**更新**。
+* `values` 流式传输每步后状态的**完整值**。
+
+```python
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+
+class State(TypedDict):
+  topic: str
+  joke: str
+
+
+def refine_topic(state: State):
+    return {"topic": state["topic"] + " and cats"}
+
+
+def generate_joke(state: State):
+    return {"joke": f"This is a joke about {state['topic']}"}
+
+graph = (
+  StateGraph(State)
+  .add_node(refine_topic)
+  .add_node(generate_joke)
+  .add_edge(START, "refine_topic")
+  .add_edge("refine_topic", "generate_joke")
+  .add_edge("generate_joke", END)
+  .compile()
+)
+```
+
+
+
+
+<Tabs>
+    <Tab title="updates">
+    使用此选项仅流式传输每步后节点返回的**状态更新**。流式输出包括节点名称以及更新。
+
+    ```python
+    for chunk in graph.stream(
+        {"topic": "ice cream"},
+        stream_mode="updates",  # [!code highlight]
+        version="v2",  # [!code highlight]
+    ):
+        if chunk["type"] == "updates":
+            for node_name, state in chunk["data"].items():
+                print(f"Node `{node_name}` updated: {state}")
+    ```
+
+    ```shell title="Output"
+    Node `refine_topic` updated: {'topic': 'ice cream and cats'}
+    Node `generate_joke` updated: {'joke': 'This is a joke about ice cream and cats'}
+    ```
+
+
+
+    </Tab>
+    <Tab title="values">
+    使用此选项流式传输每步后图的**完整状态**。
+
+    ```python
+    for chunk in graph.stream(
+        {"topic": "ice cream"},
+        stream_mode="values",  # [!code highlight]
+        version="v2",  # [!code highlight]
+    ):
+        if chunk["type"] == "values":
+            print(f"topic: {chunk['data']['topic']}, joke: {chunk['data']['joke']}")
+    ```
+
+    ```shell title="Output"
+    topic: ice cream, joke:
+    topic: ice cream and cats, joke:
+    topic: ice cream and cats, joke: This is a joke about ice cream and cats
+    ```
+
+
+    :::js
+    ```typescript
+    for await (const chunk of await graph.stream(
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\streaming.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

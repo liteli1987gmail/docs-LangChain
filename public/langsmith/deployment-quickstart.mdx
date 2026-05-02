@@ -1,0 +1,219 @@
+---
+title: 将您的应用部署到云端
+sidebarTitle: 快速入门
+description: 使用 LangGraph CLI 将您的第一个应用程序部署到 LangSmith Cloud。
+icon: "rocket"
+---
+
+本快速入门向您展示如何使用 [`langgraph deploy`](/langsmith/cli#deploy) 命令将应用程序部署到 LangSmith Cloud。
+
+<Tip>
+有关包含基于 GitHub 的部署和所有配置选项的综合云部署指南，请参阅[云部署设置指南](/langsmith/deploy-to-cloud)。
+</Tip>
+
+<Note>
+`langgraph deploy` 命令处于**测试阶段**。
+</Note>
+
+## 先决条件
+
+在开始之前，请确保您拥有：
+
+- [Plus 计划或更高版本](https://www.langchain.com/pricing)上的 [LangSmith 帐户](https://smith.langchain.com/)以及 [API 密钥](/langsmith/create-account-api-key)。
+- 已安装并正在运行 [Docker](https://docs.docker.com/get-docker/)。使用 `docker ps` 进行验证。
+- 在 Apple Silicon（M1/M2/M3）上：用于交叉编译到 `linux/amd64` 的 [Docker Buildx](https://docs.docker.com/build/install-buildx/)。
+- [LangGraph CLI](/langsmith/cli)：
+
+  ```shell
+  uv tool install langgraph-cli
+  ```
+
+## 1. 创建一个 LangGraph 应用程序
+
+从 [`new-langgraph-project-python` 模板](https://github.com/langchain-ai/new-langgraph-project)创建一个新应用程序：
+
+```shell
+langgraph new path/to/your/app --template new-langgraph-project-python
+cd path/to/your/app
+```
+
+<Tip>
+不带 `--template` 运行 `langgraph new` 以获取可用模板的交互式菜单。
+</Tip>
+
+## 2. 设置您的 API 密钥
+
+将您的 LangSmith API 密钥添加到项目根目录的 `.env` 文件中：
+
+```shell
+LANGSMITH_API_KEY=lsv2_...
+```
+
+`langgraph deploy` 命令会自动读取此文件。或者，您可以内联传递它：
+
+```shell
+LANGSMITH_API_KEY=lsv2_... langgraph deploy
+```
+
+## 3. 部署
+
+从项目目录运行部署命令：
+
+```shell
+langgraph deploy
+```
+
+这会默认创建一个以项目目录命名的 `dev` 部署。使用 `--name` 或 `--deployment-type prod` 覆盖。
+
+<Tip>
+要对现有部署进行更新，请在进行代码更改后重新运行 `langgraph deploy`。它会按名称找到现有部署并就地更新。
+</Tip>
+
+您还可以使用 `langgraph deploy list` 查看所有部署，`langgraph deploy logs` 尾随运行时日志，以及 `langgraph deploy delete <ID>` 删除部署。有关详细信息，请参阅 [CLI 参考](/langsmith/cli#deploy)。
+
+## 4. 在 Studio 中测试
+
+[Studio](/langsmith/studio) 是一个直接连接到您部署的交互式代理 IDE。使用它发送消息、检查每个节点的中间状态、在运行过程中编辑状态，以及从任何先前的检查点重放，而无需编写代码。
+
+部署就绪后：
+
+1. 进入 [LangSmith](https://smith.langchain.com/) 并在左侧边栏中选择 **Deployments**。
+1. 选择您的部署以查看其详细信息。
+1. 点击右上角的 **Studio** 打开 [Studio](/langsmith/studio)。
+
+## 5. 测试 API
+
+从部署详细信息视图中复制 **API URL**，然后使用它来调用您的应用程序：
+
+<Tabs>
+    <Tab title="Python SDK (Async)">
+    1. 安装 LangGraph Python SDK：
+        ```shell
+        pip install langgraph-sdk
+        ```
+    2. 向助手发送消息（无状态运行）：
+        ```python
+        from langgraph_sdk import get_client
+
+        client = get_client(url="your-deployment-url", api_key="your-langsmith-api-key")
+
+        async for chunk in client.runs.stream(
+            None,  # 无状态运行
+            "agent", # 助手名称。在 langgraph.json 中定义。
+            input={
+                "messages": [{
+                    "role": "human",
+                    "content": "What is LangGraph?",
+                }],
+            },
+            stream_mode="updates",
+        ):
+            print(f"Receiving new event of type: {chunk.event}...")
+            print(chunk.data)
+            print("\n\n")
+        ```
+    </Tab>
+    <Tab title="Python SDK (Sync)">
+    1. 安装 LangGraph Python SDK：
+        ```shell
+        pip install langgraph-sdk
+        ```
+    2. 向助手发送消息（无状态运行）：
+        ```python
+        from langgraph_sdk import get_sync_client
+
+        client = get_sync_client(url="your-deployment-url", api_key="your-langsmith-api-key")
+
+        for chunk in client.runs.stream(
+            None,  # 无状态运行
+            "agent", # 助手名称。在 langgraph.json 中定义。
+            input={
+                "messages": [{
+                    "role": "human",
+                    "content": "What is LangGraph?",
+                }],
+            },
+            stream_mode="updates",
+        ):
+            print(f"Receiving new event of type: {chunk.event}...")
+            print(chunk.data)
+            print("\n\n")
+        ```
+    </Tab>
+    <Tab title="JavaScript SDK">
+    1. 安装 LangGraph JS SDK：
+        ```shell
+        npm install @langchain/langgraph-sdk
+        ```
+    2. 向助手发送消息（无状态运行）：
+        ```js
+        const { Client } = await import("@langchain/langgraph-sdk");
+
+        const client = new Client({ apiUrl: "your-deployment-url", apiKey: "your-langsmith-api-key" });
+
+        const streamResponse = client.runs.stream(
+            null, // 无状态运行
+            "agent", // 助手 ID
+            {
+                input: {
+                    "messages": [
+                        { "role": "user", "content": "What is LangGraph?"}
+                    ]
+                },
+                streamMode: "messages",
+            }
+        );
+
+        for await (const chunk of streamResponse) {
+            console.log(`Receiving new event of type: ${chunk.event}...`);
+            console.log(JSON.stringify(chunk.data));
+            console.log("\n\n");
+        }
+        ```
+    </Tab>
+    <Tab title="Rest API">
+    ```bash
+    curl -s --request POST \
+        --url <DEPLOYMENT_URL>/runs/stream \
+        --header 'Content-Type: application/json' \
+        --header "X-Api-Key: <LANGSMITH API KEY>" \
+        --data "{
+            \"assistant_id\": \"agent\",
+            \"input\": {
+                \"messages\": [
+                    {
+                        \"role\": \"human\",
+                        \"content\": \"What is LangGraph?\"
+                    }
+                ]
+            },
+            \"stream_mode\": \"updates\"
+        }"
+    ```
+    </Tab>
+</Tabs>
+
+## 后续步骤
+
+<CardGroup cols={3}>
+  <Card title="助手" icon="robot" href="/langsmith/assistants">
+    使用不同的模型、提示词或工具部署相同的图，每个助手不同。
+  </Card>
+  <Card title="线程" icon="messages" href="/langsmith/use-threads">
+    在多次运行之间持久化状态，以便您的代理记住交互之间的上下文。
+  </Card>
+  <Card title="运行" icon="player-play" href="/langsmith/background-run">
+    为长时间运行的作业启动后台运行并将结果流式传输回您的客户端。
+  </Card>
+</CardGroup>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\deployment-quickstart.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

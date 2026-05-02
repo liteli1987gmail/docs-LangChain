@@ -1,0 +1,606 @@
+---
+title: "AWS (Amazon) integrations"
+description: "Integrate with AWS (Amazon) using LangChain Python."
+sidebarTitle: "AWS"
+---
+
+This page covers all LangChain integrations with the [Amazon Web Services (AWS)](https://aws.amazon.com/) platform.
+
+{/* ## Installation and setup
+
+<CodeGroup>
+    ```bash pip
+    pip install langchain-aws
+    ```
+
+    ```bash uv
+    uv add langchain-aws
+    ```
+</CodeGroup>
+
+There are also some community integrations available in the `langchain_community` package with the `boto3` optional dependency.
+
+<CodeGroup>
+    ```bash pip
+    pip install langchain-community boto3
+    ```
+
+    ```bash uv
+    uv add langchain-community boto3
+    ```
+</CodeGroup> */}
+
+## Chat models
+
+### Bedrock chat
+
+>[Amazon Bedrock](https://aws.amazon.com/bedrock/) 是一项完全托管服务，通过单一 API 提供来自 `AI21 Labs`、`Anthropic`、`Cohere`、`Meta`、`Stability AI` 和 `Amazon` 等领先 AI 公司的高性能基础模型 (FM)，并配备构建生成式 AI 应用程序所需的全套功能，包括安全性、隐私性和负责任的 AI。使用 `Amazon Bedrock`，您可以轻松试验和评估顶级 FM 以满足您的用例需求，使用微调和 `Retrieval Augmented Generation` (`RAG`) 等技术利用您自己的数据私下进行自定义，并构建可以使用您的企业系统和大数据源执行任务的代理。由于 `Amazon Bedrock` 是无服务器的，您无需管理任何基础设施，并且可以使用您已熟悉的 AWS 服务安全地将生成式 AI 功能集成和部署到您的应用程序中。
+
+See a [usage example](/oss/python/integrations/chat/bedrock).
+
+```python
+from langchain_aws import ChatBedrock
+```
+
+### Bedrock converse
+AWS Bedrock maintains a [Converse API](https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html)
+that provides a unified conversational interface for Bedrock models. This API does not
+yet support custom models. You can see a list of all
+[models that are supported here](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html).
+
+<Info>
+    **We recommend the Converse API for users who do not need to use custom models. It can be accessed using [ChatBedrockConverse](https://reference.langchain.com/python/langchain-aws/chat_models/bedrock_converse/ChatBedrockConverse).**
+</Info>
+
+See a [usage example](/oss/python/integrations/chat/bedrock).
+
+```python
+from langchain_aws import ChatBedrockConverse
+```
+
+## LLMs
+
+### Bedrock
+
+See a [usage example](/oss/python/integrations/llms/bedrock).
+
+```python
+from langchain_aws import BedrockLLM
+```
+
+### Amazon API Gateway
+
+[Amazon API Gateway](https://aws.amazon.com/api-gateway/) 是一项完全托管的服务，可以轻松帮助开发者创建、发布、维护、监控和保护任意规模的 API。API 作为应用程序访问后端服务的"前门"，可以获取数据、业务逻辑或功能。使用 `API Gateway`，您可以创建 RESTful APIs 和 WebSocket APIs，实现实时双向通信应用程序。`API Gateway` 支持容器化和无服务器工作负载，以及 Web 应用程序。
+
+`API Gateway` 负责处理接收和处理多达数十万个并发 API 调用所涉及的所有任务，包括流量管理、CORS 支持、授权和访问控制、节流、监控和 API 版本管理。`API Gateway` 没有最低费用或启动成本。您只需为收到的 API 调用和传出的数据量付费，通过 `API Gateway` 分层定价模型，随着 API 使用量增长，您可以降低费用。
+
+See a [usage example](/oss/python/integrations/llms/amazon_api_gateway).
+
+```python
+from langchain_community.llms import AmazonAPIGateway
+```
+
+### SageMaker endpoint
+
+[Amazon SageMaker](https://aws.amazon.com/sagemaker/) 是一个系统，可以帮助用户通过完全托管的基础设施、工具和工作流来构建、训练和部署机器学习 (ML) 模型。
+
+We use `SageMaker` to host our model and expose it as the `SageMaker Endpoint`.
+
+See a [usage example](/oss/python/integrations/llms/sagemaker).
+
+```python
+from langchain_aws import SagemakerEndpoint
+```
+
+## Embedding models
+
+### Bedrock
+
+See a [usage example](/oss/python/integrations/embeddings/bedrock).
+```python
+from langchain_aws import BedrockEmbeddings
+```
+
+### SageMaker endpoint
+
+See a [usage example](/oss/python/integrations/embeddings/sagemaker-endpoint).
+```python
+from langchain_community.embeddings import SagemakerEndpointEmbeddings
+from langchain_community.llms.sagemaker_endpoint import ContentHandlerBase
+```
+
+## Document loaders
+
+### AWS S3 directory and file
+
+
+>[Amazon Simple Storage Service (Amazon S3)](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-folders.html)
+> 是一个对象存储服务。
+>[AWS S3 Directory](https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-folders.html)
+>[AWS S3 Buckets](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingBucket.html)
+
+See a [usage example for S3DirectoryLoader](/oss/python/integrations/document_loaders/aws_s3_directory).
+
+See a [usage example for S3FileLoader](/oss/python/integrations/document_loaders/aws_s3_file).
+
+```python
+from langchain_community.document_loaders import S3DirectoryLoader, S3FileLoader
+```
+
+### Amazon textract
+
+[Amazon Textract](https://docs.aws.amazon.com/managedservices/latest/userguide/textract.html) 是一项机器学习 (ML) 服务，可自动从扫描文档中提取文本、手写内容和数据。
+
+See a [usage example](/oss/python/integrations/document_loaders/amazon_textract).
+
+```python
+from langchain_community.document_loaders import AmazonTextractPDFLoader
+```
+
+### Amazon athena
+
+>[Amazon Athena](https://aws.amazon.com/athena/) 是一个无服务器的交互式分析服务，构建于开源框架之上，支持开放表和文件格式。
+
+See a [usage example](/oss/python/integrations/document_loaders/athena).
+
+```python
+from langchain_community.document_loaders.athena import AthenaLoader
+```
+
+### AWS glue
+
+[AWS Glue Data Catalog](https://docs.aws.amazon.com/en_en/glue/latest/dg/catalog-and-crawler.html) 是一个集中式元数据存储库，允许您管理、访问和共享有关存储在 AWS 中的数据的元数据。它充当数据资产的元数据存储，使各种 AWS 服务和应用程序能够高效地查询和连接所需的数据。
+
+See a [usage example](/oss/python/integrations/document_loaders/glue_catalog).
+
+```python
+from langchain_community.document_loaders.glue_catalog import GlueCatalogLoader
+```
+
+## Vector stores
+
+### Amazon OpenSearch Service
+
+
+> [Amazon OpenSearch Service](https://aws.amazon.com/opensearch-service/) 提供交互式日志分析、实时应用监控、网站搜索等功能。`OpenSearch` 是一款开源的分布式搜索和分析套件，源自 `Elasticsearch`。`Amazon OpenSearch Service` 提供最新版本的 `OpenSearch`、支持多个版本的 `Elasticsearch`，以及由 `OpenSearch Dashboards` 和 `Kibana` 提供支持的可视化功能。
+
+We need to install several python libraries.
+
+<CodeGroup>
+    ```bash pip
+    pip install boto3 requests requests-aws4auth
+    ```
+
+    ```bash uv
+    uv add boto3 requests requests-aws4auth
+    ```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/vectorstores/opensearch#using-aos-amazon-opensearch-service).
+
+```python
+from langchain_community.vectorstores import OpenSearchVectorSearch
+```
+
+### Amazon DocumentDB vector search
+
+> [Amazon DocumentDB](https://docs.aws.amazon.com/documentdb/)（与 MongoDB 兼容）让您可以轻松地在云中设置、操作和扩展与 MongoDB 兼容的数据库。
+> 借助 Amazon DocumentDB，您可以运行相同的应用程序代码，并使用与 MongoDB 相同的驱动和工具。
+> Amazon DocumentDB 的向量搜索将基于 JSON 的文档数据库的灵活性和丰富的查询功能与向量搜索的强大功能相结合。
+
+#### Installation and setup
+
+See [detail configuration instructions](/oss/python/integrations/vectorstores/documentdb).
+
+We need to install the `pymongo` python package.
+
+<CodeGroup>
+    ```bash pip
+    pip install pymongo
+    ```
+
+    ```bash uv
+    uv add pymongo
+    ```
+</CodeGroup>
+
+#### Deploy DocumentDB on AWS
+
+[Amazon DocumentDB (with MongoDB Compatibility)](https://docs.aws.amazon.com/documentdb/) is a fast, reliable, and fully managed database service. Amazon DocumentDB makes it easy to set up, operate, and scale MongoDB-compatible databases in the cloud.
+
+AWS offers services for computing, databases, storage, analytics, and other functionality. For an overview of all AWS services, see [Cloud Computing with Amazon Web Services](https://aws.amazon.com/what-is-aws/).
+
+See a [usage example](/oss/python/integrations/vectorstores/documentdb).
+
+```python
+from langchain_community.vectorstores import DocumentDBVectorSearch
+```
+### Amazon MemoryDB
+
+[Amazon MemoryDB](https://aws.amazon.com/memorydb/) is a durable, in-memory database service that delivers ultra-fast performance. MemoryDB is compatible with Redis OSS, a popular open source data store,
+enabling you to quickly build applications using the same flexible and friendly Redis OSS APIs, and commands that they already use today.
+
+InMemoryVectorStore class provides a vectorstore to connect with Amazon MemoryDB.
+
+```python
+from langchain_aws.vectorstores.inmemorydb import InMemoryVectorStore
+
+vds = InMemoryVectorStore.from_documents(
+            chunks,
+            embeddings,
+            redis_url="rediss://cluster_endpoint:6379/ssl=True ssl_cert_reqs=none",
+            vector_schema=vector_schema,
+            index_name=INDEX_NAME,
+        )
+```
+See a [usage example](/oss/python/integrations/vectorstores/memorydb).
+
+### Valkey
+
+[Valkey](https://valkey.io/) is an open source, high-performance key/value datastore that supports workloads such as caching, message queues, and can act as a primary database. Use ValkeyVectorStore to connect with [Amazon ElastiCache for Valkey](https://aws.amazon.com/elasticache/valkey/) or [Amazon MemoryDB for Valkey](https://aws.amazon.com/memorydb/).
+
+```python
+from langchain_aws.vectorstores import ValkeyVectorStore
+```
+
+See a [usage example](/oss/python/integrations/vectorstores/valkey).
+
+## Retrievers
+
+### Amazon kendra
+
+> [Amazon Kendra](https://docs.aws.amazon.com/kendra/latest/dg/what-is-kendra.html) 是由 `Amazon Web Services`（`AWS`）提供的智能搜索服务。它利用先进的自然语言处理（NLP）和机器学习算法，能够在组织内的各种数据源中实现强大的搜索功能。`Kendra` 旨在帮助用户快速、准确地找到所需信息，提高工作效率和决策能力。
+
+通过 `Kendra`，我们可以在多种内容类型中进行搜索，包括文档、常见问题、知识库、手册和网站。它支持多种语言，能够理解复杂查询、同义词和上下文含义，从而提供高度相关的搜索结果。
+
+We need to install the `langchain-aws` library.
+
+<CodeGroup>
+    ```bash pip
+    pip install langchain-aws
+    ```
+
+    ```bash uv
+    uv add langchain-aws
+    ```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/retrievers/amazon_kendra_retriever).
+
+```python
+from langchain_aws import AmazonKendraRetriever
+```
+
+### Amazon Bedrock (Knowledge bases)
+
+
+[Amazon Bedrock 知识库](https://aws.amazon.com/bedrock/knowledge-bases/)是一项亚马逊云科技（AWS）服务，可让您利用私有数据快速构建 RAG 应用并自定义基础模型响应。
+
+We need to install the `langchain-aws` library.
+
+<CodeGroup>
+    ```bash pip
+    pip install langchain-aws
+    ```
+
+    ```bash uv
+    uv add langchain-aws
+    ```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/retrievers/bedrock).
+
+```python
+from langchain_aws import AmazonKnowledgeBasesRetriever
+```
+
+## Tools
+
+### AWS lambda
+
+[`Amazon AWS Lambda`](https://aws.amazon.com/pm/lambda/) 是 `Amazon Web Services`（`AWS`）提供的一项**无服务器计算服务**。它帮助开发者无需配置或管理服务器，即可构建和运行应用程序及服务。这种**无服务器架构**让您能够专注于编写和部署代码，而 AWS 则自动处理运行应用程序所需的扩展、打补丁和管理基础设施工作。
+
+We need to install `boto3` python library.
+
+<CodeGroup>
+    ```bash pip
+    pip install boto3
+    ```
+
+    ```bash uv
+    uv add boto3
+    ```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/tools/awslambda).
+
+```python
+from langchain_community.chat_message_histories import DynamoDBChatMessageHistory
+```
+
+### Amazon Bedrock AgentCore Browser
+
+[Amazon Bedrock AgentCore Browser](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/browser-tool.html) 使代理能够通过托管的 Chrome 浏览器与网页进行交互，实现导航、内容提取和网页自动化。
+
+<CodeGroup>
+    ```bash pip
+    pip install langchain-aws bedrock-agentcore playwright beautifulsoup4
+    ```
+
+    ```bash uv
+    uv add langchain-aws bedrock-agentcore playwright beautifulsoup4
+    ```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/tools/bedrock_agentcore_browser).
+
+```python
+from langchain_aws.tools import create_browser_toolkit
+
+# Create toolkit
+toolkit, browser_tools = create_browser_toolkit(region="us-west-2")
+
+# Use with an agent
+agent = create_react_agent(model=llm, tools=browser_tools)
+result = await agent.ainvoke(
+    {"messages": [{"role": "user", "content": "Go to example.com and get the heading"}]},
+    config={"configurable": {"thread_id": "session-1"}}
+)
+
+# Cleanup when done
+await toolkit.cleanup()
+```
+
+### Amazon Bedrock AgentCore Code Interpreter
+
+Amazon Bedrock AgentCore Code Interpreter 使代理能够在安全的托管沙盒环境中执行 Python、JavaScript 和 TypeScript 代码，用于计算、数据分析和可视化。
+
+<CodeGroup>
+    ```bash pip
+    pip install langchain-aws bedrock-agentcore
+    ```
+
+    ```bash uv
+    uv add langchain-aws bedrock-agentcore
+    ```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/tools/bedrock_agentcore_code_interpreter).
+
+```python
+from langchain_aws.tools import create_code_interpreter_toolkit
+
+# Create toolkit (async)
+toolkit, code_tools = await create_code_interpreter_toolkit(region="us-west-2")
+
+# Use with an agent
+agent = create_react_agent(model=llm, tools=code_tools)
+result = await agent.ainvoke(
+    {"messages": [{"role": "user", "content": "Calculate factorial of 10"}]},
+    config={"configurable": {"thread_id": "session-1"}}
+)
+
+# Cleanup when done
+await toolkit.cleanup()
+```
+
+## Sandboxes
+
+<Columns cols={2}>
+    <Card title="AgentCoreSandbox" href="/oss/python/integrations/sandboxes/aws" cta="Get started" icon="terminal" arrow>
+        Amazon Bedrock AgentCore Code Interpreter sandbox backend for deepagents.
+    </Card>
+</Columns>
+
+## Graphs
+
+### Amazon neptune
+
+[Amazon Neptune](https://aws.amazon.com/neptune/) 是一个高性能的图分析和无服务器数据库，具有卓越的可扩展性和可用性。
+
+For the Cypher and SPARQL integrations below, we need to install the `langchain-aws` library.
+
+<CodeGroup>
+    ```bash pip
+    pip install langchain-aws
+    ```
+
+    ```bash uv
+    uv add langchain-aws
+    ```
+</CodeGroup>
+
+### Amazon neptune with cypher
+
+See a [usage example](/oss/python/integrations/graphs/amazon_neptune_open_cypher).
+
+```python
+from langchain_aws.graphs import NeptuneGraph
+from langchain_aws.graphs import NeptuneAnalyticsGraph
+from langchain_aws.chains import create_neptune_opencypher_qa_chain
+```
+
+### Amazon neptune with SPARQL
+
+```python
+from langchain_aws.graphs import NeptuneRdfGraph
+from langchain_aws.chains import create_neptune_sparql_qa_chain
+```
+
+## Memory
+
+### Amazon Bedrock AgentCore Memory
+
+[Amazon Bedrock AgentCore Memory](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory.html) 提供 LangGraph 代理的托管持久化，支持跨会话的对话历史和状态管理，具有自动扩缩和高可用性。
+
+<CodeGroup>
+    ```bash pip
+    pip install langgraph-checkpoint-aws
+    ```
+
+    ```bash uv
+    uv add langgraph-checkpoint-aws
+    ```
+</CodeGroup>
+
+```python
+from langgraph_checkpoint_aws import AgentCoreMemorySaver
+
+# Create checkpointer
+checkpointer = AgentCoreMemorySaver(
+    memory_id="your-memory-id",
+    region_name="us-west-2"
+)
+
+# Use with LangGraph
+graph = workflow.compile(checkpointer=checkpointer)
+
+# Invoke with thread_id and actor_id for conversation persistence
+config = {
+    "configurable": {
+        "thread_id": "user-123",
+        "actor_id": "my-agent"  # Required for AgentCore
+    }
+}
+result = graph.invoke({"messages": []}, config)
+```
+
+Key features:
+- Managed infrastructure with no database setup required
+- Automatic scaling and high availability
+- Multi-agent support via `actor_id` isolation
+- Encryption at rest and in transit
+
+### Amazon Bedrock AgentCore Memory Store
+
+> [Amazon Bedrock AgentCore Memory Store](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory.html) 提供
+> 长期记忆和语义搜索功能，用于 LangGraph agents，支持跨会话存储和检索用户偏好、事实及提取的记忆。
+
+```python
+from langgraph_checkpoint_aws import AgentCoreMemoryStore
+
+# Initialize store for long-term memories
+store = AgentCoreMemoryStore(memory_id="your-memory-id", region_name="us-west-2")
+
+# Use in a pre-model hook to save and retrieve memories
+def pre_model_hook(state, config, *, store):
+    actor_id = config["configurable"]["actor_id"]
+    thread_id = config["configurable"]["thread_id"]
+    namespace = (actor_id, thread_id)
+
+    # Save a message
+    store.put(namespace, str(uuid.uuid4()), {"message": msg})
+
+    # Search for relevant memories
+    results = store.search(("preferences", actor_id), query="user preferences", limit=5)
+    return {"model_input_messages": state["messages"]}
+```
+
+## Callbacks
+
+### Bedrock token usage
+
+```python
+from langchain_community.callbacks.bedrock_anthropic_callback import BedrockAnthropicTokenUsageCallbackHandler
+```
+
+### SageMaker tracking
+
+[Amazon SageMaker](https://aws.amazon.com/sagemaker/) 是一个完全托管的服务，可用于快速、轻松地构建、训练和部署机器学习 (ML) 模型。
+
+> [Amazon SageMaker Experiments](https://docs.aws.amazon.com/sagemaker/latest/dg/experiments.html) 是 `Amazon SageMaker` 的一项功能，
+> 可帮助您组织、追踪、比较和评估机器学习实验及模型版本。
+
+We need to install several python libraries.
+
+<CodeGroup>
+    ```bash pip
+    pip install google-search-results sagemaker
+    ```
+
+    ```bash uv
+    uv add google-search-results sagemaker
+    ```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/callbacks/sagemaker_tracking).
+
+```python
+from langchain_community.callbacks import SageMakerCallbackHandler
+```
+
+## Chains
+
+### Amazon Comprehend moderation chain
+
+
+> [Amazon Comprehend](https://aws.amazon.com/comprehend/) 是一项自然语言处理 (NLP) 服务，利用机器学习从文本中挖掘有价值的洞察和关联。
+
+
+We need to install the `boto3` and `nltk` libraries.
+
+<CodeGroup>
+    ```bash pip
+    pip install boto3 nltk
+    ```
+
+    ```bash uv
+    uv add boto3 nltk
+    ```
+</CodeGroup>
+
+See a [usage example](https://python.langchain.com/v0.1/docs/guides/productionization/safety/amazon_comprehend_chain/).
+
+```python
+from langchain_experimental.comprehend_moderation import AmazonComprehendModerationChain
+```
+
+## Runtime
+
+### Amazon Bedrock AgentCore Runtime
+
+>[Amazon Bedrock AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agents-tools-runtime.html) 为 LangGraph 智能体提供托管的无服务器执行环境，具备内置可观测性、自动扩展能力，以及与其他 AgentCore 服务的无缝集成。
+
+<CodeGroup>
+    ```bash pip
+    pip install bedrock-agentcore
+    ```
+
+    ```bash uv
+    uv add bedrock-agentcore
+    ```
+</CodeGroup>
+
+```python
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+
+app = BedrockAgentCoreApp()
+
+@app.entrypoint
+def agent_invocation(payload, context):
+    result = graph.invoke({"messages": [{"role": "user", "content": payload["prompt"]}]})
+    return {"result": result["messages"][-1].content}
+
+app.run()
+```
+
+Deploy using the AgentCore CLI:
+
+```bash
+# Configure your agent
+agentcore configure
+
+# Deploy to AgentCore Runtime
+agentcore launch -e your_agent.py
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\aws.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

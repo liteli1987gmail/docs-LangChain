@@ -1,0 +1,87 @@
+---
+title: "Greennode integrations"
+description: "Integrate with Greennode using LangChain Python."
+---
+
+>**GreenNode** 是一家全球性 AI 解决方案提供商，也是 **NVIDIA Preferred Partner**，为企业提供从基础设施到应用的全栈 AI 能力，服务范围覆盖美国、中东和北非（MENA）以及亚太（APAC）地区。
+
+>依托 **世界级基础设施**（LEED Gold、TI​A‑942、Uptime Tier III），**GreenNode** 为企业、初创公司和研究人员提供全面的 AI 服务套件：
+
+>- [强大的 AI 基础设施：](https://greennode.ai/) 作为亚太地区首批超大规模 AI 集群之一，GreenNode 的基础设施由 NVIDIA H100 GPU 驱动，针对高吞吐量机器学习和深度学习工作负载进行了优化。
+>- [GreenNode AI 平台：](https://greennode.ai/product/ai-platform) 专为技术团队设计，GreenNode 的自助式 AI 平台可快速部署 Jupyter notebook 环境，并预配置优化计算实例。开发者可通过此门户以最少设置时间启动 ML 训练、微调、超参数优化和推理工作流程。该平台提供 100+ 精选开源模型访问，并支持与主流 MLOps 工具和存储框架集成。
+>- [GreenNode Serverless AI：](https://greennode.ai/product/model-as-a-service) GreenNode Serverless AI 提供涵盖文本生成、代码生成、文本转语音、语音转文本、Embedding 和重排序模型等领域的预训练生产级模型库。此服务非常适合希望在不管理模型基础设施的情况下快速原型设计或部署 AI 解决方案的团队。
+>- [AI 应用：](https://vngcloud.vn/en/solution) 从智能数据管理和文档处理（IDP）到智能视频分析——GreenNode 以规模化方式支持真实世界的 AI 用例。
+
+>无论您是在构建下一个 LLM 工作流程、扩展 AI 研究，还是部署企业级应用，**GreenNode** 都能为您提供加速前进所需的工具和基础设施。
+
+## Installation and setup
+
+The GreenNode integration can be installed via pip:
+
+```python
+pip install -qU langchain-greennode
+```
+
+### API Key
+
+To use GreenNode Serverless AI, you'll need an API key which you can obtain from [GreenNode Serverless AI](https://aiplatform.console.greennode.ai/api-keys). The API key can be passed as an initialization parameter `api_key` or set as the environment variable `GREENNODE_API_KEY`.
+
+```python
+import getpass
+import os
+
+if not os.getenv("GREENNODE_API_KEY"):
+    os.environ["GREENNODE_API_KEY"] = getpass.getpass("Enter your GreenNode API key: ")
+```
+
+## Chat models
+
+```python
+from langchain_greennode import ChatGreenNode
+
+chat = ChatGreenNode(
+    model="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",  # Choose from available models
+    temperature=0.6,
+    top_p=0.95,
+)
+```
+
+Usage of the GreenNode [Chat Model](https://python.langchain.com/docs/integrations/chat/greennode/)
+
+## Embedding models
+
+```python
+from langchain_greennode import GreenNodeEmbeddings
+
+# Initialize embeddings
+embeddings = GreenNodeEmbeddings(
+    model="BAAI/bge-m3"  # Choose from available models
+)
+```
+
+Usage of the GreenNode [Embedding Model](https://python.langchain.com/docs/integrations/embeddings/greennode)
+
+## Rerank
+
+```python
+from langchain_greennode import GreenNodeRerank
+
+# Initialize reranker
+rerank = GreenNodeRerank(
+    model="BAAI/bge-reranker-v2-m3",  # Choose from available models
+    top_n=-1,
+)
+```
+
+Usage of the GreenNode [Rerank Model](https://python.langchain.com/docs/integrations/retrievers/greennode-reranker)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\greennode.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

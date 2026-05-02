@@ -1,0 +1,320 @@
+---
+title: 快速开始
+description: 在几分钟内构建您的第一个深度代理
+---
+
+本指南将引导您创建第一个具有规划、文件系统工具和子代理功能的深度代理。您将构建一个可以进行研究和撰写报告的研究代理。
+
+<Tip>
+    **使用 AI 编码助手？**
+
+    - 安装 [LangChain 文档 MCP 服务器](/use-these-docs) 以让您的代理访问最新的 LangChain 文档和示例。
+    - 安装 [LangChain Skills](https://github.com/langchain-ai/langchain-skills) 以提高您的代理在 LangChain 生态系统任务上的表现。
+</Tip>
+
+## 前置要求
+
+在开始之前，请确保您拥有模型提供商的 API 密钥（例如 Gemini、Anthropic、OpenAI）。
+
+<Note>
+    深度代理需要支持[工具调用](/oss/javascript/langchain/models#tool-calling)的模型。有关如何配置您的模型，请参阅[自定义](/oss/javascript/deepagents/customization#model)。
+</Note>
+
+## 第 1 步：安装依赖
+
+
+
+<CodeGroup>
+    ```bash npm
+    npm install deepagents langchain @langchain/core @langchain/tavily
+    ```
+
+    ```bash yarn
+    yarn add deepagents langchain @langchain/core @langchain/tavily
+    ```
+
+    ```bash pnpm
+    pnpm add deepagents langchain @langchain/core @langchain/tavily
+    ```
+</CodeGroup>
+
+
+<Note>
+    本指南使用 [Tavily](https://tavily.com/) 作为示例搜索提供商，但您可以替换任何搜索 API（例如 DuckDuckGo、SerpAPI、Brave Search）。
+</Note>
+
+## 第 2 步：设置您的 API 密钥
+
+<Tabs>
+    <Tab title="Google">
+        ```bash
+        export GOOGLE_API_KEY="your-api-key"
+        export TAVILY_API_KEY="your-tavily-api-key"
+        ```
+    </Tab>
+    <Tab title="OpenAI">
+        ```bash
+        export OPENAI_API_KEY="your-api-key"
+        export TAVILY_API_KEY="your-tavily-api-key"
+        ```
+    </Tab>
+    <Tab title="Anthropic">
+        ```bash
+        export ANTHROPIC_API_KEY="your-api-key"
+        export TAVILY_API_KEY="your-tavily-api-key"
+        ```
+    </Tab>
+    <Tab title="OpenRouter">
+        ```bash
+        export OPENROUTER_API_KEY="your-api-key"
+        export TAVILY_API_KEY="your-tavily-api-key"
+        ```
+    </Tab>
+    <Tab title="Fireworks">
+        ```bash
+        export FIREWORKS_API_KEY="your-api-key"
+        export TAVILY_API_KEY="your-tavily-api-key"
+        ```
+    </Tab>
+    <Tab title="Baseten">
+        ```bash
+        export BASETEN_API_KEY="your-api-key"
+        export TAVILY_API_KEY="your-tavily-api-key"
+        ```
+    </Tab>
+    <Tab title="Ollama">
+        ```bash
+        # 本地：Ollama 必须正在您的机器上运行
+        # 云端：设置您的 Ollama API 密钥以进行托管推理
+        export OLLAMA_API_KEY="your-api-key"
+        export TAVILY_API_KEY="your-tavily-api-key"
+        ```
+    </Tab>
+    <Tab title="其他">
+        ```bash
+        # 为您的提供商设置 API 密钥
+        export <PROVIDER>_API_KEY="your-api-key"
+        export TAVILY_API_KEY="your-tavily-api-key"
+        ```
+
+        深度代理可与任何 [LangChain 聊天模型](/oss/javascript/deepagents/models#supported-models)配合使用。为您的提供商设置 API 密钥。
+    </Tab>
+</Tabs>
+
+## 第 3 步：创建搜索工具
+
+
+
+```typescript
+import { tool } from "langchain";
+import { TavilySearch } from "@langchain/tavily";
+import { z } from "zod";
+
+const internetSearch = tool(
+  async ({
+    query,
+    maxResults = 5,
+    topic = "general",
+    includeRawContent = false,
+  }: {
+    query: string;
+    maxResults?: number;
+    topic?: "general" | "news" | "finance";
+    includeRawContent?: boolean;
+  }) => {
+    const tavilySearch = new TavilySearch({
+      maxResults,
+      tavilyApiKey: process.env.TAVILY_API_KEY,
+      includeRawContent,
+      topic,
+    });
+    return await tavilySearch._call({ query });
+  },
+  {
+    name: "internet_search",
+    description: "运行网络搜索",
+    schema: z.object({
+      query: z.string().describe("搜索查询"),
+      maxResults: z
+        .number()
+        .optional()
+        .default(5)
+        .describe("返回的最大结果数"),
+      topic: z
+        .enum(["general", "news", "finance"])
+        .optional()
+        .default("general")
+        .describe("搜索主题类别"),
+      includeRawContent: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe("是否包含原始内容"),
+    }),
+  },
+);
+```
+
+
+## 第 4 步：创建一个深度代理
+
+
+
+```typescript
+import { createDeepAgent } from "deepagents";
+
+// 系统提示词，引导代理成为专业研究员
+const researchInstructions = `你是一个专业研究员。你的工作是进行彻底的研究，然后写一份完善的报告。
+
+你可以访问互联网搜索工具作为收集信息的主要手段。
+
+## \`internet_search\`
+
+使用此工具对给定查询进行互联网搜索。您可以指定返回的最大结果数、主题以及是否应包含原始内容。
+`;
+```
+
+从您的提供商中选择一个模型。默认情况下，`createDeepAgent` 使用 `claude-sonnet-4-6`。传递一个 `model` 字符串以使用不同的提供商——请参阅[推荐的模型](/oss/javascript/deepagents/models#suggested-models)以获取完整列表。
+
+<Tabs>
+    <Tab title="Google">
+        ```typescript
+        const agent = createDeepAgent({
+          model: "google-genai:gemini-3.1-pro-preview",
+          tools: [internetSearch],
+          systemPrompt: researchInstructions,
+        });
+        ```
+    </Tab>
+    <Tab title="OpenAI">
+        ```typescript
+        const agent = createDeepAgent({
+          model: "openai:gpt-5.4",
+          tools: [internetSearch],
+          systemPrompt: researchInstructions,
+        });
+        ```
+    </Tab>
+    <Tab title="Anthropic">
+        ```typescript
+        const agent = createDeepAgent({
+          model: "anthropic:claude-sonnet-4-6",
+          tools: [internetSearch],
+          systemPrompt: researchInstructions,
+        });
+        ```
+    </Tab>
+    <Tab title="OpenRouter">
+        ```typescript
+        const agent = createDeepAgent({
+          model: "openrouter:anthropic/claude-sonnet-4-6",
+          tools: [internetSearch],
+          systemPrompt: researchInstructions,
+        });
+        ```
+    </Tab>
+    <Tab title="Fireworks">
+        ```typescript
+        const agent = createDeepAgent({
+          model: "fireworks:accounts/fireworks/models/qwen3p5-397b-a17b",
+          tools: [internetSearch],
+          systemPrompt: researchInstructions,
+        });
+        ```
+    </Tab>
+    <Tab title="Ollama">
+        ```typescript
+        const agent = createDeepAgent({
+          model: "ollama:devstral-2",
+          tools: [internetSearch],
+          systemPrompt: researchInstructions,
+        });
+        ```
+    </Tab>
+    <Tab title="其他">
+        传递任何[支持的模型字符串](/oss/javascript/deepagents/models#supported-models)，或一个初始化的模型实例：
+
+        <CodeGroup>
+            ```typescript model string
+            const agent = createDeepAgent({
+              model: "provider:model-name",
+              tools: [internetSearch],
+              systemPrompt: researchInstructions,
+            });
+            ```
+            ```typescript initChatModel
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("provider:model-name");
+            const agent = createDeepAgent({
+              model,
+              tools: [internetSearch],
+              systemPrompt: researchInstructions,
+            });
+            ```
+            ```typescript model class
+            import { Chat<Provider> } from "@langchain/<provider>";
+
+            const model = new Chat<Provider>({ model: "model-name" });
+            const agent = createDeepAgent({
+              model,
+              tools: [internetSearch],
+              systemPrompt: researchInstructions,
+            });
+            ```
+        </CodeGroup>
+    </Tab>
+</Tabs>
+
+
+## 第 5 步：运行代理
+
+
+
+```typescript
+const result = await agent.invoke({
+  messages: [{ role: "user", content: "什么是 langgraph？" }],
+});
+
+// 打印代理的响应
+console.log(result.messages[result.messages.length - 1].content);
+```
+
+
+## 它是如何工作的？
+
+您的深度代理自动：
+
+1. **规划其方法**使用内置的[`write_todos`](/oss/javascript/deepagents/harness#planning-capabilities)工具来分解研究任务。
+2. **进行研究**通过调用 `internet_search` 工具来收集信息。
+3. **管理上下文**通过使用文件系统工具（[`write_file`](/oss/javascript/deepagents/harness#virtual-filesystem-access)、[`read_file`](/oss/javascript/deepagents/harness#virtual-filesystem-access)）来卸载大型搜索结果。
+4. **根据需要生成子代理**以将复杂的子任务委托给专门的子代理。
+5. **综合报告**将发现编译成连贯的响应。
+
+## 示例
+
+要了解您可以使用深度代理构建的代理、模式和应用程序，请参阅[示例](https://github.com/langchain-ai/deepagents/tree/main/examples)。
+
+## 流式输出
+
+深度代理内置了[流式输出](/oss/javascript/langchain/streaming/overview)功能，可通过 LangGraph 实时更新代理执行情况。
+这允许您观察逐步输出并审查和调试代理和子代理的工作，例如工具调用、工具结果和大型语言模型响应。
+
+## 下一步
+
+现在您已经构建了您的第一个深度代理：
+
+- **自定义您的代理**：了解[自定义选项](/oss/javascript/deepagents/customization)，包括自定义系统提示词、工具和子代理。
+- **添加长期记忆**：跨对话启用[持久记忆](/oss/javascript/deepagents/memory)。
+- **部署到生产环境**：了解深度代理的[部署选项](/oss/javascript/deepagents/deploy)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\quickstart.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

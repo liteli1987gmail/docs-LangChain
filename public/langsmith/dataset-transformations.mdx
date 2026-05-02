@@ -1,0 +1,125 @@
+---
+title: 数据集转换
+sidebarTitle: 数据集转换
+---
+
+LangSmith 允许您附加转换到数据集模式中的字段，这些转换在数据添加到数据集之前应用，无论是从 UI、API 还是运行规则。
+
+结合 [LangSmith 预构建的 JSON 模式类型](/langsmith/dataset-json-types)，这些允许您在将数据保存到数据集之前轻松地进行预处理。
+
+## 转换类型
+
+| 转换类型 | 目标类型 | 功能 |
+| ---------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `remove_system_messages` | `Array[Message]` | 过滤消息列表以删除任何系统消息。 |
+| `convert_to_openai_message` | Message `Array[Message]` | 使用 langchain 的 [`convert_to_openai_messages`](https://reference.langchain.com/python/langchain_core/utils/#langchain_core.utils.function_calling.convert_to_openai_messages) 将 LangChain 内部序列化格式的任何传入数据转换为 OpenAI 标准消息格式。如果目标字段被标记为必需，且在输入时未找到匹配消息，它将尝试从多个众所周知的 LangSmith 追踪格式中提取消息（或消息列表）（例如，任何追踪的 LangChain [`BaseChatModel`](https://reference.langchain.com/python/langchain-core/language_models/chat_models/BaseChatModel) 运行或来自 [LangSmith OpenAI 包装器](/langsmith/annotate-code#use-%40traceable-%2F-traceable) 的追踪运行），并删除包含消息的原始键。 |
+| `convert_to_openai_tool` | `Array[Tool]` 仅适用于输入字典中顶级字段的字段。 | 使用 langchain 的 [`convert_to_openai_tool`](https://reference.langchain.com/python/langchain-core/utils/function_calling/convert_to_openai_tool) 将任何传入数据转换为 OpenAI 标准工具格式。如果在指定键处未找到工具，将从运行的调用参数中提取工具定义（如果存在）。这很有用，因为 LangChain 聊天模型将工具定义追踪到运行的 `extra.invocation_params` 字段而非输入中。 |
+| `remove_extra_fields` | `Object` | 删除未在目标对象的模式中定义的任何字段。 |
+
+## 聊天模型预构建模式
+
+转换的主要用例是简化将生产追踪收集到数据集中，格式可跨模型提供商标准化，以用于评估/少样本提示/等下游处理。
+
+为简化最终用户的转换设置，LangSmith 提供了一个预定义模式，可执行以下操作：
+
+* 从收集的运行中提取消息并将其转换为 openai 标准格式，这使得它们与所有 LangChain ChatModels 和大多数模型提供商的 SDK 兼容，用于下游评估和实验
+* 提取大型语言模型使用的任何工具，并将其添加到示例输入中，用于下游评估的可重现性
+
+<Check>
+想要迭代系统提示词的用户在使用我们的聊天模型模式时，通常还会在输入消息上添加"删除系统消息"转换，这会阻止您将系统提示词保存到数据集中。
+</Check>
+
+### 兼容性
+
+大型语言模型运行收集模式旨在从 LangChain [`BaseChatModel`](https://reference.langchain.com/python/langchain-core/language_models/chat_models/BaseChatModel) 运行或来自 [LangSmith OpenAI 包装器](/langsmith/annotate-code#use-%40traceable-%2F-traceable) 的追踪运行中收集数据。
+
+如果您有不适用的追踪大型语言模型运行，请通过 [support.langchain.com](https://support.langchain.com) 联系支持人员，我们可以扩展支持。
+
+如果您想将转换应用于其他类型的运行（例如，表示带有消息历史记录的 LangGraph 状态），请直接定义您的模式并手动添加相关转换。
+
+### 启用
+
+当从追踪项目或标注队列向数据集添加运行时，如果它具有大型语言模型运行类型，我们将默认应用聊天模型模式。
+
+有关在新数据集上启用的信息，请参阅我们的[数据集管理操作指南](/langsmith/manage-datasets-in-application)。
+
+### 规格
+
+有关预构建模式的完整 API 规格，请参阅以下部分：
+
+#### 输入模式
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "messages": {
+      "type": "array",
+      "items": {
+        "$ref": "https://api.smith.langchain.com/public/schemas/v1/message.json"
+      }
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "$ref": "https://api.smith.langchain.com/public/schemas/v1/tooldef.json"
+      }
+    }
+  },
+  "required": ["messages"]
+}
+```
+
+#### 输出模式
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "message": {
+      "$ref": "https://api.smith.langchain.com/public/schemas/v1/message.json"
+    }
+  },
+  "required": ["message"]
+}
+```
+
+#### 转换
+
+转换如下所示：
+
+```json
+[
+  {
+    "path": ["inputs"],
+    "transformation_type": "remove_extra_fields"
+  },
+  {
+    "path": ["inputs", "messages"],
+    "transformation_type": "convert_to_openai_message"
+  },
+  {
+    "path": ["inputs", "tools"],
+    "transformation_type": "convert_to_openai_tool"
+  },
+  {
+    "path": ["outputs"],
+    "transformation_type": "remove_extra_fields"
+  },
+  {
+    "path": ["outputs", "message"],
+    "transformation_type": "convert_to_openai_message"
+  }
+]
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\dataset-transformations.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

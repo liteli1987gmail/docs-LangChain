@@ -1,0 +1,95 @@
+---
+title: "Tencent integrations"
+description: "Integrate with Tencent using LangChain Python."
+---
+
+
+>[腾讯控股有限公司 (维基百科)](https://en.wikipedia.org/wiki/Tencent)（中文：腾讯；拼音：Téngxùn）
+> 一家中国跨国科技集团和控股公司，总部位于深圳。按营收计算，腾讯是全球收入最高的多媒体公司之一。按其股权投资计算，腾讯也是全球视频游戏行业最大的公司。
+
+
+## Chat model
+
+>[腾讯混元大模型 API](https://cloud.tencent.com/document/product/1729)（`Hunyuan API`）
+> 实现对话沟通、内容生成、分析理解，可广泛应用于智能客服、智能营销、
+> 角色扮演、广告文案、产品描述、剧本创作、简历生成、文章写作、代码生成、
+> 数据分析、内容分析等多种场景。
+
+
+For more information, see [this notebook](/oss/python/integrations/chat/tencent_hunyuan)
+
+```python
+from langchain_community.chat_models import ChatHunyuan
+```
+
+
+## Document loaders
+
+### Tencent COS
+
+[腾讯云对象存储（COS）](https://www.tencentcloud.com/products/cos)是一种分布式存储服务，使您能够通过 HTTP/HTTPS 协议从任何地方存储任意数量的数据。COS 对数据结构或格式没有任何限制，也没有存储桶大小限制和分区管理，使其适用于几乎任何用例，例如数据传输、数据处理和数据湖。COS 提供基于 Web 的控制台、多语言 SDK 和 API、命令行工具以及图形化工具。它与 Amazon S3 API 兼容，使您能够快速访问社区工具和插件。
+
+Install the Python SDK:
+
+<CodeGroup>
+```bash pip
+pip install cos-python-sdk-v5
+```
+
+```bash uv
+uv add cos-python-sdk-v5
+```
+</CodeGroup>
+
+#### Tencent COS directory
+
+For more information, see [this notebook](/oss/python/integrations/document_loaders/tencent_cos_directory)
+
+```python
+from langchain_community.document_loaders import TencentCOSDirectoryLoader
+from qcloud_cos import CosConfig
+```
+
+#### Tencent COS file
+
+For more information, see [this notebook](/oss/python/integrations/document_loaders/tencent_cos_file)
+
+```python
+from langchain_community.document_loaders import TencentCOSFileLoader
+from qcloud_cos import CosConfig
+```
+
+## Vector store
+
+### Tencent VectorDB
+
+腾讯云向量数据库（Tencent Cloud VectorDB）是一个完全托管、自主研发的企业级分布式数据库服务，致力于存储、检索和分析多维向量数据。该数据库支持多种索引类型和相似度计算方法，单个索引支持10亿向量、百万级QPS和毫秒级查询延迟。腾讯云向量数据库不仅可以为大模型提供外部知识库、提高大模型的回答准确率，还可以广泛应用于推荐系统、NLP服务、计算机视觉和智能客服等AI领域。
+
+Install the Python SDK:
+
+<CodeGroup>
+```bash pip
+pip install tcvectordb
+```
+
+```bash uv
+uv add tcvectordb
+```
+</CodeGroup>
+
+For more information, see [this notebook](/oss/python/integrations/vectorstores/tencentvectordb)
+
+```python
+from langchain_community.vectorstores import TencentVectorDB
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\tencent.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

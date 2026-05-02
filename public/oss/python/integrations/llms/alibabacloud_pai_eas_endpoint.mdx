@@ -1,0 +1,58 @@
+---
+title: "Alibaba cloud pai eas integration"
+description: "Integrate with the Alibaba cloud pai eas LLM using LangChain Python."
+---
+
+>[阿里云机器学习平台PAI](https://www.alibabacloud.com/help/en/pai)是一个面向企业和开发者的机器学习或深度学习工程平台。它提供易于使用、经济高效、高性能、易于扩展的插件，可应用于各种行业场景。`Machine Learning Platform for AI`拥有超过140种内置优化算法，提供全流程AI工程能力，包括数据标注（PAI-iTAG）、模型构建（PAI-Designer和PAI-DSW）、模型训练（PAI-DLC）、编译优化和推理部署（PAI-EAS）。`PAI-EAS`支持不同类型的硬件资源，包括CPU和GPU，具有高吞吐量和低延迟的特点。它允许您通过几次点击即可部署大规模复杂模型，并可实时进行弹性伸缩。它还提供全面的运维和监控系统。
+
+```python
+##Installing the langchain packages needed to use the integration
+pip install -qU langchain-community
+```
+
+```python
+from langchain_classic.chains import LLMChain
+from langchain_community.llms.pai_eas_endpoint import PaiEasEndpoint
+from langchain_core.prompts import PromptTemplate
+
+template = """Question: {question}
+
+Answer: Let's think step by step."""
+
+prompt = PromptTemplate.from_template(template)
+```
+
+One who wants to use EAS LLMs must set up EAS service first. When the EAS service is launched, `EAS_SERVICE_URL` and `EAS_SERVICE_TOKEN` can be obtained. Users can refer to [www.alibabacloud.com/help/en/pai/user-guide/service-deployment/](https://www.alibabacloud.com/help/en/pai/user-guide/service-deployment/) for more information,
+
+```python
+import os
+
+os.environ["EAS_SERVICE_URL"] = "Your_EAS_Service_URL"
+os.environ["EAS_SERVICE_TOKEN"] = "Your_EAS_Service_Token"
+llm = PaiEasEndpoint(
+    eas_service_url=os.environ["EAS_SERVICE_URL"],
+    eas_service_token=os.environ["EAS_SERVICE_TOKEN"],
+)
+```
+
+```python
+llm_chain = prompt | llm
+
+question = "What NFL team won the Super Bowl in the year Justin Beiber was born?"
+llm_chain.invoke({"question": question})
+```
+
+```text
+'  Thank you for asking! However, I must respectfully point out that the question contains an error. Justin Bieber was born in 1994, and the Super Bowl was first played in 1967. Therefore, it is not possible for any NFL team to have won the Super Bowl in the year Justin Bieber was born.\n\nI hope this clarifies things! If you have any other questions, please feel free to ask.'
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\llms\alibabacloud_pai_eas_endpoint.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

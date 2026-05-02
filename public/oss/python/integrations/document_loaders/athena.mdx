@@ -1,0 +1,73 @@
+---
+title: "Athena integration"
+description: "Integrate with the Athena document loader using LangChain Python."
+---
+
+[Amazon Athena](https://aws.amazon.com/athena/) 是一个无服务器、交互式分析服务，建立在开源框架之上，支持开放表和文件格式。`Athena` 提供了一种简化的、灵活的方式来分析 PB 级数据所在位置的数据。从 Amazon Simple Storage Service (S3) 数据湖和 30 个数据源（包括本地数据源或其他云系统）使用 SQL 或 Python 分析数据或构建应用程序。`Athena` 基于开源的 `Trino` 和 `Presto` 引擎以及 `Apache Spark` 框架构建，无需配置或设置工作。
+
+This notebook goes over how to load documents from `AWS Athena`.
+
+## Setting up
+
+Follow [instructions to set up an AWS account](https://docs.aws.amazon.com/athena/latest/ug/setting-up.html).
+
+Install a python library:
+
+```python
+! pip install boto3
+```
+
+## Example
+
+```python
+from langchain_community.document_loaders.athena import AthenaLoader
+```
+
+```python
+database_name = "my_database"
+s3_output_path = "s3://my_bucket/query_results/"
+query = "SELECT * FROM my_table"
+profile_name = "my_profile"
+
+loader = AthenaLoader(
+    query=query,
+    database=database_name,
+    s3_output_uri=s3_output_path,
+    profile_name=profile_name,
+)
+
+documents = loader.load()
+print(documents)
+```
+
+Example with metadata columns
+
+```python
+database_name = "my_database"
+s3_output_path = "s3://my_bucket/query_results/"
+query = "SELECT * FROM my_table"
+profile_name = "my_profile"
+metadata_columns = ["_row", "_created_at"]
+
+loader = AthenaLoader(
+    query=query,
+    database=database_name,
+    s3_output_uri=s3_output_path,
+    profile_name=profile_name,
+    metadata_columns=metadata_columns,
+)
+
+documents = loader.load()
+print(documents)
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\document_loaders\athena.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

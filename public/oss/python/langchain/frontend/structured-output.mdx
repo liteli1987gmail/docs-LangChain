@@ -1,0 +1,407 @@
+---
+title: 结构化输出
+description: 使用自定义 UI 组件渲染结构化代理响应，而不是纯文本
+---
+
+结构化输出让代理返回类型化的、机器可读的数据，而不是纯文本。不是渲染单个字符串，而是获得一个结构化对象，您可以将其映射到任何 UI：卡片、表格、图表、逐步分解或特定领域的渲染器。
+
+import { PatternEmbed } from "/snippets/pattern-embed.jsx"
+
+<PatternEmbed pattern="structured-output-latex" />
+
+## 什么是结构化输出？
+
+代理不是返回自由格式的文本响应，而是使用工具调用返回符合预定义模式的结构化对象。这为您提供了：
+
+- **类型安全的数据**：将响应解析为已知 TypeScript 类型
+- **精确的渲染控制**：使用自己的 UI 处理方式渲染每个字段
+- **一致的格式**：无论底层模型如何，每个响应都遵循相同的结构
+
+代理通过调用"结构化输出"工具来实现这一点，其参数包含响应数据。工具本身不执行任何逻辑，纯粹是返回类型化数据的载体。
+
+## 用例
+
+- **产品比较**：功能表、优缺点列表、评分
+- **数据分析**：带指标、分解和高亮的摘要
+- **逐步指南**：带描述和代码片段的有序说明
+- **食谱**：配料、步骤、时间安排和营养信息
+- **数学和科学**：用 LaTeX 渲染的公式、逐步推导
+- **旅行规划**：带日期、地点和成本估算的行程
+
+## 定义模式
+
+为代理返回的结构化数据定义一个 TypeScript 类型。这个模式的形状决定了您如何渲染 UI。
+
+以下是食谱助手的示例：
+
+```ts
+interface Ingredient {
+  name: string;
+  amount: string;
+  unit: string;
+}
+
+interface RecipeStep {
+  instruction: string;
+  duration?: string;
+}
+
+interface Recipe {
+  title: string;
+  description: string;
+  servings: number;
+  ingredients: Ingredient[];
+  steps: RecipeStep[];
+  totalTime: string;
+}
+```
+
+| 字段 | 类型 | 描述 |
+|---|---|---|
+| `title` | `string` | 食谱名称 |
+| `description` | `string` | 菜肴简短摘要 |
+| `servings` | `number` | 份数 |
+| `ingredients` | `Ingredient[]` | 带数量和单位的配料列表 |
+| `steps` | `RecipeStep[]` | 有序准备步骤 |
+| `totalTime` | `string` | 预计总准备和烹饪时间 |
+
+您的模式可以是任何东西。无论形状如何，模式的工作方式相同。
+
+## 从消息中提取结构化输出
+
+结构化输出位于最后一个 `AIMessage` 的 `tool_calls` 数组中。通过找到 AI 消息并访问第一个工具调用的参数来提取它：
+
+```ts
+import { AIMessage } from "@langchain/core/messages";
+
+function extractStructuredOutput<T>(messages: any[]): T | null {
+  const aiMessages = messages.filter(AIMessage.isInstance);
+  if (aiMessages.length === 0) return null;
+
+  const lastAI = aiMessages[aiMessages.length - 1];
+  const toolCall = lastAI.tool_calls?.[0];
+  if (!toolCall) return null;
+
+  return toolCall.args as T;
+}
+```
+
+<Note>
+结构化输出工具调用可能直到代理完成流式传输后才填充 `args`。在流式传输期间，`args` 可能部分填充或未定义。在渲染前始终检查完整性。
+</Note>
+
+## 设置 `useStream`
+
+定义一个与您的代理状态模式匹配的 TypeScript 接口，并将其作为类型参数传递给 `useStream`，以获得对状态值的类型安全访问。在下面的示例中，将 `typeof myAgent` 替换为您的接口名称：
+
+```ts
+import type { BaseMessage } from "@langchain/core/messages";
+
+interface AgentState {
+  messages: BaseMessage[];
+}
+```
+
+
+
+
+
+<CodeGroup>
+
+```tsx React
+import { useStream } from "@langchain/react";
+import { AIMessage } from "@langchain/core/messages";
+
+function RecipeChat() {
+  const stream = useStream<typeof myAgent>({
+    apiUrl: "http://localhost:2024",
+    assistantId: "recipe_assistant",
+  });
+
+  const recipe = extractStructuredOutput<Recipe>(stream.messages);
+
+  return (
+    <div>
+      {!recipe && !stream.isLoading && (
+        <PromptInput onSubmit={(text) =>
+          stream.submit({ messages: [{ type: "human", content: text }] })
+        } />
+      )}
+      {stream.isLoading && <LoadingIndicator />}
+      {recipe && <RecipeCard recipe={recipe} />}
+    </div>
+  );
+}
+```
+
+```vue Vue
+<script setup lang="ts">
+import { useStream } from "@langchain/vue";
+import { AIMessage } from "@langchain/core/messages";
+import { computed } from "vue";
+
+const stream = useStream<typeof myAgent>({
+  apiUrl: "http://localhost:2024",
+  assistantId: "recipe_assistant",
+});
+
+const recipe = computed(() =>
+  extractStructuredOutput<Recipe>(stream.messages.value)
+);
+
+function handleSubmit(text: string) {
+  stream.submit({ messages: [{ type: "human", content: text }] });
+}
+</script>
+
+<template>
+  <div>
+    <PromptInput v-if="!recipe && !stream.isLoading" @submit="handleSubmit" />
+    <LoadingIndicator v-if="stream.isLoading" />
+    <RecipeCard v-if="recipe" :recipe="recipe" />
+  </div>
+</template>
+```
+
+```svelte Svelte
+<script lang="ts">
+  import { useStream } from "@langchain/svelte";
+  import { AIMessage } from "@langchain/core/messages";
+
+  const { messages, isLoading, submit } = useStream<typeof myAgent>({
+    apiUrl: "http://localhost:2024",
+    assistantId: "recipe_assistant",
+  });
+
+  $: recipe = extractStructuredOutput<Recipe>($messages);
+
+  function handleSubmit(text: string) {
+    submit({ messages: [{ type: "human", content: text }] });
+  }
+</script>
+
+<div>
+  {#if !recipe && !$isLoading}
+    <PromptInput on:submit={(e) => handleSubmit(e.detail)} />
+  {/if}
+  {#if $isLoading}
+    <LoadingIndicator />
+  {/if}
+  {#if recipe}
+    <RecipeCard {recipe} />
+  {/if}
+</div>
+```
+
+```ts Angular
+import { Component, computed } from "@angular/core";
+import { useStream } from "@langchain/angular";
+
+@Component({
+  selector: "app-recipe-chat",
+  template: `
+    @if (!recipe() && !stream.isLoading()) {
+      <prompt-input (onSubmit)="handleSubmit($event)" />
+    }
+    @if (stream.isLoading()) {
+      <loading-indicator />
+    }
+    @if (recipe()) {
+      <recipe-card [recipe]="recipe()" />
+    }
+  `,
+})
+export class RecipeChatComponent {
+  stream = useStream<typeof myAgent>({
+    apiUrl: "http://localhost:2024",
+    assistantId: "recipe_assistant",
+  });
+
+  recipe = computed(() =>
+    extractStructuredOutput<Recipe>(this.stream.messages())
+  );
+
+  handleSubmit(text: string) {
+    this.stream.submit({
+      messages: [{ type: "human", content: text }],
+    });
+  }
+}
+```
+
+</CodeGroup>
+
+## 渲染结构化数据
+
+一旦有了类型化对象，就构建一个将每个字段映射到适当 UI 元素的组件。这是模式的核心：将结构化数据转化为专用界面。
+
+```tsx
+function RecipeCard({ recipe }: { recipe: Recipe }) {
+  return (
+    <div className="recipe-card">
+      <div className="recipe-header">
+        <h3>{recipe.title}</h3>
+        <p className="recipe-description">{recipe.description}</p>
+        <div className="recipe-meta">
+          <span>{recipe.servings} servings</span>
+          <span>{recipe.totalTime}</span>
+        </div>
+      </div>
+
+      <div className="recipe-ingredients">
+        <h4>Ingredients</h4>
+        <ul>
+          {recipe.ingredients.map((ing, i) => (
+            <li key={i}>
+              <strong>{ing.amount} {ing.unit}</strong> {ing.name}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="recipe-steps">
+        <h4>Instructions</h4>
+        {recipe.steps.map((step, i) => (
+          <div key={i} className="step">
+            <div className="step-number">Step {i + 1}</div>
+            <p className="step-instruction">{step.instruction}</p>
+            {step.duration && (
+              <span className="step-duration">{step.duration}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+相同的方法适用于任何领域。将每个字段映射到最能代表它的 UI 元素：
+
+| 数据类型 | 渲染策略 |
+|---|---|
+| 纯文本 | 段落、标题、列表项 |
+| 数字/指标 | 统计卡片、进度条、徽章 |
+| 数组 | 列表、表格、网格 |
+| 嵌套对象 | 嵌套卡片、手风琴部分 |
+| Markdown | Markdown 渲染器（例如 `react-markdown`）|
+| LaTeX/数学 | KaTeX 或 MathJax |
+| 日期/时间 | 格式化时间戳、相对时间 |
+| URL | 链接、嵌入式预览 |
+
+## 处理部分流式数据
+
+在流式传输期间，工具调用参数可能是 incomplete JSON。在提取逻辑中防止这种情况：
+
+```ts
+function extractStructuredOutput<T>(
+  messages: any[],
+  requiredFields: string[] = [],
+): T | null {
+  const aiMessages = messages.filter(AIMessage.isInstance);
+  if (aiMessages.length === 0) return null;
+
+  const lastAI = aiMessages[aiMessages.length - 1];
+  const toolCall = lastAI.tool_calls?.[0];
+  if (!toolCall?.args) return null;
+
+  const args = toolCall.args as Record<string, unknown>;
+  const hasRequired = requiredFields.every(
+    (field) => args[field] !== undefined
+  );
+
+  if (requiredFields.length > 0 && !hasRequired) return null;
+  return args as T;
+}
+```
+
+使用 `requiredFields` 参数等待关键字段填充后再渲染：
+
+```ts
+const recipe = extractStructuredOutput<Recipe>(stream.messages, [
+  "title",
+  "ingredients",
+  "steps",
+]);
+```
+
+## 在流式传输期间渐进式渲染
+
+不是在等待完整的结构化输出，而是随着字段到达渲染它们。这在代理仍在生成时为用户提供即时反馈：
+
+```tsx
+function ProgressiveRecipeCard({ messages }: { messages: any[] }) {
+  const partial = extractStructuredOutput<Partial<Recipe>>(messages);
+  if (!partial) return null;
+
+  return (
+    <div className="recipe-card">
+      {partial.title && <h3>{partial.title}</h3>}
+      {partial.description && <p>{partial.description}</p>}
+
+      {partial.ingredients && partial.ingredients.length > 0 && (
+        <div className="recipe-ingredients">
+          <h4>Ingredients</h4>
+          <ul>
+            {partial.ingredients.map((ing, i) => (
+              <li key={i}>
+                {ing.amount} {ing.unit} {ing.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {partial.steps && partial.steps.length > 0 && (
+        <div className="recipe-steps">
+          <h4>Instructions</h4>
+          {partial.steps.map((step, i) => (
+            <div key={i} className="step">
+              <div className="step-number">Step {i + 1}</div>
+              <p>{step.instruction}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+<Tip>
+当模式有自然的从上到下的顺序时，渐进式渲染效果很好：标题，然后描述，然后细节。代理通常按模式顺序生成字段，因此 UI 自然地填充。
+</Tip>
+
+## 重置并重新提交
+
+要允许用户在查看结果后提交新查询，请添加一个开始新线程的按钮：
+
+```tsx
+{recipe && (
+  <button onClick={() => stream.switchThread(null)}>
+    Start over
+  </button>
+)}
+```
+
+这会清除当前对话，让用户开始新的交互。
+
+## 最佳实践
+
+- **在渲染前验证**：始终检查必需字段是否存在后再渲染，因为流式传输可能传递部分数据
+- **使用通用提取函数**：使用类型和必需字段参数化提取逻辑，以便它适用于不同的模式
+- **渐进式渲染**：随着字段到达显示它们，而不是等待完整对象，以便用户看到即时反馈
+- **提供后备表示**：如果字段支持丰富渲染（LaTeX、Markdown、图表），也在模式中包含纯文本备用作为后备
+- **尽可能保持模式扁平**：深度嵌套的模式更难渐进式渲染，在部分流式传输时更容易 break
+- **UI 匹配数据**：选择最能代表每个字段类型的渲染策略（表格用于数组，嵌套对象用于卡片，状态字段用于徽章）
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\frontend\structured-output.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

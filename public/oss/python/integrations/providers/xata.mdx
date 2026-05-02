@@ -1,0 +1,41 @@
+---
+title: "Xata integrations"
+description: "Integrate with Xata using LangChain Python."
+---
+
+[Xata](https://xata.io)是一个基于PostgreSQL的无服务器数据平台。它提供了Python SDK用于与数据库交互，以及用于管理数据的UI界面。Xata具有原生向量类型，可以添加到任何表中，并支持相似性搜索。LangChain直接将向量插入到Xata，并查询给定向量的最近邻，以便您可以将所有LangChain Embeddings集成与Xata一起使用。
+
+
+## Installation and setup
+
+
+We need to install `xata` python package.
+
+<CodeGroup>
+```bash pip
+pip install xata==1.0.0a7
+```
+
+```bash uv
+uv add "xata==1.0.0a7"
+```
+</CodeGroup>
+
+## Vector store
+
+See a [usage example](/oss/python/integrations/vectorstores/xata).
+
+```python
+from langchain_community.vectorstores import XataVectorStore
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\xata.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

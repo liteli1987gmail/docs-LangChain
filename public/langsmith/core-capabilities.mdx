@@ -1,0 +1,70 @@
+---
+title: 核心能力概述
+sidebarTitle: 概述
+description: Agent Server 核心能力概述，包括流式传输、人机交互、MCP、A2A、分布式追踪、Webhooks 和双重发送。
+---
+
+Agent Server 提供了一套用于构建和操作生产代理的能力。本节涵盖：
+
+<CardGroup cols={2}>
+
+<Card title="流式传输 API" icon="player-play" href="/langsmith/streaming">
+  使用 LangGraph SDK 实时流式传输您部署代理的输出。
+</Card>
+
+<Card title="人机交互" icon="user-check" href="/langsmith/add-human-in-the-loop">
+  暂停代理执行以在继续之前审查、编辑或批准工具调用。
+</Card>
+
+<Card title="时间旅行" icon="clock" href="/langsmith/human-in-the-loop-time-travel">
+  从任何先前状态重放代理运行以进行调试或探索替代路径。
+</Card>
+
+<Card title="MCP 端点" icon="plug" href="/langsmith/server-mcp">
+  将您的代理公开为 MCP 工具，可被任何 MCP 兼容客户端访问。
+</Card>
+
+<Card title="A2A 端点" icon="arrows-exchange" href="/langsmith/server-a2a">
+  使用 A2A 协议启用代理到代理通信。
+</Card>
+
+<Card title="分布式追踪" icon="git-merge" href="/langsmith/agent-server-distributed-tracing">
+  从外部应用程序调用 Agent Server 时统一跨服务追踪。
+</Card>
+
+<Card title="Webhooks" icon="webhook" href="/langsmith/use-webhooks">
+  响应您部署代理的运行事件触发外部系统。
+</Card>
+
+<Card title="双重发送" icon="messages" href="/langsmith/double-texting">
+  控制当运行已在进行中时 Agent Server 如何处理新消息。
+</Card>
+
+</CardGroup>
+
+
+
+### 持久执行
+
+LangSmith Deployment 本质上是一个持久执行引擎。您的代理在托管任务队列上运行，具有自动检查点，因此任何运行都可以重试、重放或从中断的确切点恢复，而不是从头开始。
+
+因为执行是持久的，代理可以做到在无状态运行时脆弱或不可能的事情：
+
+- **等待外部输入。** 代理调用 [`interrupt()`](/langsmith/add-human-in-the-loop)，运行时检查其状态，释放资源，并等待人工批准交易、审阅者编辑草稿，或其他系统返回结果。当小时或天后 [`Command(resume=...)`](/langsmith/add-human-in-the-loop) 到达时，执行从停止的地方恢复。这是[人机交互](/langsmith/add-human-in-the-loop)工作流和[时间旅行调试](/langsmith/human-in-the-loop-time-travel)的基础。
+- **在后台运行。** [后台运行](/langsmith/background-run) 不会阻塞调用者而执行。运行时管理完整生命周期（排队、执行、检查点、完成），而客户端继续。
+- **按计划运行。** [Cron 作业](/langsmith/cron-jobs) 按重复节奏触发代理执行。每日摘要代理、周报、定期数据同步。运行时按计划启动新执行，具有相同的持久化保证。
+- **处理并发输入。** 当用户在代理运行时发送新输入（[双重发送](/langsmith/double-texting)）时，运行时可以排队、取消进行中的运行，或并行处理两者，而不会产生数据竞争或状态损坏。
+- **失败时重试。** 可配置的[重试策略](/oss/python/langgraph/use-graph-api#add-retry-policies) 控制退避、最大尝试次数以及哪些异常触发重试（按节点）。运行在进程重启、基础设施故障和代码修订中途执行中幸免。
+
+有关容器、进程和任务队列如何协同工作的详细信息，请参阅 [Agent Server：运行时架构](/langsmith/agent-server#runtime-architecture)。有关扩展和吞吐量调优，请参阅[为规模配置 Agent Server](/langsmith/agent-server-scale)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\core-capabilities.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,274 @@
+---
+title: 优化分类器
+sidebarTitle: 优化分类器
+---
+
+本教程引导您根据用户反馈优化分类器。分类器非常适合优化，因为通常很容易收集期望的输出，这使得基于用户反馈创建少量示例变得容易。这正是我们将在本例中做的事情。
+
+## 目标
+
+在这个示例中，我们将构建一个根据 GitHub issue 标题对其进行分类的机器人。它将接受一个标题并将其分类为多个不同类别之一。然后，我们将开始收集用户反馈并用它来塑造这个分类器的性能。
+
+## 开始
+
+首先，我们将设置将所有追踪发送到特定项目。我们可以通过设置环境变量来做到这一点：
+
+```python
+import os
+os.environ["LANGSMITH_PROJECT"] = "classifier"
+```
+
+然后我们可以创建我们的初始应用程序。这将是一个非常简单的函数，它接受一个 GitHub issue 标题并尝试为其添加标签。
+
+```python
+import openai
+from langsmith import traceable, Client
+import uuid
+
+client = openai.Client()
+
+available_topics = [
+    "bug",
+    "improvement",
+    "new_feature",
+    "documentation",
+    "integration",
+]
+
+prompt_template = """Classify the type of the issue as one of {topics}.
+Issue: {text}"""
+
+@traceable(
+    run_type="chain",
+    name="Classifier",
+)
+def topic_classifier(
+    topic: str):
+    return client.chat.completions.create(
+        model="gpt-5.4-mini",
+        temperature=0,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt_template.format(
+                    topics=','.join(available_topics),
+                    text=topic,
+                )
+            }
+        ],
+    ).choices[0].message.content
+```
+
+然后我们可以开始与它交互。在与它交互时，我们将提前生成 LangSmith 运行 ID 并将其传递到这个函数中。我们这样做是为了以后可以附加反馈。
+
+以下是我们如何调用应用程序：
+
+```python
+from langsmith import uuid7
+
+run_id = uuid7()
+topic_classifier(
+    "fix bug in LCEL",
+    langsmith_extra={"run_id": run_id})
+```
+
+以下是我们如何在此之后附加反馈。我们可以以两种形式收集反馈。
+
+首先，我们可以收集「正面」反馈——这是用于模型正确的示例。
+
+```python
+ls_client = Client()
+run_id = uuid7()
+topic_classifier(
+    "fix bug in LCEL",
+    langsmith_extra={"run_id": run_id})
+ls_client.create_feedback(
+    run_id,
+    key="user-score",
+    score=1.0,
+)
+```
+
+接下来，我们可以专注于收集对应于生成「更正」的反馈。在这个示例中，模型会将其分类为 bug，而我真的希望它被分类为 documentation。
+
+```python
+ls_client = Client()
+run_id = uuid7()
+topic_classifier(
+    "fix bug in documentation",
+    langsmith_extra={"run_id": run_id})
+ls_client.create_feedback(
+    run_id,
+    key="correction",
+    correction="documentation")
+```
+
+## 设置自动化
+
+现在我们可以设置自动化，将带有某种形式反馈的示例移动到数据集中。我们将设置两个自动化，一个用于正面反馈，另一个用于负面反馈。
+
+第一个将把带有正面反馈的所有运行自动添加到数据集中。这背后的逻辑是，任何带有正面反馈的运行都可以用作未来迭代中的好示例。让我们创建一个名为 `classifier-github-issues` 的数据集来添加这个数据。
+
+![Optimization Negative](/langsmith/images/class-optimization-neg.png)
+
+第二个将把带有更正的运行并使用 webhook 将其添加到数据集中。创建此 webhook 时，我们会选择「使用更正」选项。此选项将使从运行创建数据集时，不使用运行的输出作为数据点的黄金真相输出，而是使用更正。
+
+![Optimization Positive](/langsmith/images/class-optimization-pos.png)
+
+## 更新应用程序
+
+现在我们可以更新我们的代码以下拉我们正在发送运行的数据集。一旦我们拉取它，我们就可以创建一个包含示例的字符串。然后我们可以把这个字符串作为提示词的一部分！
+
+```python
+### NEW CODE ###
+# Initialize the LangSmith Client so we can use to get the dataset
+ls_client = Client()
+
+# Create a function that will take in a list of examples and format them into a string
+def create_example_string(examples):
+    final_strings = []
+    for e in examples:
+        final_strings.append(f"Input: {e.inputs['topic']}\n> {e.outputs['output']}")
+    return "\n\n".join(final_strings)
+### NEW CODE ###
+
+client = openai.Client()
+
+available_topics = [
+    "bug",
+    "improvement",
+    "new_feature",
+    "documentation",
+    "integration",
+]
+
+prompt_template = """Classify the type of the issue as one of {topics}.
+
+Here are some examples:
+{examples}
+
+Begin!
+Issue: {text}
+>"""
+
+@traceable(
+    run_type="chain",
+    name="Classifier",
+)
+def topic_classifier(
+    topic: str):
+    # We can now pull down the examples from the dataset
+    # We do this inside the function so it always get the most up-to-date examples,
+    # But this can be done outside and cached for speed if desired
+    examples = list(ls_client.list_examples(dataset_name="classifier-github-issues"))  # <- New Code
+    example_string = create_example_string(examples)
+    return client.chat.completions.create(
+        model="gpt-5.4-mini",
+        temperature=0,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt_template.format(
+                    topics=','.join(available_topics),
+                    text=topic,
+                    examples=example_string,
+                )
+            }
+        ],
+    ).choices[0].message.content
+```
+
+如果现在用与之前类似的输入运行应用程序，我们可以看到它正确地了解到任何与文档相关的内容（即使是一个 bug）都应该被分类为 `documentation`
+
+```python
+ls_client = Client()
+run_id = uuid7()
+topic_classifier(
+    "address bug in documentation",
+    langsmith_extra={"run_id": run_id})
+```
+
+## 示例上的语义搜索
+
+我们还可以做一件额外的事情，即只使用语义最相似的示例。当您开始积累大量示例时，这很有用。
+
+为了做到这一点，我们可以首先定义一个示例来找出最相似的 `k` 个示例：
+
+```python
+import numpy as np
+
+def find_similar(examples, topic, k=5):
+    inputs = [e.inputs['topic'] for e in examples] + [topic]
+    vectors = client.embeddings.create(input=inputs, model="text-embedding-3-small")
+    vectors = [e.embedding for e in vectors.data]
+    vectors = np.array(vectors)
+    args = np.argsort(-vectors.dot(vectors[-1])[:-1])[:5]
+    examples = [examples[i] for i in args]
+    return examples
+```
+
+然后我们可以在应用程序中使用它
+
+```python
+ls_client = Client()
+
+def create_example_string(examples):
+    final_strings = []
+    for e in examples:
+        final_strings.append(f"Input: {e.inputs['topic']}\n> {e.outputs['output']}")
+    return "\n\n".join(final_strings)
+
+client = openai.Client()
+
+available_topics = [
+    "bug",
+    "improvement",
+    "new_feature",
+    "documentation",
+    "integration",
+]
+
+prompt_template = """Classify the type of the issue as one of {topics}.
+
+Here are some examples:
+{examples}
+
+Begin!
+Issue: {text}
+>"""
+
+@traceable(
+    run_type="chain",
+    name="Classifier",
+)
+def topic_classifier(
+    topic: str):
+    examples = list(ls_client.list_examples(dataset_name="classifier-github-issues"))
+    examples = find_similar(examples, topic)
+    example_string = create_example_string(examples)
+    return client.chat.completions.create(
+        model="gpt-5.4-mini",
+        temperature=0,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt_template.format(
+                    topics=','.join(available_topics),
+                    text=topic,
+                    examples=example_string,
+                )
+            }
+        ],
+    ).choices[0].message.content
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\optimize-classifier.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

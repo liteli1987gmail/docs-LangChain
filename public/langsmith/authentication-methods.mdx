@@ -1,0 +1,51 @@
+---
+title: 身份验证方法
+sidebarTitle: 身份验证方法
+---
+
+LangSmith 支持多种身份验证方法，方便注册和登录。
+
+## 云端
+
+### 邮箱/密码
+
+用户可以使用邮箱地址和密码注册和登录 LangSmith。
+
+### 社交提供商
+
+用户也可以使用 GitHub 或 Google 的凭据。
+
+### SAML SSO
+
+企业客户可以配置 [SAML SSO](/langsmith/user-management) 和 [SCIM](/langsmith/user-management)。[获取演示](https://www.langchain.com/contact-sales)了解更多。
+
+## 自托管
+
+自托管客户可以更好地控制其用户登录 LangSmith 的方式。有关配置选项的更深入报道，请参阅[自托管文档](/langsmith/self-hosted) 和 [Helm chart](https://github.com/langchain-ai/helm/tree/main/charts/langsmith)。
+
+### 使用 OAuth 2.0 和 OIDC 的 SSO
+
+生产安装应配置 SSO 以使用外部身份提供商。这使用户能够通过 Auth0/Okta 等身份平台登录。LangSmith 支持几乎任何符合 OIDC 的提供商。在 [SSO 配置指南](/langsmith/self-host-sso)中了解更多关于配置 SSO 的信息。
+
+### 邮箱/密码（又名基本认证）
+
+这种身份验证方法几乎不需要配置，因为它不需要外部身份提供商。它最适合用于自托管试用。在[基本认证配置指南](/langsmith/self-host-basic-auth)中了解更多。
+
+### 无
+
+<Warning>
+此身份验证模式将在基本认证推出后移除。
+</Warning>
+
+如果未启用任何身份验证方法，自托管安装不需要任何登录/注册。此配置仅应用于在基础设施级别验证安装，因为此模式下支持的功能集受到限制，只有单个组织和工作区。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\authentication-methods.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

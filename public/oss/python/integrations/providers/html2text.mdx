@@ -1,0 +1,40 @@
+---
+title: "HTML to text integrations"
+description: "Integrate with HTML to text using LangChain Python."
+---
+
+
+html2text 是一个 Python 包，可以将 HTML 页面转换为简洁易读的纯 ASCII 文本。
+
+The ASCII also happens to be a valid `Markdown` (a text-to-HTML format).
+
+## Installation and setup
+
+<CodeGroup>
+```bash pip
+pip install html2text
+```
+
+```bash uv
+uv add html2text
+```
+</CodeGroup>
+
+## Document transformer
+
+See a [usage example](/oss/python/integrations/document_transformers/html2text).
+
+```python
+from langchain_community.document_loaders import Html2TextTransformer
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\html2text.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

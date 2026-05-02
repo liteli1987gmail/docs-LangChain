@@ -1,0 +1,76 @@
+---
+title: "按 Token 分割 - 文本分割器集成指南"
+---
+
+语言模型有 Token 限制。你不应超过 Token 限制。当你要将文本[分割](/oss/javascript/integrations/splitters/)成块时，计算 Token 数量是个好主意。有很多分词器。当你在文本中计算 Token 时，你应该使用与语言模型使用的相同分词器。
+
+
+
+## js-tiktoken
+
+<Note>
+**[js-tiktoken](https://github.com/dqbd/tiktoken) 是由 `OpenAI` 创建的 `BPE` 分词器的 JavaScript 版本。**
+</Note>
+
+我们可以使用 [TokenTextSplitter](https://reference.langchain.com/javascript/langchain-textsplitters/TokenTextSplitter) 配合 `tiktoken` 来估计使用的 Token。它对 OpenAI 模型可能更准确。
+
+1. 文本如何分割：按传入的字符。
+2. 块大小如何测量：按 `tiktoken` 分词器。
+
+<CodeGroup>
+```bash npm
+npm install @langchain/textsplitters
+```
+
+```bash pnpm
+pnpm install @langchain/textsplitters
+```
+
+```bash yarn
+yarn add @langchain/textsplitters
+```
+
+```bash bun
+bun add @langchain/textsplitters
+```
+</CodeGroup>
+
+```ts
+import { TokenTextSplitter } from "@langchain/textsplitters";
+import { readFileSync } from "fs";
+
+// Example: read a long document
+const stateOfTheUnion = readFileSync("state_of_the_union.txt", "utf8");
+```
+
+要使用 [TokenTextSplitter](https://reference.langchain.com/javascript/langchain-textsplitters/TokenTextSplitter) 分割，然后使用 `tiktoken` 合并块，请在初始化 [TokenTextSplitter](https://reference.langchain.com/javascript/langchain-textsplitters/TokenTextSplitter) 时传入 `encodingName`（例如 cl100k_base）。请注意，此方法的分割可能比由 `tiktoken` 分词器测量的块大小更大。
+
+```ts
+import { TokenTextSplitter } from "@langchain/textsplitters";
+
+// Example: use cl100k_base encoding
+const splitter = new TokenTextSplitter({ encodingName: "cl100k_base", chunkSize: 10, chunkOverlap: 0 });
+
+const texts = splitter.splitText(stateOfTheUnion);
+console.log(texts[0]);
+```
+```text
+Madam Speaker, Madam Vice President, our First Lady and Second Gentleman. Members of Congress and the Cabinet. Justices of the Supreme Court. My fellow Americans.
+
+Last year COVID-19 kept us apart. This year we are finally together again.
+
+Tonight, we meet as Democrats Republicans and Independents. But most importantly as Americans.
+
+With a duty to one another to the American people to the Constitution.
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\integrations\splitters\split_by_token.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

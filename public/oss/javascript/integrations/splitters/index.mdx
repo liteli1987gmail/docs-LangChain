@@ -1,0 +1,112 @@
+---
+title: "文本分割器集成"
+sidebarTitle: "文本分割器"
+description: "使用 LangChain 与文本分割器集成。"
+---
+
+
+
+    <CodeGroup>
+
+    ```bash npm
+    npm install @langchain/textsplitters @langchain/core
+    # Requires Node.js 20+
+    ```
+
+    ```bash pnpm
+    pnpm add @langchain/textsplitters @langchain/core
+    # Requires Node.js 20+
+    ```
+
+    ```bash yarn
+    yarn add @langchain/textsplitters @langchain/core
+    # Requires Node.js 20+
+    ```
+
+    ```bash bun
+    bun add @langchain/textsplitters @langchain/core
+    # Requires Node.js 20+
+    ```
+</CodeGroup>
+
+
+**文本分割器**将大型文档分割成较小的块，这些块可以单独检索并适合模型上下文窗口限制。
+
+分割文档有多种策略，每种都有其自身的优势。
+
+<Tip>
+    对于大多数用例，从 [`RecursiveCharacterTextSplitter`](/oss/javascript/integrations/splitters/recursive_text_splitter) 开始。它在保持上下文完整性和管理块大小之间提供了良好的平衡。这种默认策略开箱即用效果很好，只有在需要为特定应用微调性能时才考虑调整。
+</Tip>
+
+## 基于文本结构
+
+文本自然地组织成层次结构，如段落、句子和单词。我们可以利用这种固有结构来通知我们的分割策略，创建保持自然语言流的分割，保持分割内的语义连贯性，并适应不同的文本粒度级别。LangChain 的 `RecursiveCharacterTextSplitter` 实现了这个概念：
+
+- [`RecursiveCharacterTextSplitter`](/oss/javascript/integrations/splitters/recursive_text_splitter) 尝试保持较大单元（例如，段落）完整。
+- 如果某个单元超过块大小，它会移动到下一个级别（例如，句子）。
+- 如有必要，此过程继续下行到单词级别。
+
+示例用法：
+
+
+```ts
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+
+const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 100, chunkOverlap: 0 })
+const texts = splitter.splitText(document)
+```
+
+
+**可用的文本分割器**：
+- [递归分割文本](/oss/javascript/integrations/splitters/recursive_text_splitter)
+
+## 基于长度
+
+一种直观的策略是根据文档的长度分割文档。这种简单而有效的方法确保每个块不超过指定的大小限制。基于长度分割的关键好处：
+
+- 直接实现
+- 一致的块大小
+- 易于适应不同的模型要求
+
+基于长度的分割类型：
+
+- 基于 Token：基于 Token 数量分割文本，这在处理语言模型时很有用。
+- 基于字符：基于字符数分割文本，这在不同类型文本之间可能更一致。
+
+使用 LangChain 的 `CharacterTextSplitter` 和基于 Token 分割的示例实现：
+
+
+```ts
+import { TokenTextSplitter } from "@langchain/textsplitters";
+
+const splitter = new TokenTextSplitter({ encodingName: "cl100k_base", chunkSize: 100, chunkOverlap: 0 })
+const texts = splitter.splitText(document)
+```
+
+
+**可用的文本分割器**：
+- [按 Token 分割](/oss/javascript/integrations/splitters/split_by_token)
+- [按字符分割](/oss/javascript/integrations/splitters/character_text_splitter)
+
+## 基于文档结构
+
+某些文档具有固有结构，例如 HTML、Markdown 或 JSON 文件。在这些情况下，根据文档结构分割是有益的，因为它通常在语义上自然地对相关文本进行分组。基于结构分割的关键好处：
+
+- 保留文档的逻辑组织
+- 在每个块中保持上下文
+- 对下游任务（如检索或摘要）可能更有效
+
+
+**可用的文本分割器**：
+- [分割代码](/oss/javascript/integrations/splitters/code_splitter)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\integrations\splitters\index.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

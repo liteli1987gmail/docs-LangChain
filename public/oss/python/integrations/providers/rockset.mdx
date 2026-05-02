@@ -1,0 +1,46 @@
+---
+title: "Rockset integrations"
+description: "Integrate with Rockset using LangChain Python."
+---
+
+[Rockset](https://rockset.com/product/) 是一个实时分析数据库服务，用于大规模提供低延迟、高并发的分析查询。它在结构化和半结构化数据上构建 Converged Index™，并具有高效的向量嵌入存储。其支持对无模式数据运行 SQL 的特性，使其成为使用元数据过滤器进行向量搜索的完美选择。
+
+## Installation and setup
+
+Make sure you have Rockset account and go to the web console to get the API key. Details can be found on [the website](https://rockset.com/docs/rest-api/).
+
+<CodeGroup>
+```bash pip
+pip install rockset
+```
+
+```bash uv
+uv add rockset
+```
+</CodeGroup>
+
+## Vector store
+
+See a [usage example](/oss/python/integrations/vectorstores/rockset).
+
+```python
+from langchain_community.vectorstores import Rockset
+```
+
+## Document loader
+
+See a [usage example](/oss/python/integrations/document_loaders/rockset).
+```python
+from langchain_community.document_loaders import RocksetLoader
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\rockset.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

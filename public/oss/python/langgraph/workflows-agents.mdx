@@ -1,0 +1,132 @@
+---
+title: 工作流和代理
+sidebarTitle: 工作流 + 代理
+---
+
+
+
+本指南回顾常见的工作流和代理模式。
+
+- 工作流具有预定的代码路径，旨在以特定顺序运行。
+- 代理是动态的，定义自己的流程和工具使用。
+
+![Agent Workflow](/oss/images/agent_workflow.png)
+
+LangGraph 在构建代理和工作流时提供了几个好处，包括[持久化](/oss/python/langgraph/persistence)、[流式处理](/oss/python/langgraph/streaming)，以及支持调试和[部署](/oss/python/langgraph/deploy)。
+
+## 设置
+
+要构建工作流或代理，您可以使用支持结构化输出和工具调用的[任何聊天模型](/oss/python/integrations/chat)。以下示例使用 Anthropic：
+
+1. 安装依赖项：
+```bash
+pip install langchain_core langchain-anthropic langgraph
+```
+
+2. 初始化大型语言模型：
+
+```python
+import os
+import getpass
+
+from langchain_anthropic import ChatAnthropic
+
+def _set_env(var: str):
+    if not os.environ.get(var):
+        os.environ[var] = getpass.getpass(f"{var}: ")
+
+
+_set_env("ANTHROPIC_API_KEY")
+
+llm = ChatAnthropic(model="claude-sonnet-4-6")
+```
+
+
+
+
+## 大型语言模型和增强
+
+工作流和代理系统基于大型语言模型以及您添加的各种增强。[工具调用](/oss/python/langchain/tools)、[结构化输出](/oss/python/langchain/structured-output)和[短期内存](/oss/python/langchain/short-term-memory)是定制大型语言模型的一些选项。
+
+![LLM augmentations](/oss/images/augmented_llm.png)
+
+```python
+# Schema for structured output
+from pydantic import BaseModel, Field
+
+
+class SearchQuery(BaseModel):
+    search_query: str = Field(None, description="Query that is optimized web search.")
+    justification: str = Field(
+        None, description="Why this query is relevant to the user's request."
+    )
+
+
+# Augment the LLM with schema for structured output
+structured_llm = llm.with_structured_output(SearchQuery)
+
+# Invoke the augmented LLM
+output = structured_llm.invoke("How does Calcium CT score relate to high cholesterol?")
+
+# Define a tool
+def multiply(a: int, b: int) -> int:
+    return a * b
+
+# Augment the LLM with tools
+llm_with_tools = llm.bind_tools([multiply])
+
+# Invoke the LLM with input that triggers the tool call
+msg = llm_with_tools.invoke("What is 2 times 3?")
+
+# Get the tool call
+msg.tool_calls
+```
+
+
+
+## 提示词链
+
+提示词链是每个大型语言模型调用处理前一个调用的输出时。它通常用于执行可以分解为更小、可验证步骤的明确定义的任务。一些例子包括：
+
+- 将文档翻译成不同语言
+- 验证生成内容的一致性
+
+![Prompt chaining](/oss/images/prompt_chain.png)
+
+:::python
+<CodeGroup>
+```python Graph API
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+from IPython.display import Image, display
+
+
+# Graph state
+class State(TypedDict):
+    topic: str
+    joke: str
+    improved_joke: str
+    final_joke: str
+
+
+# Nodes
+def generate_joke(state: State):
+    """First LLM call to generate initial joke"""
+
+    msg = llm.invoke(f"Write a short joke about {state['topic']}")
+    return {"joke": msg.content}
+
+
+def check_punchline(state: State):
+    """Gate function to check if the joke has a punchline"""
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\workflows-agents.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

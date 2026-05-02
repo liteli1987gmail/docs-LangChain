@@ -1,0 +1,198 @@
+---
+title: 在账户中管理账单
+sidebarTitle: 管理账单
+---
+
+本页介绍如何管理 LangSmith 组织的账单：
+
+- [为您的账户设置账单](#set-up-billing-for-your-account)：完成 Developer 和 Plus 计划的账单设置流程，包括传统账户的特殊说明。
+- [跟踪合同使用量（企业版）](#track-contract-usage-enterprise)：查看预付费合同消耗。
+- [更新您的信息](#update-your-information-paid-plans-only)：修改组织的发票邮箱、企业信息和税号。
+- [强制消费限制](#enforce-spend-limits)：了解如何通过使用限制和数据保留来管理您的消费。
+
+## 为您的账户设置账单
+
+<Note>
+使用本指南之前，请注意以下事项：
+
+- 如果您对 [Enterprise](https://www.langchain.com/pricing) 计划感兴趣，请[联系销售](https://www.langchain.com/contact-sales)。本指南仅适用于我们的自助账单计划。
+</Note>
+
+要为您的 LangSmith 组织设置账单，请导航到 **Settings** 下的 [Billing and Usage](https://smith.langchain.com/settings/payments) 页面。根据您组织的设置，有不同的设置指南：
+
+- [Developer 计划](#developer-plan%3A-set-up-billing-on-your-personal-organization)
+- [Plus 计划](#plus-plan%3A-set-up-billing-on-a-shared-organization)
+
+### Developer 计划：在您的个人组织上设置账单
+
+个人组织在添加信用卡之前每月限制 5,000 条追踪。要添加卡片：
+
+1. 点击 **Add card to remove trace limit**。
+1. 添加您的信用卡信息。
+1. 完成后，您将不再受到 5,000 条追踪的限制，并且您将按[定价](https://www.langchain.com/pricing-langsmith)页面上规定的费率为任何超额追踪付费。
+
+### Plus 计划：在共享组织上设置账单
+
+团队组织每月获得 10,000 条追踪的初始配额。任何超额追踪将按[定价](https://www.langchain.com/pricing-langsmith)页面上规定的费率付费。
+
+<Note>
+您手动创建的新组织需要使用 Plus 计划。如果您看到关于需要升级到 Plus 才能使用此组织的消息，请按照以下步骤操作。
+</Note>
+
+1. 点击 **Upgrade to Plus**。
+1. 根据需要邀请成员加入您的组织。
+1. 输入您的信用卡信息。然后，输入企业信息、发票邮箱和税号。如果此组织属于企业，请选中 **This is a business** 复选框并相应输入信息。有关更多信息，请参阅[更新您的信息部分](#update-your-information-paid-plans-only)。
+
+## 跟踪合同使用量（企业版）
+
+合同消耗跟踪适用于具有预付费承诺的 [**企业版计划**](/langsmith/pricing-plans) 客户。您必须具有 [`organization:manage` 权限](/langsmith/organization-workspace-operations) 才能访问此功能。
+
+有关查看预付费合同消耗的详细信息，请参阅[合同消耗](/langsmith/view-usage#contract-burndown)。
+
+<Note>
+有关企业版计划的更多详细信息，请[联系销售团队](https://www.langchain.com/contact-sales)。
+</Note>
+
+## 更新您的信息（仅限付费计划）
+
+要更新 LangSmith 组织的商业信息，请导航到 **Settings** 下的 [Billing and Usage](https://smith.langchain.com/settings/payments) 页面。
+
+
+### 发票邮箱
+
+要更新发票的邮箱地址，请按照以下步骤操作：
+
+1. 导航到 **Plans and Billing** 选项卡。
+2. 在支付方式下方找到显示当前发票邮箱的部分。
+3. 在提供的字段中输入新的发票邮箱地址。
+4. 新的邮箱地址将自动保存。
+
+您将收到所有未来的发票到更新的邮箱地址。
+
+### 企业信息和税号
+
+<Note>
+在某些司法管辖区，LangSmith 需要收取销售税。如果您是企业，提供您的税号可能有资格获得销售税免税。
+</Note>
+
+要更新您组织的商业信息，请按照以下步骤操作：
+
+1. 导航到 **Plans and Billing** 选项卡。
+2. 在发票邮箱部分下方，您会找到一个标有 **Business** 的复选框。
+3. 如果您的组织属于企业，请勾选 **Business** 复选框。
+4. 将出现一个商业信息部分，允许您输入或更新以下详细信息：
+   - 企业名称
+   - 地址
+   - 适用司法管辖区的税号
+5. 选择国家后，将显示适用司法管辖区的税号字段。
+6. 输入必要的信息后，点击 **Save** 按钮保存您的更改。
+
+这可确保您的商业信息是最新的和准确的，用于账单和税务目的。
+
+## 强制消费限制
+
+<Check>
+在继续阅读本节关于优化追踪消费的内容之前，您可能会发现阅读以下页面很有帮助：
+
+- [数据保留概念文档](/langsmith/administration-overview#data-retention)
+- [使用限制概念文档](/langsmith/administration-overview#usage-limits)
+</Check>
+
+<Note>
+本指南中提到的某些功能由于企业版计划的定制性质，目前在企业版计划上不可用。如果您使用的是企业版计划并有成本优化问题，请通过 [support.langchain.com](https://support.langchain.com) 联系您的销售代表或支持人员。
+</Note>
+
+
+### 了解您当前的使用情况
+
+任何优化过程的第一步是了解当前的使用情况。有关使用图表、细粒度使用量、发票和合同消耗的详细信息，请参阅[查看使用情况](/langsmith/view-usage)。
+
+LangSmith 按工作区测量使用量，因为工作区通常代表组织内的开发环境或团队。
+
+### 设置使用限制
+
+![P2usagelimitsempty v2](/langsmith/images/p2usagelimitsempty-v2.png)
+
+#### 为工作区设置消费限额
+
+1. 要设置限制，请导航到 **Settings** -> **Billing and Usage** -> **Usage limits**。
+1. 为您选择的工作区输入消费限额。LangSmith 将确定适当的基础和扩展追踪限额以匹配该消费。追踪限额包括随计划附带的免费追踪配额（请参阅[定价页面](https://smith.langchain.com/settings/payments)上的详细信息）。
+
+
+<Note>
+**仅适用于有多个工作区的组织**：为简单起见，LangSmith 将免费追踪计入**第一个工作区**的成本计算。实际上，免费追踪可以被任何工作区"消耗"。因此，尽管多工作区组织的消费限额是近似值，但组织级别的消费限额是绝对的。
+</Note>
+
+#### 配置追踪层级分布
+
+LangSmith 有两个追踪层级：基础追踪和扩展追踪。基础追踪具有基本保留且寿命较短（14 天），而扩展追踪具有扩展保留且寿命较长（默认 400 天，[企业客户可自定义](/langsmith/data-purging-compliance#customize-extended-retention-policy)）。有关更多信息，请参阅[数据保留概念文档](/langsmith/administration-overview#data-retention)。
+
+通过在 **Default data retention** 标签下方选择一个选项来设置所需的默认追踪层级。所有追踪在注册时默认具有此层级。请注意，由于扩展追踪比基础追踪成本更高，选择 **Extended** 作为默认数据保留选项将导致账单周期内允许的总体追踪更少。默认情况下，更新此设置仅适用于未来传入的追踪。要应用于工作区中的所有现有追踪，请选中该复选框。
+
+如果默认数据保留设置为 **Base**，您可以选择使用滑块在基础和扩展追踪之间分配追踪限额。LangSmith 会自动为此提供建议，但您可以根据需要进行调整。例如，如果您运行大量可能会将追踪升级到扩展版本的自动化或其他功能，您可能希望增加扩展追踪限额。要查看可能会将追踪升级到扩展版本的功能的完整列表，[请参阅此处](https://docs.langchain.com/langsmith/administration-overview#how-it-works:~:text=Data%20retention%20auto%2Dupgrades)。
+
+
+<Note>
+扩展数据保留限制可能导致追踪达到限制后其他功能停止工作。如果您计划使用此功能，请阅读更多关于其[功能和副作用](/langsmith/administration-overview#side-effects-of-extended-data-retention-traces-limit)的信息。
+</Note>
+
+### 其他管理追踪的方法
+
+#### 自定义扩展保留期（仅限[企业版](/langsmith/pricing-plans)）
+
+[企业版](/langsmith/pricing-plans)客户可以在工作区级别自定义扩展数据保留期，以满足合规性要求。默认为 400 天，但可以根据您组织的需要进行调整。有关更多信息，请参阅[自定义扩展保留策略](/langsmith/data-purging-compliance#customize-extended-retention-policy)。
+
+#### 更改项目级默认保留
+
+数据保留设置可按每个追踪项目进行调整。
+
+导航到 **Projects** > ***您的项目名称*** > 选择 **Retention** 并选择所需的默认保留。这只会影响**未来追踪**的保留（和定价）。
+
+![P1projectretention](/langsmith/images/p1projectretention.png)
+
+#### 将扩展数据保留应用于一定比例的追踪
+
+您可能不希望所有追踪在 14 天后过期。您可以通过创建[自动化规则](/langsmith/rules)来自动扩展匹配某些条件的追踪的保留期。您可能希望将扩展数据保留应用于特定类型的追踪，例如：
+
+* 10% 的所有追踪：用于一般分析或长期分析趋势。
+* 错误的追踪：用于彻底调查和调试问题。
+* 具有特定元数据的追踪：用于长期检查特定功能或用户流程。
+
+要配置此设置：
+
+1. 导航到 **Projects** > ***您的项目名称*** > 选择 **+ New** > 选择 **New Automation**。
+2. 为您的规则命名，并可选择应用过滤器或采样率。有关配置过滤器的更多信息，请参阅[过滤技术](/langsmith/filter-traces-in-application#filter-operators)。
+
+<Note>
+当自动化规则匹配追踪中的任何[运行](/langsmith/observability-concepts#runs)时，追踪中的所有运行都将升级到扩展数据保留（默认 400 天，[企业客户可自定义](/langsmith/data-purging-compliance#customize-extended-retention-policy)）。
+</Note>
+
+例如，这是将 10% 的所有追踪保留用于扩展数据保留的预期配置：
+
+![P2sampletraces](/langsmith/images/P2SampleTraces.png)
+
+如果您想将一部分追踪保留**超过 400 天**用于数据收集目的，您可以创建另一个运行规则，将某些运行发送到您选择的数据集。数据集允许您存储追踪输入和输出（例如，作为键值数据集），即使在追踪被删除后也会无限期保留。
+
+### LangSmith Deployment 账单
+
+除了追踪外，LangSmith 还对通过 LangSmith Deployment（以前的 LangGraph Platform）部署的代理收费。
+
+- **Deployment Runs**：对部署的 LangGraph 代理的一次端到端调用，费用为每个 $0.005。单个代理执行内的节点和子图不单独收费。调用其他 LangGraph 代理会单独向托管被调用代理的部署收费。使用人机交互与中断时，在中断后恢复会创建一个单独的 Deployment Run。
+- **Deployment Uptime**：您还需要为部署数据库存活和持久化状态的时间付费。有关按部署类型（开发版与生产版）的正常运行时间费用，请参阅[定价页面](https://www.langchain.com/pricing)。
+
+对于高容量部署使用，请[联系我们的销售团队](https://www.langchain.com/contact-sales)讨论自定义定价选项。
+
+### 总结
+
+如果您有关于进一步管理消费的问题，请通过 [support.langchain.com](https://support.langchain.com) 联系支持人员。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\billing.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

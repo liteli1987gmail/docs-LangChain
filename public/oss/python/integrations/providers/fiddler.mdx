@@ -1,0 +1,45 @@
+---
+title: "Fiddler integrations"
+description: "Integrate with Fiddler using LangChain Python."
+---
+
+Fiddler 提供了一个统一的平台，用于在企业规模下监控、解释、分析和改进 ML 部署。
+
+## Installation and setup
+
+Set up your model [with Fiddler](https://demo.fiddler.ai):
+
+* The URL you're using to connect to Fiddler
+* Your organization ID
+* Your authorization token
+
+Install the Python package:
+
+<CodeGroup>
+```bash pip
+pip install fiddler-client
+```
+
+```bash uv
+uv add fiddler-client
+```
+</CodeGroup>
+
+## Callbacks
+
+```python
+from langchain_community.callbacks.fiddler_callback import FiddlerCallbackHandler
+```
+
+See an [example](/oss/python/integrations/callbacks/fiddler).
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\fiddler.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

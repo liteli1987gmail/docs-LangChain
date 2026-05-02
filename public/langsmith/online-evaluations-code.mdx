@@ -1,0 +1,170 @@
+---
+title: 设置在线代码评估器
+sidebarTitle: 代码评估器
+---
+
+<Tip>
+**推荐阅读**
+
+在深入了解此内容之前，阅读以下内容可能会有所帮助：
+
+- 运行[在线评估](/langsmith/evaluation-concepts#online-evaluations)
+
+</Tip>
+
+在线评估为您提供有关生产追踪的实时反馈。这对于持续监控应用程序性能非常有用——识别问题、衡量改进并确保长期一致的质量。
+
+代码评估器允许您直接在 LangSmith 中用 Python 或 JavaScript 编写评估器。常用于验证数据的结构或统计属性。
+
+<Note>当在线评估器对追踪中的任何运行执行时，追踪将自动升级到[扩展数据保留](/langsmith/administration-overview#data-retention-auto-upgrades)。此升级将影响追踪定价，但可确保满足您评估标准的追踪（通常对分析最有价值的追踪）被保留以供调查。</Note>
+
+## 查看在线评估器
+
+导航到**追踪**页面并选择一个追踪项目。要查看该项目的现有在线评估器，请点击**评估器**标签。
+
+![View online evaluators](/langsmith/images/view-evaluators.png)
+
+## 配置在线评估器
+
+### 1. 导航到在线评估器
+
+导航到**追踪**页面并选择一个追踪项目。点击**评估器**标签，然后点击**+ 评估器**打开**添加评估器**面板。在**从头创建**下选择**代码评估器**来构建新的评估器，或在**附加现有评估器**下从您的工作区选择一个现有的代码评估器。
+
+### 2. 为您的评估器命名
+
+为您的评估器提供一个名称。此名称将在代码中引用评估器时使用，也将是此评估器生成的反馈的名称。
+
+### 3. 创建过滤器
+
+例如，您可能希望根据以下条件应用特定评估器：
+
+- 有[用户留下反馈](/langsmith/attach-user-feedback)表示响应不满意的运行。
+- 调用特定工具的运行。有关更多信息，请参阅[过滤工具调用](/langsmith/filter-traces-in-application#example-filtering-for-tool-calls)。
+- 匹配特定元数据的运行（例如，如果您使用 `plan_type` 记录追踪，并且只想对来自企业客户的追踪运行评估）。有关更多信息，请参阅[向追踪添加元数据](/langsmith/add-metadata-tags)。
+
+评估器上的过滤器与在项目中过滤追踪时的工作方式相同。有关过滤器的更多信息，请参阅[过滤追踪](/langsmith/filter-traces-in-application)。
+
+<Tip>
+在创建评估器的过滤器时，检查运行通常很有帮助。在评估器配置面板打开时，您可以检查运行并对其应用过滤器。您对运行表应用的任何过滤器将自动反映在评估器的过滤器中。
+</Tip>
+
+### 4.（可选）配置采样率
+
+配置采样率以控制触发自动化操作的过滤后运行的百分比。例如，为了控制成本，您可能希望将过滤器设置为仅将评估器应用于 10% 的追踪。为此，您需要将采样率设置为 0.1。
+
+### 5.（可选）将规则应用于过去的运行
+
+通过切换**应用于过去的运行**并输入"回填开始日期"来将规则应用于过去的运行。这仅在创建规则时才能完成。注意：回填作为后台作业处理，因此您不会立即看到结果。
+
+要跟踪回填的进度，您可以转到追踪项目中的**评估器**标签，然后为您创建的评估器点击日志按钮。在线评估器日志类似于[自动化规则日志](/langsmith/rules#view-logs-for-your-automations)。
+
+- 添加评估器名称
+- （可选）过滤您想要对其应用评估器的运行或配置采样率。
+- 选择**应用评估器**
+
+## 编写您的评估函数
+
+<Note>
+**代码评估器限制。**
+
+**允许的库**：您可以导入所有标准库函数以及以下公共包：
+
+```
+numpy (v2.2.2): "numpy"
+pandas (v1.5.2): "pandas"
+jsonschema (v4.21.1): "jsonschema"
+scipy (v1.14.1): "scipy"
+sklearn (v1.26.4): "scikit-learn"
+```
+
+**网络访问**：您无法从代码评估器访问互联网。
+</Note>
+
+代码评估器必须以内联方式编写。在 LangSmith 中设置代码评估器之前，我们建议先在本地测试。
+
+在 UI 中，您将看到一个面板，允许您内联编写代码，并包含一些起始代码：
+
+![LangSmith 中的代码评估器面板，显示内联代码编辑器](/langsmith/images/online-eval-custom-code.png)
+
+代码评估器接受一个参数：
+
+- 一个 `Run`（[参考](/langsmith/run-data-format)）。这表示要评估的采样运行。
+
+它们返回一个值：
+
+- 反馈字典：一个字典，其键是您想要返回的反馈类型，值是您将为该反馈键给出的分数。例如，`{"correctness": 1, "silliness": 0}` 将在运行上创建两种类型的反馈，一种表示它是正确的，另一种表示它不傻。
+
+在下面的屏幕截图中，您可以看到一个简单函数的示例，该函数验证实验中的每个运行都有一个已知的 json 字段：
+
+<CodeGroup>
+
+```python Python
+import json
+
+def perform_eval(run):
+  output_to_validate = run['outputs']
+  is_valid_json = 0
+
+  # 断言您可以序列化和反序列化为 json
+  try:
+    json.loads(json.dumps(output_to_validate))
+  except Exception as e:
+    return { "formatted": False }
+
+  # 断言输出事实存在
+  if "facts" not in output_to_validate:
+    return { "formatted": False }
+
+  # 断言必填字段存在
+  if "years_mentioned" not in output_to_validate["facts"]:
+    return { "formatted": False }
+
+  return {"formatted": True}
+```
+
+```javascript JavaScript
+function perform_eval(run) {
+    const outputToValidate = run.outputs;
+
+    // 断言您可以序列化和反序列化为 json
+    try {
+        JSON.stringify(outputToValidate);
+        JSON.parse(JSON.stringify(outputToValidate));
+    } catch (e) {
+        return { "formatted": false };
+    }
+
+    // 断言输出事实存在
+    if (!("facts" in outputToValidate)) {
+        return { "formatted": false };
+    }
+
+    // 断言必填字段存在
+    if (!outputToValidate["facts"].hasOwnProperty("years_mentioned")) {
+        return { "formatted": false };
+    }
+
+    return { "formatted": true };
+}
+```
+
+</CodeGroup>
+
+## 测试并保存您的评估函数
+
+在保存之前，您可以通过点击**测试代码**在最近的运行上测试您的评估器函数，以确保您的代码正常执行。
+
+一旦您**保存**，您的在线评估器将在新采样的运行上运行（如果您选择了回填选项，也包括回填的运行）。
+
+如果您更喜欢视频教程，请查看 LangSmith 入门课程中的[在线评估视频](https://academy.langchain.com/pages/intro-to-langsmith-preview)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\online-evaluations-code.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,478 @@
+---
+title: 用于计费和运营遥测的出口
+sidebarTitle: 配置出口
+---
+
+<Info>
+本页面仅适用于不在离线（气隙）模式下运行且使用自托管 LangSmith 实例服务版本 0.9.0 或更高版本的客户。
+</Info>
+
+自托管 LangSmith 实例将所有信息存储在本地，绝不会将敏感信息发送到您的网络外部。但是，除非您在离线模式下运行，否则 LangSmith 需要到 `https://beacon.langchain.com` 的出口用于以下方面：
+
+- **计费遥测** — 许可证验证和订阅/使用情况报告（必需）
+- **运营遥测** — 用于支持诊断的日志、指标和追踪（可选，可禁用）
+- **使用情况遥测** — 用于产品洞察的匿名化使用情况快照（可选，可禁用）
+
+<Warning>
+**到 `https://beacon.langchain.com` 的出口是必需的。** 如有需要，请参阅[IP 白名单部分](/langsmith/cloud#allowlisting-ip-addresses)以获取静态 IP 地址。
+</Warning>
+
+## 计费遥测
+
+对于不在离线模式下运行的自托管 LangSmith 实例，计费遥测是**必需的**。这包括许可证验证和订阅/使用情况报告。
+
+<Info>
+计费遥测**无法禁用**。如果您需要在没有任何出口的情况下运行，请联系您的账户团队了解离线（气隙）许可证。
+</Info>
+
+### 它的功能
+
+- **许可证验证**：在启动时定期验证您的 LangSmith 许可证密钥。
+- **订阅/使用情况报告**：根据您的订单中的权利报告平台使用指标以用于计费。
+
+### 我们收集的内容
+
+- 许可证密钥验证请求
+- 聚合的使用计数（追踪数量、分配座位数、使用座位数）
+- 组织和workspace标识符
+
+### 示例 payload
+
+#### 许可证验证
+
+**端点：** `POST beacon.langchain.com/v1/beacon/verify`
+
+**请求：**
+
+```json
+{
+  "license": "<YOUR_LICENSE_KEY>"
+}
+```
+
+**响应：**
+
+```json
+{
+  "token": "Valid JWT" // 短期 JWT 令牌以避免重复许可证检查
+}
+```
+
+#### 订阅/使用情况报告
+
+**端点：** `POST beacon.langchain.com/v1/beacon/ingest-traces`
+
+**请求：**
+
+```json
+{
+  "license": "<YOUR_LICENSE_KEY>",
+  "trace_transactions": [
+    {
+      "id": "af28dfea-5358-463d-a2dc-37df1da72498",
+      "tenant_id": "3a1c2b6f-4430-4b92-8a5b-79b8b567bbc1",
+      "session_id": "b26ae531-cdb3-42a5-8bcf-05355199fe27",
+      "trace_count": 5,
+      "start_insertion_time": "2025-01-06T10:00:00Z",
+      "end_insertion_time": "2025-01-06T11:00:00Z",
+      "start_interval_time": "2025-01-06T09:00:00Z",
+      "end_interval_time": "2025-01-06T10:00:00Z",
+      "status": "completed",
+      "num_failed_send_attempts": 0,
+      "transaction_type": "type1",
+      "organization_id": "c5b5f53a-4716-4326-8967-d4f7f7799735"
+    }
+  ]
+}
+```
+
+**响应：**
+
+```json
+{
+  "inserted_count": 1 // 成功摄取的交易数量
+}
+```
+
+## 运营遥测
+
+从版本 **0.11** 开始，LangSmith 部署默认发送运营遥测。此遥测帮助 LangChain 团队为自托管实例提供主动支持并更快地进行故障排除。
+
+<Info>
+运营遥测与计费遥测**分开**。您可以在计费遥测保持活跃的同时禁用运营遥测。
+</Info>
+
+### 它的功能
+
+- 实现自托管实例的主动支持并更快地进行故障排除
+- 协助性能调优
+- 帮助根据实际使用模式确定改进的优先级
+
+### 我们收集的内容
+
+- **请求元数据**：匿名化的请求计数、大小和持续时间
+- **数据库指标**：查询持续时间、错误率和性能计数器
+- **运营追踪**：高延迟或失败请求的时序和错误信息（这些**不是**客户追踪——它们是关于 LangSmith 实例本身的追踪）
+- **日志消息**：仅警告和错误日志消息
+
+<Info>
+我们不收集实际 payload 内容、数据库记录或任何可以识别您的最终用户或客户的数据。所有遥测数据都与组织和部署相关联，但从不与个人用户相关联。我们**不收集任何 PII**（个人身份信息）。
+</Info>
+
+### 如何禁用
+
+您可以通过在 `langsmith_config.yaml` 文件中设置以下值来禁用运营遥测：
+
+```yaml
+config:
+  telemetry:
+    logs: false
+    metrics: false
+    traces: false
+```
+
+您还可以通过仅将特定值设置为 `false` 来禁用单个遥测类型。
+
+<Warning>
+禁用运营遥测会停止导出本节中描述的日志、指标和追踪。它**不会**禁用计费遥测（许可证验证和订阅/使用情况报告）。
+</Warning>
+
+### 示例 payload
+
+#### 运营指标
+
+**端点：** `POST beacon.langchain.com/v1/beacon/v1/metrics`
+
+**请求：**
+
+```json
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "resource.name",
+            "value": { "stringValue": "langsmith-metrics" }
+          },
+          {
+            "key": "env",
+            "value": { "stringValue": "ls_self_hosted" }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "langsmith.metrics",
+            "version": "0.1.0"
+          },
+          "metrics": [
+            {
+              "name": "langsmith_http_requests_latency",
+              "unit": "seconds",
+              "description": "Request latency of LangSmith services",
+              "gauge": {
+                "dataPoints": [
+                  {
+                    "asDouble": 12.34,
+                    "startTimeUnixNano": 1678886400000000000,
+                    "timeUnixNano": 1678886400000000000,
+                    "attributes": [
+                      {
+                        "key": "endpoint",
+                        "value": { "stringValue": "/sessions" }
+                      },
+                      { "key": "method", "value": { "stringValue": "GET" } },
+                      {
+                        "key": "service_name",
+                        "value": { "stringValue": "langsmith_backend" }
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "name": "langsmith_http_requests_failed",
+              "unit": "1",
+              "description": "Counter of failed requests for LangSmith services",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "asInt": 456,
+                    "startTimeUnixNano": 1678886400000000000,
+                    "timeUnixNano": 1678886400000000000,
+                    "attributes": [
+                      {
+                        "key": "endpoint",
+                        "value": { "stringValue": "/info" }
+                      },
+                      { "key": "method", "value": { "stringValue": "POST" } },
+                      {
+                        "key": "service_name",
+                        "value": { "stringValue": "langsmith_platform_backend" }
+                      }
+                    ],
+                    "aggregationTemporality": 2,
+                    "isMonotonic": true
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### 运营追踪
+
+**端点：** `POST beacon.langchain.com/v1/beacon/v1/traces`
+
+**请求：**
+
+```json
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "env",
+            "value": {
+              "stringValue": "ls_self_hosted"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "langsmith_backend"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {},
+          "spans": [
+            {
+              "traceId": "71699b6fe85982c7c8995ea3d9c95df2",
+              "spanId": "3c191d03fa8be0",
+              "parentSpanId": "",
+              "name": "receive_request",
+              "startTimeUnixNano": "1581452772000000321",
+              "endTimeUnixNano": "1581452773000000789",
+              "droppedAttributesCount": 1,
+              "events": [
+                {
+                  "timeUnixNano": "1581452773000000123",
+                  "name": "parse_request",
+                  "attributes": [
+                    {
+                      "key": "request_size",
+                      "value": {
+                        "stringValue": "100"
+                      }
+                    }
+                  ],
+                  "droppedAttributesCount": 2
+                },
+                {
+                  "timeUnixNano": "1581452773000000123",
+                  "name": "event",
+                  "droppedAttributesCount": 2
+                }
+              ],
+              "droppedEventsCount": 1,
+              "status": {
+                "message": "status-cancelled",
+                "code": 2
+              }
+            },
+            {
+              "traceId": "71699b6fe85982c7c8995ea3d9c95df2",
+              "spanId": "0932ksdka12345",
+              "parentSpanId": "3c191d03fa8be0",
+              "name": "process_request",
+              "startTimeUnixNano": "1581452772000000321",
+              "endTimeUnixNano": "1581452773000000789",
+              "links": [],
+              "droppedLinksCount": 3,
+              "status": {}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### 运营日志消息
+
+我们仅从自托管 LangSmith 实例导出错误日志消息。这允许 LangChain 团队在不需要与您的团队来回通信的情况下排除应用程序错误。
+
+**端点：** `POST beacon.langchain.com/v1/beacon/v1/logs`
+
+**请求：**
+
+```json
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "langsmith_backend"
+            }
+          }
+        ]
+      },
+      "scopeLogs": [
+        {
+          "scope": {},
+          "logRecords": [
+            {
+              "timeUnixNano": "1581452773000009875",
+              "severityNumber": 13,
+              "severityText": "Warning",
+              "body": {
+                "stringValue": "Database connection pool approaching capacity"
+              },
+              "attributes": [
+                {
+                  "key": "component",
+                  "value": {
+                    "stringValue": "langsmith_backend"
+                  }
+                },
+                {
+                  "key": "pool_size",
+                  "value": {
+                    "intValue": "95"
+                  }
+                }
+              ],
+              "droppedAttributesCount": 0,
+              "traceId": "08040201000000000000000000000000",
+              "spanId": "0102040800000000"
+            },
+            {
+              "timeUnixNano": "1581452773000000789",
+              "severityNumber": 17,
+              "severityText": "Error",
+              "body": {
+                "stringValue": "Failed to process trace batch"
+              },
+              "attributes": [
+                {
+                  "key": "component",
+                  "value": {
+                    "stringValue": "langsmith_queue_worker"
+                  }
+                },
+                {
+                  "key": "error_type",
+                  "value": {
+                    "stringValue": "timeout"
+                  }
+                }
+              ],
+              "droppedAttributesCount": 0,
+              "traceId": "",
+              "spanId": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## 使用情况遥测
+
+使用情况遥测收集您的 LangSmith 实例使用指标的匿名快照。此数据帮助 LangChain 了解平台采用模式并为产品开发决策提供信息。
+
+<Info>
+使用情况遥测**默认启用**，可以禁用。与计费遥测不同，您可以完全控制是否将这些快照发送到 LangChain。
+</Info>
+
+### 它的功能
+
+- 定期捕获聚合的使用指标
+- 提供对功能采用和平台增长的洞察
+- 帮助 LangChain 根据实际使用情况确定改进和新功能的优先级
+
+### 我们收集的内容
+
+- **平台指标**：workspace、项目、实验、数据集、评估器以及其他平台资源的计数
+- **功能使用**：运行规则、注释队列、提示词和与提示词相关活动的计数
+- **用户**：过去 30 天内注册用户的总数和活动 PAT（个人访问令牌）的数量
+- **时间戳**：快照的时间范围（UTC 中的 from/to 时间戳）
+
+<Info>
+所有指标**仅为聚合计数**。不收集个人资源数据、标识符或使用模式。我们不收集任何可以识别您的最终用户或客户的信息。
+</Info>
+
+### 示例 payload
+
+**端点：** `POST /v1/beacon/usage-snapshot`
+
+**请求：**
+
+```json
+{
+  "license_key": "<YOUR_LICENSE_KEY>",
+  "from_timestamp": "2026-03-25T02:00:00+00:00",
+  "to_timestamp": "2026-03-26T02:00:00+00:00",
+  "measures": {
+    "workspaces": 12,
+    "users": 63,
+    "projects": 87,
+    "experiments": 34,
+    "datasets": 15,
+    "evaluators": 8,
+    "run_rules": 5,
+    "annotation_queues": 3,
+    "prompts": 22,
+    "prompt_commits": 156,
+    "prompt_pulls": 1043,
+    "active_pats_30d": 47
+  }
+}
+```
+
+### 如何禁用
+
+您可以通过在部署配置中设置以下环境变量来禁用使用情况遥测：
+
+```yaml
+PHONE_HOME_USAGE_REPORTING_ENABLED: false
+```
+
+将此添加到 Helm 配置的 `commonEnv` 部分以永久禁用使用情况遥测报告。
+
+<Warning>
+禁用使用情况遥测**不会**影响计费或运营遥测。许可证验证和订阅/使用情况报告将继续正常运行。
+</Warning>
+
+## 我们的承诺
+
+LangChain 不会在计费或运营遥测中存储任何敏感信息。任何收集的数据都不会与第三方共享。日志消息仅过滤为包含错误严重级别，我们不会捕获可能包含敏感应用程序数据的日志消息。如果您对发送的数据有任何疑虑，请禁用遥测和/或联系您的账户团队。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\self-host-egress.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

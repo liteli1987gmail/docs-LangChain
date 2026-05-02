@@ -1,0 +1,54 @@
+---
+title: "Timbr integrations"
+description: "Integrate with Timbr using LangChain Python."
+---
+
+I don't have specific information about "Timbr" in my knowledge. Could you provide more context?
+
+- Are you referring to a **product, company, or brand**?
+- Is it related to a specific **industry** (music, software, hardware, etc.)?
+- Could this be a **misspelling** of another term (like "Timbre" - the quality of a musical sound)?
+
+Please share more details so I can help you better.
+
+以下是 Timbr 的中文翻译：
+
+- Timbr 是一个**语义 SQL 知识图谱平台**，专门通过本体驱动的语义层连接数据。
+- Timbr 允许您使用业务友好的语言来表示和查询数据，使其成为处理复杂数据关系和业务逻辑的理想选择。
+- Timbr 提供**自然语言到 SQL**的能力，使您能够使用简单的英语查询轻松地与数据进行交互。
+- 使用 Timbr，您可以实现高性能的**语义数据查询**，适用于生产级别的分析和商业智能。
+
+开始使用 Timbr，请访问[他们的网站](https://docs.timbr.ai/doc/docs/getting-started/intro-timbr/)。
+
+## Installation and setup
+
+- Install the Python SDK with `pip install langchain-timbr`
+
+### Optional: Install with selected LLM provider
+
+Choose one of: openai, anthropic, google, azure_openai, snowflake, databricks, vertex_ai (or 'all')
+
+```bash
+pip install 'langchain-timbr[<your selected providers, separated by comma without spaces>]'
+```
+
+## Semantic SQL queries
+
+Timbr provides a wrapper around its semantic layer that generates SQL statements based on natural language input and retrieves relevant information from your knowledge graph.
+
+```python
+from langchain_timbr import create_timbr_sql_agent, ExecuteTimbrQueryChain, GenerateTimbrSqlChain
+```
+
+See a [usage example](/oss/python/integrations/graphs/timbr)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\timbr.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

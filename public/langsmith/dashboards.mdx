@@ -1,0 +1,150 @@
+---
+title: 使用仪表板监控项目
+sidebarTitle: 使用仪表板监控项目
+---
+
+仪表板让您深入了解追踪数据，帮助您发现趋势并监控应用程序的健康状况。仪表板可在左侧边栏的 **Monitoring** 选项卡中使用。
+
+LangSmith 提供两种仪表板类型：
+
+- **预构建仪表板**：自动为每个追踪项目生成。
+- **自定义仪表板**：根据您的需求完全可配置的图表集合。
+
+## 预构建仪表板
+
+预构建仪表板为每个项目自动创建，涵盖基本指标，如追踪数量、错误率、令牌使用量等。默认情况下，您可以通过追踪项目页面右上角的 **Dashboard** 按钮访问追踪项目的预构建仪表板。
+
+![预构建](/langsmith/images/prebuilt.gif)
+
+<Note>**您无法修改预构建仪表板。未来，我们计划允许您克隆默认仪表板，以便获得一个起点来自定义它。**</Note>
+
+### 仪表板部分
+
+预构建仪表板分为以下几个部分：
+
+| 部分 | 显示内容 |
+| :------ | :------------ |
+| Traces | 追踪数量、延迟和错误率。[追踪](/langsmith/observability-concepts#traces)是单个操作相关的[运行](/langsmith/observability-concepts#runs)的集合。例如，如果用户请求触发代理，该代理调用所有运行都将属于同一追踪。 |
+| LLM Calls | 大型语言模型调用次数和延迟。包括所有运行类型为"llm"的运行。 |
+| Cost & Tokens | 总和每个追踪的令牌数量和成本，按令牌类型细分。成本使用 [LangSmith 的成本追踪](/langsmith/log-llm-trace#provide-token-and-cost-information)计算。 |
+| Tools | 按工具名称细分的工具运行计数、错误率和延迟统计。包括运行类型为"tool"的运行。限制为前 5 个最频繁出现的工具。 |
+| Run Types | 作为根运行直接子级的运行的运行计数、错误率和延迟统计。这有助于理解代理的高级执行路径。限制为前 5 个最频繁出现的运行名称。请参阅此表之后的图像。 |
+| Feedback Scores | 前 5 个最频繁出现的反馈类型的聚合统计。图表显示数字反馈的平均分数和分类反馈的类别计数。 |
+
+例如，对于以下追踪，以下运行的深度为 1：
+
+![运行深度解释](/langsmith/images/run-depth-explained.png)
+
+### 分组依据
+
+按[运行标签或元数据](/langsmith/add-metadata-tags)分组可用于按对应用程序重要的属性分割数据。全局分组依据设置出现在仪表板右上角。请注意，工具和运行类型图表已经应用了分组，因此全局分组将不起作用；全局分组将应用于所有其他图表。
+
+<Note>在向运行添加元数据时，我们建议在追踪以及特定运行（例如大型语言模型调用）上都添加相同的元数据。元数据和标签不会从父运行传播到子运行，反之亦然。如果希望看到按元数据键分组的追踪图表和大型语言模型调用图表，追踪（根运行）和大型语言模型运行都需要附加该元数据。</Note>
+
+## 自定义仪表板
+
+为追踪对应用程序最重要的指标创建定制的图表集合。
+
+### 创建新仪表板
+
+1. 导航到左侧边栏中的 **Monitor** 选项卡。
+2. 点击 **+ New Dashboard** 按钮。
+3. 为您的仪表板命名和添加描述。
+4. 点击 **Create**。
+
+### 向仪表板添加图表
+
+1. 在仪表板内，点击 **+ New Chart** 按钮打开图表创建窗格。
+2. 为您的图表命名和添加描述。
+3. 配置图表。
+
+### 图表配置
+
+#### 选择追踪项目并筛选运行
+
+- 选择一个或多个要追踪指标的追踪项目。
+- 使用 **Chart filters** 部分来细化匹配的运行。此过滤器应用于图表中的所有数据系列。有关筛选追踪的更多信息，请参阅我们关于[在应用程序中筛选追踪](/langsmith/filter-traces-in-application)的指南。
+
+#### 选择指标
+
+- 从下拉菜单中选择指标来设置图表的 y 轴。选择项目和指标后，您将看到图表的预览和匹配的运行。
+- 对于某些指标（如延迟、令牌使用量、成本），我们支持比较具有相同单位的多个指标。例如，您可能希望有一个可以同时看到提示令牌和完成令牌的图表。每个指标显示为一条单独的线。
+
+![多个指标](/langsmith/images/compare-metrics.png)
+
+#### 分割数据
+
+在图表中创建多个系列（即在图表中创建多条线）有两种方法：
+
+1. **分组依据**：按[运行标签或元数据](/langsmith/add-metadata-tags)、运行名称或运行类型对运行分组。分组依据自动根据所选字段将数据分割成多个系列。请注意，分组依据限制为按频率排名的前 5 个元素。
+
+2. **数据系列**：使用单个过滤器手动定义多个系列。这对于在单个指标内比较细粒度数据很有用。
+
+![多个数据系列](/langsmith/images/multiple-data-series.png)
+
+#### 选择图表类型
+
+- 在可视化中选择折线图或柱状图
+
+### 保存和管理图表
+
+- 点击 `Save` 将您的图表保存到仪表板。
+- 点击图表右上角的三点按钮来编辑或删除图表。
+- 点击图表右上角的三线按钮并选择 **+ Clone** 来克隆图表。这将使用与原始图表相同的配置打开一个新的图表创建窗格。
+
+![更多操作栏](/langsmith/images/more-actions-bar.png)
+
+![展开图表](/langsmith/images/expanded-chart.png)
+
+## 从追踪项目链接到仪表板
+
+您可以直接从追踪项目链接到任何仪表板。默认情况下，您的追踪项目的预构建仪表板被选中。如果您想改为链接自定义仪表板：
+
+1. 在您的追踪项目中，点击 **Dashboard** 按钮旁边的三个点。
+2. 选择要设置为新默认值的仪表板。
+
+![追踪项目到仪表板](/langsmith/images/tracing-project-to-dashboard.png)
+
+## 示例：用户旅程监控
+
+使用监控图表来映射代理在特定节点做出的决策。
+
+考虑一个邮件助手代理。它在特定节点做出关于邮件的决策：
+
+- 发送回复邮件
+- 通知用户
+- 无需回复
+
+我们可以创建一个图表来追踪和可视化这些决策的分解。
+
+**创建图表**
+
+1. **指标选择**：选择指标 `Run count`。
+2. **图表过滤器**：添加树过滤器以包含名称为 `triage_input` 的所有追踪。这意味着我们仅包括命中 `triage_input` 节点的追踪。同时添加图表过滤器 `Is Root` 为 `true`，这样我们的计数不会因追踪中的节点数量而膨胀。
+   ![节点决策](/langsmith/images/chart-filters-for-node-decision.png)
+
+3. **数据系列**：为 `triage_input` 节点做出的每个决策创建一个数据系列。决策的输出存储在输出对象的 `triage.response` 字段中，决策的值可以是 `no`、`email` 或 `notify`。这些决策中的每一个都在图表中生成一个单独的数据系列。
+   ![节点决策](/langsmith/images/decision-at-node.png)
+
+现在我们可以可视化 `triage_input` 节点随时间做出的决策。
+
+## 视频指南
+<iframe
+  className="w-full aspect-video rounded-xl"
+  src="https://www.youtube.com/embed/VxsIvf9NdxI?si=7ksp9qyw-i0lcwxg"
+  title="YouTube video player"
+  frameBorder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allowFullScreen
+></iframe>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\dashboards.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

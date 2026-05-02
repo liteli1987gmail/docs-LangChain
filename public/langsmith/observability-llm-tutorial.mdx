@@ -1,0 +1,523 @@
+---
+title: 追踪大型语言模型应用程序教程
+sidebarTitle: 教程
+description: 在原型设计、beta 测试和生产阶段为大型语言模型应用程序添加 LangSmith 可观测性。
+icon: "school"
+---
+
+import project from '/snippets/langsmith/trace-ingestion-project.mdx';
+
+在本教程中，您将构建一个使用检索增强生成（RAG）的客户支持聊天机器人，并在开发的每个阶段（从早期原型设计到生产）添加 LangSmith 可观测性。
+
+到本教程结束时，您将知道如何：
+
+- 追踪单个 LLM 调用和完整应用程序管道。
+- 收集和查询用户反馈。
+- 记录元数据并将其用于过滤和 A/B 测试。
+- 使用监控仪表板跟踪生产性能。
+
+该应用程序将检索相关文档片段并使用它们来回答用户问题。本教程中检索器是模拟的；在实际应用中，您会用向量搜索或类似功能替换它。
+
+## 先决条件
+
+在开始之前，请确保您具备：
+
+- **LangSmith 账户**：在 [smith.langchain.com](https://smith.langchain.com) 注册或登录。
+- **LangSmith API 密钥**：按照[创建 API 密钥](/langsmith/create-account-api-key)指南操作。
+- **OpenAI API 密钥**：从 [OpenAI 仪表板](https://platform.openai.com/account/api-keys)生成。
+- **LangSmith CLI**（可选）：安装以从终端检查追踪。说明请参阅 [LangSmith CLI](/langsmith/langsmith-cli)。
+
+安装所需的包：
+
+<CodeGroup>
+
+```bash Python
+pip install langsmith openai
+```
+
+```bash TypeScript
+npm install langsmith openai
+npm install -D typescript tsx
+```
+
+</CodeGroup>
+
+## 原型设计
+
+从一开始就设置好可观测性可以让您更快地迭代。您可以准确地看到发送给模型的内容、返回的内容以及时间花在哪里，而无需添加 print 语句或运行调试器。
+
+### 设置您的环境
+
+在您的 shell 中设置以下环境变量：
+
+```bash
+export LANGSMITH_TRACING=true
+export LANGSMITH_API_KEY="<your-api-key>"
+export OPENAI_API_KEY="<your-openai-api-key>"
+```
+
+<project />
+
+<Note>
+您可能会在其他地方看到这些变量被引用为 `LANGCHAIN_*`。两者都可以工作，但 `LANGSMITH_TRACING` 和 `LANGSMITH_API_KEY` 是推荐的名称。
+</Note>
+
+### 追踪 LLM 调用
+
+首先追踪您的 OpenAI 调用，即实际调用模型的地方。这可以让您立即了解您的应用发送的提示词和模型返回的响应。
+
+使用 [`wrap_openai`](https://reference.langchain.com/python/langsmith/wrappers/_openai/wrap_openai)（Python）或 [`wrapOpenAI`](https://reference.langchain.com/javascript/langsmith/wrappers/wrapOpenAI)（TypeScript）包装 OpenAI 客户端。创建一个名为 `app.py`（或 `app.ts`）的文件，其中包含以下代码：
+
+<CodeGroup>
+
+```python Python
+from openai import OpenAI
+from langsmith.wrappers import wrap_openai
+
+client = wrap_openai(OpenAI())
+
+docs = [
+    "Acme Cloud supports unlimited users on Enterprise plans. Starter plans are limited to 5 users.",
+    "To reset your password, click 'Forgot password' on the login page and follow the instructions sent to your email.",
+    "API rate limits are 1,000 requests per hour on the Starter plan and 10,000 requests per hour on Enterprise.",
+]
+
+def retriever(query: str) -> list[str]:
+    return docs
+
+def support_bot(question: str) -> str:
+    context = retriever(question)
+    system_message = (
+        "You are a helpful customer support agent. "
+        "Answer using only the information provided below:\n\n"
+        + "\n".join(context)
+    )
+    response = client.chat.completions.create(
+        model="gpt-5.4-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+
+if __name__ == "__main__":
+    print(support_bot("How many users can I have on the Starter plan?"))
+```
+
+```typescript TypeScript
+import OpenAI from "openai";
+import { wrapOpenAI } from "langsmith/wrappers";
+
+const client = wrapOpenAI(new OpenAI());
+
+const docs = [
+    "Acme Cloud supports unlimited users on Enterprise plans. Starter plans are limited to 5 users.",
+    "To reset your password, click 'Forgot password' on the login page and follow the instructions sent to your email.",
+    "API rate limits are 1,000 requests per hour on the Starter plan and 10,000 requests per hour on Enterprise.",
+];
+
+function retriever(query: string): string[] {
+    return docs;
+}
+
+async function supportBot(question: string): Promise<string> {
+    const context = retriever(question);
+    const systemMessage =
+        "You are a helpful customer support agent. " +
+        "Answer using only the information provided below:\n\n" +
+        context.join("\n");
+    const response = await client.chat.completions.create({
+        model: "gpt-5.4-mini",
+        messages: [
+            { role: "system", content: systemMessage },
+            { role: "user", content: question },
+        ],
+    });
+    return response.choices[0].message?.content ?? "";
+}
+
+(async () => {
+    console.log(await supportBot("How many users can I have on the Starter plan?"));
+})();
+```
+
+</CodeGroup>
+
+调用 `support_bot("How many users can I have on the Starter plan?")` 会生成 OpenAI 调用的追踪。
+
+### 追踪整个管道
+
+追踪 LLM 调用很有用，但追踪完整管道（包括检索）可以让您完整了解应用程序的行为。将 [`@traceable`](https://reference.langchain.com/python/langsmith/run_helpers/traceable)（Python）或 [`traceable`](https://reference.langchain.com/javascript/langsmith/traceable)（TypeScript）添加到主函数：
+
+<CodeGroup>
+
+```python Python
+from openai import OpenAI
+from langsmith import traceable
+from langsmith.wrappers import wrap_openai
+
+client = wrap_openai(OpenAI())
+
+docs = [
+    "Acme Cloud supports unlimited users on Enterprise plans. Starter plans are limited to 5 users.",
+    "To reset your password, click 'Forgot password' on the login page and follow the instructions sent to your email.",
+    "API rate limits are 1,000 requests per hour on the Starter plan and 10,000 requests per hour on Enterprise.",
+]
+
+def retriever(query: str) -> list[str]:
+    return docs
+
+@traceable  # [!code highlight]
+def support_bot(question: str) -> str:
+    context = retriever(question)
+    system_message = (
+        "You are a helpful customer support agent. "
+        "Answer using only the information provided below:\n\n"
+        + "\n".join(context)
+    )
+    response = client.chat.completions.create(
+        model="gpt-5.4-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+
+if __name__ == "__main__":
+    print(support_bot("How many users can I have on the Starter plan?"))
+```
+
+```typescript TypeScript
+import OpenAI from "openai";
+import { wrapOpenAI } from "langsmith/wrappers";
+import { traceable } from "langsmith/traceable";
+
+const client = wrapOpenAI(new OpenAI());
+
+const docs = [
+    "Acme Cloud supports unlimited users on Enterprise plans. Starter plans are limited to 5 users.",
+    "To reset your password, click 'Forgot password' on the login page and follow the instructions sent to your email.",
+    "API rate limits are 1,000 requests per hour on the Starter plan and 10,000 requests per hour on Enterprise.",
+];
+
+function retriever(query: string): string[] {
+    return docs;
+}
+
+const supportBot = traceable(async function supportBot(question: string): Promise<string> {  // [!code highlight]
+    const context = retriever(question);
+    const systemMessage =
+        "You are a helpful customer support agent. " +
+        "Answer using only the information provided below:\n\n" +
+        context.join("\n");
+    const response = await client.chat.completions.create({
+        model: "gpt-5.4-mini",
+        messages: [
+            { role: "system", content: systemMessage },
+            { role: "user", content: question },
+        ],
+    });
+    return response.choices[0].message?.content ?? "";
+});  // [!code highlight]
+
+(async () => {
+    console.log(await supportBot("How many users can I have on the Starter plan?"));
+})();
+```
+
+</CodeGroup>
+
+调用 `support_bot("How many users can I have on the Starter plan?")` 现在会生成完整 RAG 管道的追踪。
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/trace-whole-pipeline.png"
+    alt="LangSmith UI showing a trace with an outer application span and a nested LLM call span."
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/trace-whole-pipeline-dark.png"
+    alt="LangSmith UI showing a trace with an outer application span and a nested LLM call span."
+/>
+
+### 从终端检查您的追踪
+
+如果您安装了 [LangSmith CLI](/langsmith/langsmith-cli)，可以在不打开 UI 的情况下列出您项目的最新追踪：
+
+```bash
+langsmith trace list --project <your-project> --limit 5
+```
+
+要查看特定追踪的完整运行层次结构和输入/输出：
+
+```bash
+langsmith trace get <trace-id> --full
+```
+
+## Beta 测试
+
+一旦您的应用在原型设计中运行良好，您就可以将其发布给一小群真实用户。在这个阶段，您通常不完全知道用户将如何与您的应用互动，因此您需要更丰富的可观测性。您不仅要了解应用做了什么，还要了解用户如何响应它。
+
+### 收集反馈
+
+将[用户反馈](/langsmith/attach-user-feedback)链接到特定追踪可以让您识别哪些回复有帮助或无帮助。更新上一步的 `app.py`（或 `app.ts`），为每个调用添加一个运行 ID，然后附加分数：
+
+<CodeGroup>
+
+```python Python
+from openai import OpenAI
+from langsmith import traceable, Client, uuid7  # [!code highlight]
+from langsmith.wrappers import wrap_openai
+
+client = wrap_openai(OpenAI())
+
+docs = [
+    "Acme Cloud supports unlimited users on Enterprise plans. Starter plans are limited to 5 users.",
+    "To reset your password, click 'Forgot password' on the login page and follow the instructions sent to your email.",
+    "API rate limits are 1,000 requests per hour on the Starter plan and 10,000 requests per hour on Enterprise.",
+]
+
+def retriever(query: str) -> list[str]:
+    return docs
+
+@traceable
+def support_bot(question: str) -> str:
+    context = retriever(question)
+    system_message = (
+        "You are a helpful customer support agent. "
+        "Answer using only the information provided below:\n\n"
+        + "\n".join(context)
+    )
+    response = client.chat.completions.create(
+        model="gpt-5.4-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+
+if __name__ == "__main__":
+    run_id = str(uuid7())  # [!code highlight]
+    support_bot(  # [!code highlight]
+        "How many users can I have on the Starter plan?",  # [!code highlight]
+        langsmith_extra={"run_id": run_id},  # [!code highlight]
+    )  # [!code highlight]
+    ls_client = Client()  # [!code highlight]
+    ls_client.create_feedback(run_id, key="user-score", score=1.0)  # [!code highlight]
+```
+
+```typescript TypeScript
+import OpenAI from "openai";
+import { wrapOpenAI } from "langsmith/wrappers";
+import { traceable, getCurrentRunTree } from "langsmith/traceable"; // [!code highlight]
+import { Client } from "langsmith"; // [!code highlight]
+
+const client = wrapOpenAI(new OpenAI());
+
+const docs = [
+    "Acme Cloud supports unlimited users on Enterprise plans. Starter plans are limited to 5 users.",
+    "To reset your password, click 'Forgot password' on the login page and follow the instructions sent to your email.",
+    "API rate limits are 1,000 requests per hour on the Starter plan and 10,000 requests per hour on Enterprise.",
+];
+
+function retriever(query: string): string[] {
+    return docs;
+}
+
+let capturedRunId: string; // [!code highlight]
+
+const supportBot = traceable(async function supportBot(question: string): Promise<string> {
+    capturedRunId = getCurrentRunTree().id; // [!code highlight]
+    const context = retriever(question);
+    const systemMessage =
+        "You are a helpful customer support agent. " +
+        "Answer using only the information provided below:\n\n" +
+        context.join("\n");
+    const response = await client.chat.completions.create({
+        model: "gpt-5.4-mini",
+        messages: [
+            { role: "system", content: systemMessage },
+            { role: "user", content: question },
+        ],
+    });
+    return response.choices[0].message?.content ?? "";
+});
+
+(async () => {
+    await supportBot("How many users can I have on the Starter plan?"); // [!code highlight]
+    const lsClient = new Client(); // [!code highlight]
+    await lsClient.createFeedback(capturedRunId, "user-score", { score: 1.0 }); // [!code highlight]
+    await lsClient.flush(); // [!code highlight]
+})();
+```
+
+</CodeGroup>
+
+<Note>
+在生产环境中，这两个部分将位于不同的位置：带有 `run_id` 的 `support_bot` 调用留在您的应用中，`create_feedback` 移动到接收用户反馈的任何端点（例如，`/feedback` API 路由）。`run_id` 从一个传递到另一个，以便反馈可以链接到正确的追踪。
+</Note>
+
+反馈显示在您在 UI 中检查运行时的 **Feedback** 选项卡中。然后，您可以使用 **Runs** 表格中的过滤控制按反馈分数过滤运行。
+
+### 记录元数据
+
+[元数据](/langsmith/add-metadata-tags) 允许您用有助于过滤和比较的属性标记运行。例如，使用的模型版本或发出请求的用户。
+
+以下示例追踪检索器（使用 `run_type="retriever"`）和主函数（使用 `metadata` 属性记录模型名称）：
+
+<CodeGroup>
+
+```python Python
+from openai import OpenAI
+from langsmith import traceable
+from langsmith.wrappers import wrap_openai
+
+client = wrap_openai(OpenAI())
+
+docs = [
+    "Acme Cloud supports unlimited users on Enterprise plans. Starter plans are limited to 5 users.",
+    "To reset your password, click 'Forgot password' on the login page and follow the instructions sent to your email.",
+    "API rate limits are 1,000 requests per hour on the Starter plan and 10,000 requests per hour on Enterprise.",
+]
+
+@traceable(run_type="retriever")  # [!code highlight]
+def retriever(query: str) -> list[str]:
+    return docs
+
+@traceable(metadata={"llm": "gpt-5.4-mini"})  # [!code highlight]
+def support_bot(question: str) -> str:
+    context = retriever(question)
+    system_message = (
+        "You are a helpful customer support agent. "
+        "Answer using only the information provided below:\n\n"
+        + "\n".join(context)
+    )
+    response = client.chat.completions.create(
+        model="gpt-5.4-mini",
+        messages=[
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
+
+if __name__ == "__main__":
+    support_bot("How many users can I have on the Starter plan?")
+```
+
+```typescript TypeScript
+import OpenAI from "openai";
+import { wrapOpenAI } from "langsmith/wrappers";
+import { traceable } from "langsmith/traceable";
+
+const client = wrapOpenAI(new OpenAI());
+
+const docs = [
+    "Acme Cloud supports unlimited users on Enterprise plans. Starter plans are limited to 5 users.",
+    "To reset your password, click 'Forgot password' on the login page and follow the instructions sent to your email.",
+    "API rate limits are 1,000 requests per hour on the Starter plan and 10,000 requests per hour on Enterprise.",
+];
+
+const retriever = traceable(  // [!code highlight]
+    function retriever(query: string): string[] {  // [!code highlight]
+        return docs;  // [!code highlight]
+    },  // [!code highlight]
+    { run_type: "retriever" }  // [!code highlight]
+);  // [!code highlight]
+
+const supportBot = traceable(
+    async function supportBot(question: string): Promise<string> {
+        const context = await retriever(question);
+        const systemMessage =
+            "You are a helpful customer support agent. " +
+            "Answer using only the information provided below:\n\n" +
+            context.join("\n");
+        const response = await client.chat.completions.create({
+            model: "gpt-5.4-mini",
+            messages: [
+                { role: "system", content: systemMessage },
+                { role: "user", content: question },
+            ],
+        });
+        return response.choices[0].message?.content ?? "";
+    },
+    { metadata: { llm: "gpt-5.4-mini" } }  // [!code highlight]
+);
+
+(async () => {
+    await supportBot("How many users can I have on the Starter plan?");
+})();
+```
+
+</CodeGroup>
+
+两个元数据值都显示在追踪上。您可以使用 **Runs** 表格中的过滤控制按元数据过滤运行。
+
+## 生产
+
+有了强大的可观测性，您可以自信地发布到生产环境。在生产环境中，您的流量显著增加，无法逐一检查每个追踪。LangSmith 提供监控工具来帮助您了解聚合行为并在出现问题时深入研究。
+
+### 监控
+
+在 UI 侧边栏中，选择 **Monitoring**，然后从左上角的下拉菜单中选择一个追踪项目。图表显示项目随时间的关键指标，包括追踪数量、延迟、错误率、反馈分数和成本。有关可用指标和图表配置的更多信息，请参阅[仪表板](/langsmith/dashboards)。
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/monitoring-page-light.png"
+    alt="LangSmith UI showing the monitoring page with the trace count chart and available tabs."
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/monitoring-page-dark.png"
+    alt="LangSmith UI showing the monitoring page with the trace count chart and available tabs."
+/>
+
+### A/B 测试
+
+<Note>
+分组功能需要给定元数据键至少有两个不同的值。
+</Note>
+
+因为您一直在记录 `llm` 元数据属性，所以您可以按该属性对监控图表进行分组，以随时间比较模型性能。从 UI 侧边栏的 **Monitoring** 中，点击左上角的 **Group by**，从下拉菜单中选择 **Metadata**，然后选择 `llm`。图表会更新以显示按该属性分组的结果。有关分组和自定义图表的更多信息，请参阅[仪表板](/langsmith/dashboards)。
+
+### 深入了解
+
+当监控图表显示意外内容时，点击数据点以冻结工具提示，然后点击指标名称（例如 **Input**）跳转到该时间窗口的过滤运行表格。有关搜索和过滤运行的更多信息，请参阅[过滤追踪](/langsmith/filter-traces-in-application)。
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/drilldown-monitoring-light.png"
+    alt="LangSmith UI showing the monitoring page with a specific point on the Input Tokens chart highlighted."
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/drilldown-monitoring-dark.png"
+    alt="LangSmith UI showing the monitoring page with a specific point on the Input Tokens chart highlighted."
+/>
+
+## 结论
+
+在本教程中，您在应用程序的完整开发生命周期中添加了 LangSmith 可观测性。相同的追踪设置在原型设计期间帮助您快速迭代，将在生产中继续提供价值。您将能够了解单个追踪和聚合性能趋势。
+
+了解更多，请参阅：
+
+- [可观测性概念](/langsmith/observability-concepts)：术语和核心思想。
+- [追踪集成](/langsmith/integrations)：LangChain、LangGraph、Anthropic 和其他提供商。
+- [自动化](/langsmith/rules)：自动对追踪运行的规则和在线评估。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\observability-llm-tutorial.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

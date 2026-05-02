@@ -1,0 +1,90 @@
+---
+title: 设置 LangSmith
+sidebarTitle: 设置 LangSmith
+mode: wide
+---
+
+本节介绍如何托管和管理 LangSmith 基础设施。您可以为[可观测性](/langsmith/observability)、[评估](/langsmith/evaluation)和[提示词工程](/langsmith/prompt-engineering)设置 LangSmith，或使用 [LangSmith 部署](/langsmith/deployment) 获得完整的平台体验，还可以部署和管理您的应用程序。
+
+<Callout icon="building" color="#2563EB" iconType="regular">
+**如果，您正在设置或维护 LangSmith 基础设施，请从这里开始。**
+
+如果要部署代理应用程序，[代理部署部分](/langsmith/deployment) 涵盖了应用程序结构和部署配置。
+</Callout>
+
+## 选择如何设置 LangSmith
+
+您可以通过以下三种模式之一部署 LangSmith：
+- [**云**](/langsmith/cloud)：由 LangChain 完全托管
+- [**混合**](/langsmith/hybrid)：LangChain 管理<Tooltip tip="LangSmith UI 和用于管理部署的 API。">控制平面</Tooltip>；您托管<Tooltip tip="Agent Servers 和代理执行所在的运行时环境。">数据平面</Tooltip>
+- [**自托管**](/langsmith/self-hosted)：您在您的基础设施内管理完整堆栈
+
+<Callout>
+混合和自托管部署选项可在企业计划中使用。[获取演示](https://www.langchain.com/contact-sales)以了解更多。
+</Callout>
+
+
+<Columns cols={3}>
+  <Card
+    title="云"
+    icon="cloud"
+    iconType="solid"
+    href="/langsmith/cloud"
+    cta="开始使用"
+  >
+    完全托管的可观测性、评估、提示词工程和应用程序部署。从 GitHub 部署，自动化 CI/CD。
+  </Card>
+
+  <Card
+    title="混合"
+    icon="cloud"
+    href="/langsmith/hybrid"
+    cta="设置混合"
+  >
+    **(企业版)** 可观测性、评估、提示词工程和应用程序部署，您的应用程序在您的基础设施中运行。
+  </Card>
+
+  <Card
+    title="自托管"
+    icon="server"
+    iconType="solid"
+    href="/langsmith/self-hosted"
+    cta="运行自托管"
+  >
+    **(企业版)** 通过可观测性、评估和提示词工程获得完全控制。通过 LangSmith 部署启用完整平台体验或运行独立服务器。
+  </Card>
+</Columns>
+
+### 比较
+
+请参阅下表进行比较：
+
+| 功能 | **云** | **混合** | **自托管** |
+|---------|-----------|------------|-----------------|
+| **基础设施位置** | LangChain 云 | 拆分：LangChain 云中的控制平面，您云中的数据平面 | 您的云 |
+| **谁管理更新** | LangChain | LangChain（控制平面），您（数据平面） | 您 |
+| **谁管理您的应用程序的 CI/CD** | LangChain | 您 | 您 |
+| **可以部署应用程序吗？** | ✅ 是 | ✅ 是 | ✅ 是（启用 LangSmith 部署时） |
+| **可观测性数据位置** | LangChain 云 | LangChain 云 | 您的云 |
+| **[定价](https://www.langchain.com/pricing)** | Plus 层级 | 企业版 | 企业版 |
+| **最适合** | 快速设置、托管基础设施 | 数据驻留要求 + 托管控制平面 | 完全控制、数据隔离 |
+
+<Tip>
+您可以[免费在本地运行 Agent Server](/langsmith/local-dev-testing) 用于测试和开发。
+</Tip>
+
+### 相关
+
+- [计划和定价](https://www.langchain.com/pricing)
+- [可观测性](/langsmith/observability)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\platform-setup.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

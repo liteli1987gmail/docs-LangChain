@@ -1,0 +1,900 @@
+---
+title: 快速入门
+description: 在几分钟内构建您的第一个代理
+---
+
+本快速入门向您展示如何在短短几分钟内创建一个功能齐全的 AI 代理。
+
+<Tip>
+    **使用 AI 编码助手？**
+
+    - 安装 [LangChain Docs MCP 服务器](/use-these-docs) 为您的代理提供最新的 LangChain 文档和示例访问。
+    - 安装 [LangChain Skills](https://github.com/langchain-ai/langchain-skills) 以提高代理在 LangChain 生态系统任务上的性能。
+</Tip>
+
+## 安装依赖
+
+安装以下包以便跟随学习：
+
+
+
+<CodeGroup>
+    ```bash npm
+    npm install deepagents langchain @langchain/core
+    # 需要 Node.js 20+
+    ```
+
+    ```bash pnpm
+    pnpm add deepagents langchain @langchain/core
+    # 需要 Node.js 20+
+    ```
+
+    ```bash yarn
+    yarn add deepagents langchain @langchain/core
+    # 需要 Node.js 20+
+    ```
+
+    ```bash bun
+    bun add deepagents langchain @langchain/core
+    # 需要 Bun v1.0.0+
+    ```
+</CodeGroup>
+
+
+## 设置 API 密钥
+
+从[任何支持的模型提供商](/oss/javascript/integrations/providers/overview)（例如 Google Gemini 或 OpenAI）获取 API 密钥。
+
+设置 API 密钥，例如：
+
+<Tabs>
+  <Tab title="OpenAI">
+
+```bash
+export OPENAI_API_KEY="your-api-key"
+```
+
+  </Tab>
+  <Tab title="Google Gemini">
+
+```bash
+export GOOGLE_API_KEY="your-api-key"
+```
+
+  </Tab>
+  <Tab title="Claude (Anthropic)">
+
+```bash
+export ANTHROPIC_API_KEY="your-api-key"
+```
+
+  </Tab>
+  <Tab title="OpenRouter">
+
+```bash
+export OPENROUTER_API_KEY="your-api-key"
+```
+
+  </Tab>
+  <Tab title="Fireworks">
+
+```bash
+export FIREWORKS_API_KEY="your-api-key"
+```
+
+  </Tab>
+  <Tab title="Baseten">
+
+```bash
+export BASETEN_API_KEY="your-api-key"
+```
+
+  </Tab>
+  <Tab title="Ollama">
+
+```bash
+# 本地: Ollama 必须正在运行 (https://ollama.com)
+# 云端: 设置您的 Ollama API 密钥用于托管推理
+export OLLAMA_API_KEY="your-api-key"
+```
+
+  </Tab>
+  <Tab title="Azure">
+
+```bash
+export AZURE_OPENAI_API_KEY="your-api-key"
+export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com"
+export AZURE_OPENAI_DEPLOYMENT_NAME="your-deployment"
+```
+
+  </Tab>
+  <Tab title="AWS Bedrock">
+
+```bash
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+export AWS_REGION="us-east-1"
+```
+
+  </Tab>
+  <Tab title="HuggingFace">
+
+```bash
+export HUGGINGFACEHUB_API_TOKEN="hf_..."
+```
+
+  </Tab>
+  <Tab title="其他">
+    请参阅支持的[聊天模型集成](/oss/javascript/integrations/chat)的完整列表。
+  </Tab>
+</Tabs>
+
+## 构建一个基本代理
+
+首先创建一个可以回答问题并调用工具的简单代理。本例中的代理使用所选的语言模型、一个基本的天气函数作为工具，以及一个简单的提示词来指导其行为：
+
+
+
+<CodeGroup>
+    ```ts OpenAI
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "gpt-5.4",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+    ```ts Google Gemini
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "google-genai:gemini-2.5-flash-lite",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+    ```ts Claude (Anthropic)
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "claude-sonnet-4-6",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+    ```ts OpenRouter
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "openrouter:anthropic/claude-sonnet-4-6",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+    ```ts Fireworks
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "fireworks:accounts/fireworks/models/qwen3p5-397b-a17b",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+    ```ts Baseten
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "baseten:zai-org/GLM-5",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+    ```ts Ollama
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "ollama:devstral-2",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+    ```ts Azure
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "azure_openai:gpt-5.4",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+    ```ts AWS Bedrock
+    import { createAgent, tool } from "langchain";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `${input.city} 总是阳光明媚！`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "bedrock:gpt-5.4",
+      tools: [getWeather],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+      })
+    );
+    ```
+</CodeGroup>
+
+
+当您运行代码并提示代理告诉您旧金山的天气时，代理会使用该输入及其可用的上下文。
+代理理解您是在询问旧金山的天气，因此使用提供的城市名称调用天气工具。
+
+<Tip>
+    您可以通过更改代码中的模型名称并设置适当的 API 密钥来使用[任何支持的模型](/oss/javascript/integrations/providers/overview)。
+</Tip>
+
+## 构建一个真实的代理
+
+在以下示例中，您将构建一个可以回答有关文本文件问题的研究代理。
+在此过程中，您将探索以下概念：
+
+1. **详细的系统提示词**以获得更好的代理行为
+1. **创建工具**以与外部数据集成
+1. **模型配置**以获得一致的响应
+1. **对话记忆**以进行类聊天交互
+1. **Deep Agents** 以获得内置功能
+1. **测试**您的代理
+
+<Steps>
+    <Step title="定义系统提示词">
+        系统提示词定义了您的代理的角色和行为。保持具体和可操作：
+
+
+
+        ```ts wrap
+        const SYSTEM_PROMPT = `You are a literary data assistant.
+
+        ## Capabilities
+
+        - \`fetch_text_from_url\`: loads document text from a URL into the conversation.
+        Do not guess line counts or positions—ground them in tool results from the saved file.`;
+        ```
+
+
+    </Step>
+    <Step title="创建工具">
+        [工具](/oss/javascript/langchain/tools) 允许模型通过调用您定义的函数来与外部系统交互。
+        工具可以依赖于[运行时上下文](/oss/javascript/langchain/runtime)，也可以与[代理内存](/oss/javascript/langchain/short-term-memory)交互。
+
+        本示例使用一个工具从给定 URL 加载文档：
+
+
+
+        ```ts
+        import { tool } from "@langchain/core/tools";
+        import { createAgent, initChatModel } from "langchain";
+        import { z } from "zod";
+
+        const fetchTextFromUrl = tool(
+            async ({ url }: { url: string }): Promise<string> => {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 120_000);
+                try {
+                    const resp = await fetch(url, {
+                        headers: {
+                        "User-Agent": "Mozilla/5.0 (compatible; quickstart-research/1.0)",
+                        },
+                        signal: controller.signal,
+                    });
+                    if (!resp.ok) {
+                        return `Fetch failed: HTTP ${resp.status} ${resp.statusText}`;
+                    }
+                    return await resp.text();
+                } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    return `Fetch failed: ${msg}`;
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            },
+            {
+                name: "fetch_text_from_url",
+                description: "Fetch the document from a URL.",
+                schema: z.object({ url: z.string().url() }),
+            },
+        );
+        ```
+
+        <Note>
+            [Zod](https://zod.dev/) 是一个用于验证和解析预定义模式的库。您可以使用它来定义工具的输入模式，以确保代理仅使用正确的参数调用工具。
+
+            或者，您可以将 `schema` 属性定义为 [JSON schema](https://json-schema.org/overview/what-is-jsonschema) 对象。请记住，JSON schema **不会**在运行时被验证。
+
+            <Accordion title="示例：使用 JSON schema 作为工具输入">
+                ```ts
+                import { tool } from "langchain";
+
+                const fetchTextFromUrl = tool(
+                async ({ url }: { url: string }): Promise<string> => {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 120_000);
+                    try {
+                    const resp = await fetch(url, {
+                        headers: {
+                        "User-Agent": "Mozilla/5.0 (compatible; quickstart-research/1.0)",
+                        },
+                        signal: controller.signal,
+                    });
+                    if (!resp.ok) {
+                        return `Fetch failed: HTTP ${resp.status} ${resp.statusText}`;
+                    }
+                    return await resp.text();
+                    } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    return `Fetch failed: ${msg}`;
+                    } finally {
+                    clearTimeout(timeoutId);
+                    }
+                },
+                {
+                    name: "fetch_text_from_url",
+                    description: "Fetch the document from a URL.",
+                    schema: {
+                    type: "object",
+                    properties: {
+                        url: {
+                        type: "string",
+                        description: "The URL of the document to fetch.",
+                        format: "uri",
+                        },
+                    },
+                    required: ["url"],
+                    },
+                },
+                );
+                ```
+            </Accordion>
+        </Note>
+
+    </Step>
+    <Step title="配置您的模型">
+        使用正确的参数设置您的[语言模型](/oss/javascript/langchain/models)以适应您的用例。例如：
+
+
+
+        <CodeGroup>
+            ```ts OpenAI
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("gpt-5.4", {
+              temperature: 0.5,
+              timeout: 300,
+              maxTokens: 25000,
+            });
+            ```
+            ```ts Google Gemini
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("gemini-3.1-pro-preview", {
+              modelProvider: "google-genai",
+              temperature: 0.5,
+              timeout: 600_000,
+              maxTokens: 25000,
+            });
+            ```
+            ```ts Claude (Anthropic)
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("claude-sonnet-4-6", {
+              temperature: 0.5,
+              timeout: 300,
+              maxTokens: 25000,
+            });
+            ```
+            ```ts OpenRouter
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("openrouter:anthropic/claude-sonnet-4-6", {
+              temperature: 0.5,
+              timeout: 300,
+              maxTokens: 25000,
+            });
+            ```
+            ```ts Fireworks
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel(
+              "fireworks:accounts/fireworks/models/qwen3p5-397b-a17b",
+              { temperature: 0.5, timeout: 300, maxTokens: 25000 }
+            );
+            ```
+            ```ts Baseten
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("baseten:zai-org/GLM-5", {
+              temperature: 0.5,
+              timeout: 300,
+              maxTokens: 25000,
+            });
+            ```
+            ```ts Ollama
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("ollama:devstral-2", {
+              temperature: 0.5,
+              timeout: 300,
+              maxTokens: 25000,
+            });
+            ```
+            ```ts Azure
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("azure_openai:gpt-5.4", {
+              temperature: 0.5,
+              timeout: 300,
+              maxTokens: 25000,
+            });
+            ```
+            ```ts AWS Bedrock
+            import { initChatModel } from "langchain";
+
+            const model = await initChatModel("bedrock:gpt-5.4", {
+              temperature: 0.5,
+              timeout: 300,
+              maxTokens: 25000,
+            });
+            ```
+        </CodeGroup>
+
+
+        根据所选的模型和提供商，初始化参数可能会有所不同；请参阅其参考页面了解详细信息。
+    </Step>
+    <Step title="添加内存">
+
+        为您的代理添加[内存](/oss/javascript/langchain/short-term-memory)以在交互之间保持状态。这允许
+        代理记住之前的对话和上下文。
+
+
+
+        ```ts
+        import { MemorySaver } from "@langchain/langgraph";
+
+        const checkpointer = new MemorySaver();
+        ```
+
+
+        <Info>
+            在生产环境中，使用持久化检查点将消息历史保存到数据库。
+            有关更多详细信息，请参阅[添加和管理内存](/oss/javascript/langgraph/add-memory#manage-short-term-memory)。
+        </Info>
+
+    </Step>
+    <Step title="创建并运行代理">
+
+        现在将所有组件组装到您的代理中并运行它。
+
+        创建代理有两种不同的框架：LangChain 代理和 deep agents。
+        LangChain 和 deep agents 都为您提供了对工具、内存等的细粒度控制。
+        两者的主要区别在于 deep agents 已经内置了一系列常用功能，如规划、文件系统工具和子代理。
+
+        当您需要以最少的设置获得最大能力时使用 deep agents；当您需要细粒度控制时选择 LangChain 代理。
+
+        <Warning>
+            由于代码使用《了不起的盖茨比》的全文调用模型，它使用了大量的 token。
+
+            您可以在下一步中查看示例输出。
+        </Warning>
+
+        让我们尝试两者：
+
+
+
+        ```ts
+        async function main() {
+            const agent = createAgent({
+                model,
+                tools: [fetchTextFromUrl],
+                systemPrompt: SYSTEM_PROMPT,
+                checkpointer,
+            });
+
+            const deepAgent = createDeepAgent({
+                model,
+                tools: [fetchTextFromUrl],
+                systemPrompt: SYSTEM_PROMPT,
+                checkpointer,
+            });
+
+            const content = `Project Gutenberg hosts a full plain-text copy of F. Scott Fitzgerald's The Great Gatsby.
+            URL: https://www.gutenberg.org/files/64317/64317-0.txt
+
+            Answer as much as you can:
+
+            1) How many lines in the complete Gutenberg file contain the substring \`Gatsby\` (count lines, not occurrences within a line, each line ends with a line break).
+            2) The 1-based line number of the first line in the file that contains \`Daisy\`.
+            3) A two-sentence neutral synopsis.
+
+            Do your best on (1) and (2). If at any point you realize you cannot **verify** an exact answer with
+            your available tools and reasoning, do not fabricate numbers: use \`null\` for that field and spell out
+            the limitation in \`how_you_computed_counts\`. If you encounter any errors please report what the error was and what the error message was.`;
+
+            const agentResult = await agent.invoke(
+                { messages: [{ role: "user", content }] },
+                { configurable: { thread_id: "great-gatsby-lc" } },
+            );
+            const deepAgentResult = await deepAgent.invoke(
+                { messages: [{ role: "user", content }] },
+                { configurable: { thread_id: "great-gatsby-da" } },
+            );
+
+            const agentMessages = agentResult.messages;
+            const deepMessages = deepAgentResult.messages;
+            console.log(agentMessages[agentMessages.length - 1]!.content_blocks);
+            console.log("\n");
+            console.log(deepMessages[deepMessages.length - 1]!.content_blocks);
+        }
+
+        main().catch((err) => {
+            console.error(err);
+            process.exitCode = 1;
+        });
+        ```
+
+
+        <Expandable title="完整示例代码">
+
+
+
+        ```ts wrap
+        import { MemorySaver } from "@langchain/langgraph";
+        import { createDeepAgent } from "deepagents";
+        import { tool } from "@langchain/core/tools";
+        import { createAgent, initChatModel } from "langchain";
+        import { z } from "zod";
+        const SYSTEM_PROMPT = `You are a literary data assistant.
+
+        ## Capabilities
+
+        - \`fetch_text_from_url\`: loads document text from a URL into the conversation.
+        Do not guess line counts or positions—ground them in tool results from the saved file.`;
+
+        const fetchTextFromUrl = tool(
+            async ({ url }: { url: string }): Promise<string> => {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 120_000);
+                try {
+                    const resp = await fetch(url, {
+                        headers: {
+                            "User-Agent": "Mozilla/5.0 (compatible; quickstart-research/1.0)",
+                        },
+                        signal: controller.signal,
+                    });
+                    if (!resp.ok) {
+                        return `Fetch failed: HTTP ${resp.status} ${resp.statusText}`;
+                    }
+                    return await resp.text();
+                } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    return `Fetch failed: ${msg}`;
+                } finally {
+                   clearTimeout(timeoutId);
+                }
+            },
+            {
+                name: "fetch_text_from_url",
+                description: "Fetch the document from a URL.",
+                schema: z.object({ url: z.string().url() }),
+            },
+        );
+
+        const model = await initChatModel("gemini-3.1-pro-preview", {
+            modelProvider: "google-genai",
+            temperature: 0.5,
+            timeout: 600_000,
+            maxTokens: 25000,
+            streaming: true,
+        });
+
+        const checkpointer = new MemorySaver();
+
+        async function main() {
+            const agent = createAgent({
+                model,
+                tools: [fetchTextFromUrl],
+                systemPrompt: SYSTEM_PROMPT,
+                checkpointer,
+            });
+
+            const deepAgent = createDeepAgent({
+                model,
+                tools: [fetchTextFromUrl],
+                systemPrompt: SYSTEM_PROMPT,
+                checkpointer,
+            });
+
+            const content = `Project Gutenberg hosts a full plain-text copy of F. Scott Fitzgerald's The Great Gatsby.
+            URL: https://www.gutenberg.org/files/64317/64317-0.txt
+
+            Answer as much as you can:
+
+            1) How many lines in the complete Gutenberg file contain the substring \`Gatsby\` (count lines, not occurrences within a line, each line ends with a line break).
+            2) The 1-based line number of the first line in the file that contains \`Daisy\`.
+            3) A two-sentence neutral synopsis.
+
+            Do your best on (1) and (2). If at any point you realize you cannot **verify** an exact answer with
+            your available tools and reasoning, do not fabricate numbers: use \`null\` for that field and spell out
+            the limitation in \`how_you_computed_counts\`. If you encounter any errors please report what the error was and what the error message was.`;
+
+            const agentResult = await agent.invoke(
+                { messages: [{ role: "user", content }] },
+                { configurable: { thread_id: "great-gatsby-lc" } },
+            );
+            const deepAgentResult = await deepAgent.invoke(
+                { messages: [{ role: "user", content }] },
+                { configurable: { thread_id: "great-gatsby-da" } },
+            );
+
+            const agentMessages = agentResult.messages;
+            const deepMessages = deepAgentResult.messages;
+            console.log(agentMessages[agentMessages.length - 1]!.content_blocks);
+            console.log("\n");
+            console.log(deepMessages[deepMessages.length - 1]!.content_blocks);
+        }
+
+        main().catch((err) => {
+            console.error(err);
+            process.exitCode = 1;
+        });
+        ```
+
+
+        </Expandable>
+    </Step>
+    <Step title="查看结果">
+
+        结果会因模型和执行而异。
+
+        <Tabs default="LangChain agents">
+        <Tab title="LangChain agents">
+
+        ````txt wrap expandable
+        **1) Number of lines containing `Gatsby`:** `null`
+
+        **2) First line containing `Daisy`:** `null`
+
+        **3) Synopsis:**
+        The Great Gatsby follows the mysterious millionaire Jay Gatsby and his obsession with reuniting with his former lover, Daisy Buchanan, as narrated by his neighbor Nick Carraway. Set against the backdrop of the Roaring Twenties on Long Island, the novel explores themes of wealth, class, and the elusive nature of the American Dream.
+
+        **how_you_computed_counts:**
+        I successfully fetched the full text of the eBook using the `fetch_text_from_url` tool. However, because I do not have access to a code execution environment (like Python) or text-processing tools (like `grep`), I cannot deterministically split the text by line breaks, iterate through the thousands of lines, and verify the exact line numbers or match counts. LLMs cannot reliably perform exact line-counting or indexing over massive texts within their context window without external computational tools. As instructed, rather than fabricating or guessing a number, I have output `null` for the exact counts and positions.
+        ````
+
+        </Tab>
+        <Tab title="Deep agents">
+
+        ````txt wrap expandable
+        Based on the text fetched directly from the Gutenberg URL and analyzed using filesystem search tools, here are the answers to your questions:
+
+        **1) Lines containing the substring `Gatsby`**
+        **258** lines contain the exact substring `Gatsby`.
+
+        **2) First line containing `Daisy`**
+        Line **181** is the first line in the file that contains the exact substring `Daisy`.
+        *(For context, the line reads: "Buchanans. Daisy was my second cousin once removed, and I'd known Tom")*
+
+        **3) Two-sentence neutral synopsis**
+        *The Great Gatsby* follows the mysterious millionaire Jay Gatsby and his obsessive pursuit to reunite with his former lover, Daisy Buchanan, in 1920s Long Island. The story is narrated by Nick Carraway, who observes the tragic consequences of Gatsby's relentless ambition and the shallow materialism of the era's wealthy elite.
+
+        ***
+
+        **How counts were computed:**
+        When fetching the document from the URL, the file was too large for the standard output and was automatically saved to the local filesystem by the system (`/large_tool_results/x246ax2x`). I then used the `grep` tool to search the saved file for the exact literal substrings `Gatsby` and `Daisy`. The `grep` tool returned every matching line along with its 1-based line number. I manually counted the exact number of lines returned for `Gatsby` (which totaled 258) and identified the first line number returned for `Daisy` (which was 181). I also verified there were no uppercase variations (`GATSBY` or `DAISY`) that would have been missed. No errors were encountered during this process.
+        ````
+
+        </Tab>
+        </Tabs>
+
+        如果您查看两个标签页的输出，您会注意到 LangChain 代理提供了答案，但这些是估计值。该代理缺乏回答此问题的工具。您可能还会收到提示太长的错误。
+
+        另一方面，deep agent 可以：
+
+        1. **规划其方法**使用内置的 [`write_todos`](/oss/javascript/deepagents/harness#planning-capabilities) 工具来分解研究任务。
+        1. **加载文件**通过调用 `fetch_text_from_url` 工具来收集信息。
+        1. **管理上下文**通过使用文件系统工具（[`grep`](/oss/javascript/deepagents/harness#virtual-filesystem-access) 和 [`read_file`](/oss/javascript/deepagents/harness#virtual-filesystem-access)）。
+        1. **根据需要生成子代理**将复杂的子任务委托给专门的子代理。
+
+        对于 LangChain 代理，您必须实现更多功能才能获得类似的服务水平，并且可以根据需要沿途自定义它们。
+
+    </Step>
+</Steps>
+
+## 追踪代理调用
+
+您使用 LangChain 构建的大多数有趣应用程序都会对大型语言模型进行多次调用。随着这些应用程序变得越来越复杂，能够检查代理内部发生的事情变得非常重要。最好的方法是使用 [LangSmith](https://smith.langchain.com)。
+
+注册 [LangSmith](https://smith.langchain.com) 账户并设置以下内容以开始记录追踪：
+
+```shell
+export LANGSMITH_TRACING="true"
+export LANGSMITH_API_KEY="..."
+```
+
+设置完成后，再次运行您的脚本，然后检查 [LangSmith](https://smith.langchain.com) 上代理调用期间发生的事情。
+
+<Tip>
+    要了解有关使用 LangSmith 追踪代理的更多信息，请参阅 [LangSmith 文档](/langsmith/trace-with-langchain)。
+</Tip>
+
+## 下一步
+
+您现在拥有了可以执行以下操作的代理：
+
+- **理解上下文**并记住对话
+- **智能使用工具**
+- **以一致格式提供结构化响应**
+- **通过上下文处理用户特定信息**
+- **在交互之间保持对话状态**
+- **规划、研究和综合**（仅限 deep agents）
+
+继续学习：
+
+- **LangChain 代理**：[添加和管理内存](/oss/javascript/langgraph/add-memory#manage-short-term-memory)、[部署到生产环境](/oss/javascript/langgraph/deploy)
+- **Deep Agents**：[自定义选项](/oss/javascript/deepagents/customization)、[持久化内存](/oss/javascript/deepagents/long-term-memory)、[部署到生产环境](/oss/javascript/langgraph/deploy)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\quickstart.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

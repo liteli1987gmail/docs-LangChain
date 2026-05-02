@@ -1,0 +1,50 @@
+---
+title: "Ctranslate2 integrations"
+description: "Integrate with Ctranslate2 using LangChain Python."
+---
+
+> [CTranslate2](https://opennmt.net/CTranslate2/quickstart.html) 是一个 C++ 和 Python 库，
+> 用于 Transformer 模型的高效推理。
+>
+> 该项目实现了一个自定义运行时，应用了多种性能优化技术，
+> 如权重量化、层融合、批处理重排序等，
+> 以加速 Transformer 模型并降低其在 CPU 和 GPU 上的内存占用。
+>
+> 完整的功能列表和支持的模型列表请参见
+> [项目仓库](https://opennmt.net/CTranslate2/guides/transformers.html)。
+> 如需入门，请查阅官方[快速入门指南](https://opennmt.net/CTranslate2/quickstart.html)。
+
+
+## Installation and setup
+
+Install the Python package:
+
+<CodeGroup>
+```bash pip
+pip install ctranslate2
+```
+
+```bash uv
+uv add ctranslate2
+```
+</CodeGroup>
+
+
+## LLMs
+
+See a [usage example](/oss/python/integrations/llms/ctranslate2).
+
+```python
+from langchain_community.llms import CTranslate2
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\ctranslate2.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

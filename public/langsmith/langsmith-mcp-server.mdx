@@ -1,0 +1,249 @@
+---
+title: LangSmith MCP Server
+description: 使用模型上下文协议 (MCP) 服务器，让语言模型从 LangSmith 获取对话历史、提示词、运行、数据集、实验和计费。
+---
+
+LangSmith MCP Server 是一个与 [LangSmith](https://smith.langchain.com) 集成的[模型上下文协议](https://modelcontextprotocol.io/introduction) (MCP) 服务器。它允许 MCP 兼容的客户端（例如 AI 编码助手）读取[对话历史](/langsmith/observability-concepts#threads)、[提示词](/langsmith/manage-prompts-programmatically)、[运行和追踪](/langsmith/observability-concepts#runs)、[数据集](/langsmith/evaluation-concepts#datasets)、[实验](/langsmith/evaluation-concepts#experiment)以及来自您 LangSmith 工作区的计费使用情况。
+
+## 示例用例
+
+- **对话历史**："从项目'my-chatbot'中的线程'thread-123'获取我的对话历史"
+- **提示词管理**："获取所有公共提示词"或"拉取'legal-case-summarizer'提示词的模板"
+- **追踪和运行**："获取项目'alpha'中最新的 10 个根运行"或"通过 UUID 获取追踪的所有运行"
+- **数据集**："列出类型为 chat 的数据集"或"从数据集'customer-support-qa'读取示例"
+- **实验**："列出数据集'my-eval-set'的实验，包含延迟和成本指标"
+- **计费**："获取 2025 年 9 月的计费使用情况"
+
+<Tip>
+**在代码或 Fleet 中使用服务器**
+
+- 要在您的 Python 应用中连接和使用远程 MCP 服务器（包括此服务器），请参阅 [MCP（模型上下文协议）](/oss/python/langchain/mcp)。
+- 要在 Fleet 中连接和使用此服务器，请参阅[远程 MCP 服务器](/langsmith/fleet/remote-mcp-servers)。
+</Tip>
+
+## 快速入门（托管版本）
+
+ LangSmith MCP Server 的托管版本可通过 HTTP 获得，因此您无需自己运行服务器即可连接。
+
+- **URL:** `https://langsmith-mcp-server.onrender.com/mcp`
+- **认证：** 在 `LANGSMITH-API-KEY` 头中发送您的 [LangSmith API 密钥](/langsmith/create-account-api-key)。
+
+<Note>
+托管实例适用于 [LangSmith Cloud](/langsmith/deploy-to-cloud)。对于[自托管 LangSmith](/langsmith/self-hosted) 实例，请自己运行服务器并将其指向您的端点（请参阅 [Docker 部署](#docker-deployment-http-streamable)）。
+</Note>
+
+**示例 (Cursor `mcp.json`)：**
+
+```json
+{
+  "mcpServers": {
+    "LangSmith MCP (Hosted)": {
+      "url": "https://langsmith-mcp-server.onrender.com/mcp",
+      "headers": {
+        "LANGSMITH-API-KEY": "lsv2_pt_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+可选头：`LANGSMITH-WORKSPACE-ID`、`LANGSMITH-ENDPOINT`（与[环境变量](#environment-variables)中相同）。
+
+## 可用工具
+
+### 对话和线程
+
+| 工具 | 描述 |
+|------|-------------|
+| `get_thread_history` | 获取对话线程的消息历史。使用基于字符的分页：传递 `page_number`（从 1 开始）并使用返回的 `total_pages` 来请求更多页面。可选：`max_chars_per_page`、`preview_chars`。 |
+
+### 提示词管理
+
+| 工具 | 描述 |
+|------|-------------|
+| `list_prompts` | 列出提示词，可通过可见性（public/private）和限制进行可选过滤。 |
+| `get_prompt_by_name` | 通过确切的名称获取单个提示词（详情和模板）。 |
+| `push_prompt` | 仅文档：如何创建和推送提示词到 LangSmith。 |
+
+### 追踪和运行
+
+| 工具 | 描述 |
+|------|-------------|
+| `fetch_runs` | 从一个或多个项目获取运行（追踪、工具、链等）。支持过滤器（`run_type`、`error`、`is_root`）、FQL（`filter`、`trace_filter`、`tree_filter`）和排序。当设置 `trace_id` 时，结果基于字符分页；否则最多一批 `limit`。始终传递 `limit` 和 `page_number`。 |
+| `list_projects` | 列出项目，可通过名称、数据集和详细程度进行可选过滤。 |
+
+### 数据集和示例
+
+| 工具 | 描述 |
+|------|-------------|
+| `list_datasets` | 通过 ID、类型、名称或元数据过滤列出数据集。 |
+| `list_examples` | 通过数据集 ID/名称或示例 ID 列出数据集中的示例；支持过滤器、元数据、分割和可选的 `as_of` 版本。 |
+| `read_dataset` | 通过 ID 或名称读取一个数据集。 |
+| `read_example` | 通过 ID 读取一个示例，可选 `as_of` 版本。 |
+| `create_dataset` | 仅文档：如何创建数据集。 |
+| `update_examples` | 仅文档：如何更新数据集示例。 |
+
+### 实验和评估
+
+| 工具 | 描述 |
+|------|-------------|
+| `list_experiments` | 列出数据集的实验（参考）项目。需要 `reference_dataset_id` 或 `reference_dataset_name`。返回指标（延迟、成本、反馈）。 |
+| `run_experiment` | 仅文档：如何运行实验和评估。 |
+
+### 计费
+
+| 工具 | 描述 |
+|------|-------------|
+| `get_billing_usage` | 获取组织在日期范围内的计费使用情况（例如追踪数量）。可选的工作区过滤器。 |
+
+### 分页（基于字符）
+
+返回大量数据的工具使用**基于字符的预算分页**，以便响应保持在大小限制内：
+
+- **用于：** `get_thread_history` 和 `fetch_runs`（当设置 `trace_id` 时）。
+- **参数：** 在每次请求时发送 `page_number`（从 1 开始）。可选：`max_chars_per_page`（默认 25000，最大 30000），`preview_chars`（用 "... (+N chars)" 截断长字符串）。
+- **响应：** 包含 `page_number`、`total_pages` 和页面有效载荷。通过使用 `page_number = 2` 然后 `3` 调用更多，最多到 `total_pages`。
+- **好处：** 页面按字符数而不是项目数构建；无需游标或服务器端状态——只需页面号。
+
+## 安装（本地运行）
+
+如果您更喜欢本地运行服务器（或使用自托管 LangSmith 端点），请安装它并配置您的 MCP 客户端。
+
+### 前置条件
+
+1. 安装 [uv](https://github.com/astral-sh/uv)（Python 包安装器）：
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. 安装包：
+   ```bash
+   uv run pip install --upgrade langsmith-mcp-server
+   ```
+
+### MCP 客户端配置
+
+将服务器添加到您的 MCP 客户端配置。使用 `which uvx` 的路径作为 `command` 值。
+
+**PyPI / uvx：**
+
+```json
+{
+  "mcpServers": {
+    "LangSmith API MCP Server": {
+      "command": "/path/to/uvx",
+      "args": ["langsmith-mcp-server"],
+      "env": {
+        "LANGSMITH_API_KEY": "your_langsmith_api_key",
+        "LANGSMITH_WORKSPACE_ID": "your_workspace_id",
+        "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com"
+      }
+    }
+  }
+}
+```
+
+**从源代码**（首先克隆 [langsmith-mcp-server](https://github.com/langchain-ai/langsmith-mcp-server)）：
+
+```json
+{
+  "mcpServers": {
+    "LangSmith API MCP Server": {
+      "command": "/path/to/uv",
+      "args": [
+        "--directory",
+        "/path/to/langsmith-mcp-server",
+        "run",
+        "langsmith_mcp_server/server.py"
+      ],
+      "env": {
+        "LANGSMITH_API_KEY": "your_langsmith_api_key",
+        "LANGSMITH_WORKSPACE_ID": "your_workspace_id",
+        "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com"
+      }
+    }
+  }
+}
+```
+
+将 `/path/to/uv`、`/path/to/uvx` 和 `/path/to/langsmith-mcp-server` 替换为您的实际路径。
+
+## Docker 部署（HTTP-streamable）
+
+您可以将服务器作为 HTTP 服务使用 Docker 运行，以便客户端通过 HTTP-streamable 协议连接。
+
+1. 构建并运行：
+   ```bash
+   docker build -t langsmith-mcp-server .
+   docker run -p 8000:8000 langsmith-mcp-server
+   ```
+   使用 [langsmith-mcp-server](https://github.com/langchain-ai/langsmith-mcp-server) 仓库获取 Dockerfile 和上下文。
+
+2. 将您的 MCP 客户端连接到 `http://localhost:8000/mcp`，并带上 `LANGSMITH-API-KEY` 头（以及可选的 `LANGSMITH-WORKSPACE-ID`、`LANGSMITH-ENDPOINT`）。
+
+3. 健康检查（无需认证）：
+   ```bash
+   curl http://localhost:8000/health
+   ```
+
+有关完整的 Docker 和 HTTP-streamable 详细信息，请参阅 [LangSmith MCP Server 仓库](https://github.com/langchain-ai/langsmith-mcp-server)。
+
+## 部署概述
+
+使用 **托管** MCP 服务器连接到 [LangSmith Cloud](/langsmith/cloud)（smith.langchain.com 或 eu.smith.langchain.com）。要连接到 Cloud 或[自托管 LangSmith](/langsmith/self-hosted)，请[本地](#installation-run-locally)运行服务器并设置 `LANGSMITH_ENDPOINT`。对于自托管部署，您还可以通过 [Docker 镜像](#docker-deployment-http-streamable)在您的 VPC 内运行服务器。
+
+```mermaid actions={false}
+flowchart LR
+  subgraph Client["MCP client"]
+    C[Cursor / Claude Code / etc.]
+  end
+
+  subgraph CloudPath["Cloud"]
+    H[Hosted MCP server]
+    LSCloud[LangSmith Cloud]
+  end
+
+  subgraph LocalPath["Local"]
+    LocalServer[Local MCP server]
+  end
+
+  subgraph SelfHostedPath["Self-hosted"]
+    D[Docker MCP server]
+    LSSelf[Self-hosted LangSmith]
+  end
+
+  C --> H
+  H --> LSCloud
+  C --> LocalServer
+  LocalServer --> LSCloud
+  LocalServer --> LSSelf
+  C --> D
+  D --> LSSelf
+```
+
+## 环境变量
+
+| 变量 | 必需 | 描述 |
+|----------|----------|-------------|
+| `LANGSMITH_API_KEY` | 是 | 您的 [LangSmith API 密钥](/langsmith/create-account-api-key) 用于认证。 |
+| `LANGSMITH_WORKSPACE_ID` | 否 | 当您的 API 密钥有权限访问多个工作区时的 Workspace ID。 |
+| `LANGSMITH_ENDPOINT` | 否 | API 端点 URL（用于[自托管](/langsmith/self-hosted)或自定义区域）。默认：`https://api.smith.langchain.com`。 |
+
+对于 **托管** 服务器，使用与 **头** 相同的名称：`LANGSMITH-API-KEY`、`LANGSMITH-WORKSPACE-ID`、`LANGSMITH-ENDPOINT`。
+
+## TypeScript 实现
+
+社区维护的 TypeScript/Node.js 端口的官方 Python 服务器可用。要运行它：`LANGSMITH_API_KEY=your-key npx langsmith-mcp-server`。
+
+源代码和包：[GitHub](https://github.com/amitrechavia/langsmith-mcp-server-js) · [npm](https://www.npmjs.com/package/langsmith-mcp-server)。由 [amitrechavia](https://github.com/amitrechavia) 维护。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\langsmith-mcp-server.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

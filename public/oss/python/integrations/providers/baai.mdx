@@ -1,0 +1,49 @@
+---
+title: "Baai integrations"
+description: "Integrate with Baai using LangChain Python."
+---
+
+北京人工智能研究院 (BAAI)（维基百科），也被称为 `Zhiyuan Institute`，是一家中国非营利性人工智能（AI）研究实验室。`BAAI` 开展人工智能研究，致力于促进学术界与产业界的合作，以及培养顶尖人才和专注于人工智能技术基础的长远研究。作为一个协作中心，`BAAI` 的创始成员包括领先的人工智能公司、大学和研究机构。
+
+
+## Embedding models
+
+### HuggingFaceBgeEmbeddings
+
+[HuggingFace](https://huggingface.co/BAAI/bge-large-en-v1.5) 上的 BGE 模型是最好的[开源 embedding 模型](https://huggingface.co/spaces/mteb/leaderboard)之一。
+
+See a [usage example](/oss/python/integrations/embeddings/bge_huggingface).
+
+```python
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+```
+
+### IpexLLMBgeEmbeddings
+
+>[IPEX-LLM](https://github.com/intel-analytics/ipex-llm) 是一个 PyTorch 库，用于在 Intel CPU 和 GPU（例如配备 iGPU 的本地 PC、独立的 GPU 如 Arc、Flex 和 Max）上运行 LLM，并实现极低延迟。
+
+See a [usage example running model on Intel CPU](/oss/python/integrations/embeddings/ipex_llm).
+See a [usage example running model on Intel GPU](/oss/python/integrations/embeddings/ipex_llm_gpu).
+
+```python
+from langchain_community.embeddings import IpexLLMBgeEmbeddings
+```
+
+### QuantizedBgeEmbeddings
+
+See a [usage example](/oss/python/integrations/embeddings/itrex).
+
+```python
+from langchain_community.embeddings import QuantizedBgeEmbeddings
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\baai.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

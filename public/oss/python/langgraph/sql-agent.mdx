@@ -1,0 +1,400 @@
+---
+title: 构建自定义 SQL 代理
+sidebarTitle: 自定义 SQL 代理
+---
+
+import ChatModelTabsPy from '/snippets/chat-model-tabs.mdx';
+import ChatModelTabsJS from '/snippets/chat-model-tabs-js.mdx';
+
+
+在本教程中，我们将构建一个可以使用 LangGraph 回答 SQL 数据库相关问题的自定义代理。
+
+LangChain 提供了内置的[代理](/oss/python/langchain/agents)实现，使用 [LangGraph](/oss/python/langgraph/overview) 原语实现。如果需要更深入的定制，可以直接在 LangGraph 中实现代理。本指南演示了 SQL 代理的示例实现。有关实际介绍，请参阅[使用高层 LangChain 抽象构建 SQL 代理](/oss/python/langchain/sql-agent)。
+
+<Warning>
+构建 SQL 数据库的问答系统需要执行模型生成的 SQL 查询。这样做存在固有风险。请确保您的数据库连接权限始终尽可能地缩小到代理需要的范围。这将减轻（但不能消除）构建模型驱动系统的风险。
+</Warning>
+
+[预构建代理](/oss/python/langchain/sql-agent)让我们可以快速开始，但我们依靠系统提示词来约束其行为——例如，我们指示代理始终以"列出表"工具开始，始终在执行查询之前运行查询检查工具。
+
+通过在 LangGraph 中自定义代理，我们可以实现更高程度的控制。在这里，我们实现了一个简单的 ReAct 代理设置，为特定工具调用提供专用节点。我们将使用与预构建代理相同的[状态]。
+
+### 概念
+
+我们将涵盖以下概念：
+
+- [工具](/oss/python/langchain/tools)用于读取 SQL 数据库
+- LangGraph [Graph API](/oss/python/langgraph/graph-api)，包括状态、节点、边和条件边。
+- [人工介入](/oss/python/langgraph/interrupts)流程
+
+## 设置
+
+### 安装
+
+    <CodeGroup>
+    ```bash pip
+    pip install langchain  langgraph  langchain-community
+    ```
+    </CodeGroup>
+
+
+
+### LangSmith
+设置 [LangSmith](https://smith.langchain.com) 来检查您的链或代理内部发生了什么。然后设置以下环境变量：
+
+    ```shell
+    export LANGSMITH_TRACING="true"
+    export LANGSMITH_API_KEY="..."
+    ```
+
+## 1. 选择大型语言模型
+
+选择一个支持[工具调用](/oss/python/integrations/providers/overview)的模型：
+
+<ChatModelTabsPy />
+
+
+
+下面示例中显示的输出使用了 OpenAI。
+
+## 2. 配置数据库
+
+您将为本教程创建一个 [SQLite 数据库](https://www.sqlitetutorial.net/sqlite-sample-database/)。SQLite 是一个轻量级数据库，易于设置和使用。我们将加载 `chinook` 数据库，这是一个代表数字媒体商店的示例数据库。
+
+为方便起见，我们将数据库（`Chinook.db`）托管在公共 GCS 存储桶上。
+
+```python
+import requests, pathlib
+
+url = "https://storage.googleapis.com/benchmarks-artifacts/chinook/Chinook.db"
+local_path = pathlib.Path("Chinook.db")
+
+if local_path.exists():
+    print(f"{local_path} already exists, skipping download.")
+else:
+    response = requests.get(url)
+    if response.status_code == 200:
+        local_path.write_bytes(response.content)
+        print(f"File downloaded and saved as {local_path}")
+    else:
+        print(f"Failed to download the file. Status code: {response.status_code}")
+```
+
+我们将使用 `langchain_community` 包中提供的便捷 SQL 数据库包装器来与数据库交互。包装器提供了一个简单的界面来执行 SQL 查询和获取结果：
+
+```python
+from langchain_community.utilities import SQLDatabase
+
+db = SQLDatabase.from_uri("sqlite:///Chinook.db")
+
+print(f"Dialect: {db.dialect}")
+print(f"Available tables: {db.get_usable_table_names()}")
+print(f'Sample output: {db.run("SELECT * FROM Artist LIMIT 5;")}')
+```
+```
+Dialect: sqlite
+Available tables: ['Album', 'Artist', 'Customer', 'Employee', 'Genre', 'Invoice', 'InvoiceLine', 'MediaType', 'Playlist', 'PlaylistTrack', 'Track']
+Sample output: [(1, 'AC/DC'), (2, 'Accept'), (3, 'Aerosmith'), (4, 'Alanis Morissette'), (5, 'Alice In Chains')]
+```
+
+
+
+## 3. 添加数据库交互工具
+
+使用 `langchain_community` 包中可用的 `SQLDatabase` 包装器与数据库交互。包装器提供了一个简单的界面来执行 SQL 查询和获取结果：
+
+```python
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
+
+toolkit = SQLDatabaseToolkit(db=db, llm=model)
+
+tools = toolkit.get_tools()
+
+for tool in tools:
+    print(f"{tool.name}: {tool.description}\n")
+```
+```
+sql_db_query: Input to this tool is a detailed and correct SQL query, output is a result from the database. If the query is not correct, an error message will be returned. If an error is returned, rewrite the query, check the query, and try again. If you encounter an issue with Unknown column 'xxxx' in 'field list', use sql_db_schema to query the correct table fields.
+
+sql_db_schema: Input to this tool is a comma-separated list of tables, output is the schema and sample rows for those tables. Be sure that the tables actually exist by calling sql_db_list_tables first! Example Input: table1, table2, table3
+
+sql_db_list_tables: Input is an empty string, output is a comma-separated list of tables in the database.
+
+sql_db_query_checker: Use this tool to double check if your query is correct before executing it. Always use this tool before executing a query with sql_db_query!
+```
+
+
+
+## 4. 定义应用程序步骤
+
+我们为以下步骤构建专用节点：
+
+- 列出数据库表
+- 调用"获取架构"工具
+- 生成查询
+- 检查查询
+
+将这些步骤放在专用节点中让我们可以 (1) 在需要时强制工具调用，和 (2) 自定义与每个步骤关联的提示词。
+
+```python
+from typing import Literal
+
+from langchain.messages import AIMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode
+
+
+get_schema_tool = next(tool for tool in tools if tool.name == "sql_db_schema")
+get_schema_node = ToolNode([get_schema_tool], name="get_schema")
+
+run_query_tool = next(tool for tool in tools if tool.name == "sql_db_query")
+run_query_node = ToolNode([run_query_tool], name="run_query")
+
+
+# Example: create a predetermined tool call
+def list_tables(state: MessagesState):
+    tool_call = {
+        "name": "sql_db_list_tables",
+        "args": {},
+        "id": "abc123",
+        "type": "tool_call",
+    }
+    tool_call_message = AIMessage(content="", tool_calls=[tool_call])
+
+    list_tables_tool = next(tool for tool in tools if tool.name == "sql_db_list_tables")
+    tool_message = list_tables_tool.invoke(tool_call)
+    response = AIMessage(f"Available tables: {tool_message.content}")
+
+    return {"messages": [tool_call_message, tool_message, response]}
+
+
+# Example: force a model to create a tool call
+def call_get_schema(state: MessagesState):
+    # Note that LangChain enforces that all models accept `tool_choice="any"`
+    # as well as `tool_choice=<string name of tool>`.
+    llm_with_tools = model.bind_tools([get_schema_tool], tool_choice="any")
+    response = llm_with_tools.invoke(state["messages"])
+
+    return {"messages": [response]}
+
+
+generate_query_system_prompt = """
+You are an agent designed to interact with a SQL database.
+Given an input question, create a syntactically correct {dialect} query to run,
+then look at the results of the query and return the answer. Unless the user
+specifies a specific number of examples they wish to obtain, always limit your
+query to at most {top_k} results.
+
+You can order the results by a relevant column to return the most interesting
+examples in the database. Never query for all the columns from a specific table,
+only ask for the relevant columns given the question.
+
+DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+""".format(
+    dialect=db.dialect,
+    top_k=5,
+)
+
+
+def generate_query(state: MessagesState):
+    system_message = {
+        "role": "system",
+        "content": generate_query_system_prompt,
+    }
+    # We do not force a tool call here, to allow the model to
+    # respond naturally when it obtains the solution.
+    llm_with_tools = model.bind_tools([run_query_tool])
+    response = llm_with_tools.invoke([system_message] + state["messages"])
+
+    return {"messages": [response]}
+
+
+check_query_system_prompt = """
+You are a SQL expert with a strong attention to detail.
+Double check the {dialect} query for common mistakes, including:
+- Using NOT IN with NULL values
+- Using UNION when UNION ALL should have been used
+- Using BETWEEN for exclusive ranges
+- Data type mismatch in predicates
+- Properly quoting identifiers
+- Using the correct number of arguments for functions
+- Casting to the correct data type
+- Using the proper columns for joins
+
+If there are any of the above mistakes, rewrite the query. If there are no mistakes,
+just reproduce the original query.
+
+You will call the appropriate tool to execute the query after running this check.
+""".format(dialect=db.dialect)
+
+
+def check_query(state: MessagesState):
+    system_message = {
+        "role": "system",
+        "content": check_query_system_prompt,
+    }
+
+    # Generate an artificial user message to check
+    tool_call = state["messages"][-1].tool_calls[0]
+    user_message = {"role": "user", "content": tool_call["args"]["query"]}
+    llm_with_tools = model.bind_tools([run_query_tool], tool_choice="any")
+    response = llm_with_tools.invoke([system_message, user_message])
+    response.id = state["messages"][-1].id
+
+    return {"messages": [response]}
+```
+
+
+
+## 5. 实现代理
+
+我们现在可以使用 [Graph API](/oss/python/langgraph/graph-api) 将这些步骤组装成工作流。我们在查询生成步骤定义一个[条件边](/oss/python/langgraph/graph-api#conditional-edges)，如果生成了查询则路由到查询检查器，如果没有工具调用则结束，因为大型语言模型已经向查询提供了响应。
+
+```python
+def should_continue(state: MessagesState) -> Literal[END, "check_query"]:
+    messages = state["messages"]
+    last_message = messages[-1]
+    if not last_message.tool_calls:
+        return END
+    else:
+        return "check_query"
+
+
+builder = StateGraph(MessagesState)
+builder.add_node(list_tables)
+builder.add_node(call_get_schema)
+builder.add_node(get_schema_node, "get_schema")
+builder.add_node(generate_query)
+builder.add_node(check_query)
+builder.add_node(run_query_node, "run_query")
+
+builder.add_edge(START, "list_tables")
+builder.add_edge("list_tables", "call_get_schema")
+builder.add_edge("call_get_schema", "get_schema")
+builder.add_edge("get_schema", "generate_query")
+builder.add_conditional_edges(
+    "generate_query",
+    should_continue,
+)
+builder.add_edge("check_query", "run_query")
+builder.add_edge("run_query", "generate_query")
+
+agent = builder.compile()
+```
+We visualize the application below:
+```python
+from IPython.display import Image, display
+from langchain_core.runnables.graph import CurveStyle, MermaidDrawMethod, NodeStyles
+
+display(Image(agent.get_graph().draw_mermaid_png()))
+```
+
+
+<img
+  src="/oss/images/sql-agent-langgraph.png"
+  alt="SQL agent graph"
+  style={{ height: "800px" }}
+/>
+
+我们现在可以调用图了：
+```python
+question = "Which genre on average has the longest tracks?"
+
+for step in agent.stream(
+    {"messages": [{"role": "user", "content": question}]},
+    stream_mode="values",
+):
+    step["messages"][-1].pretty_print()
+```
+
+
+```
+================================ Human Message =================================
+
+Which genre on average has the longest tracks?
+================================== Ai Message ==================================
+
+Available tables: Album, Artist, Customer, Employee, Genre, Invoice, InvoiceLine, MediaType, Playlist, PlaylistTrack, Track
+================================== Ai Message ==================================
+Tool Calls:
+  sql_db_schema (call_yzje0tj7JK3TEzDx4QnRR3lL)
+ Call ID: call_yzje0tj7JK3TEzDx4QnRR3lL
+  Args:
+    table_names: Genre, Track
+================================= Tool Message =================================
+Name: sql_db_schema
+
+
+CREATE TABLE "Genre" (
+	"GenreId" INTEGER NOT NULL,
+	"Name" NVARCHAR(120),
+	PRIMARY KEY ("GenreId")
+)
+
+/*
+3 rows from Genre table:
+GenreId	Name
+1	Rock
+2	Jazz
+3	Metal
+*/
+
+
+CREATE TABLE "Track" (
+	"TrackId" INTEGER NOT NULL,
+	"Name" NVARCHAR(200) NOT NULL,
+	"AlbumId" INTEGER,
+	"MediaTypeId" INTEGER NOT NULL,
+	"GenreId" INTEGER,
+	"Composer" NVARCHAR(220),
+	"Milliseconds" INTEGER NOT NULL,
+	"Bytes" INTEGER,
+	"UnitPrice" NUMERIC(10, 2) NOT NULL,
+	PRIMARY KEY ("TrackId"),
+	FOREIGN KEY("MediaTypeId") REFERENCES "MediaType" ("MediaTypeId"),
+	FOREIGN KEY("GenreId") REFERENCES "Genre" ("GenreId"),
+	FOREIGN KEY("AlbumId") REFERENCES "Album" ("AlbumId")
+)
+
+/*
+3 rows from Track table:
+TrackId	Name	AlbumId	MediaTypeId	GenreId	Composer	Milliseconds	Bytes	UnitPrice
+1	For Those About To Rock (We Salute You)	1	1	1	Angus Young, Malcolm Young, Brian Johnson	343719	11170334	0.99
+2	Balls to the Wall	2	2	1	U. Dirkschneider, W. Hoffmann, H. Frank, P. Baltes, S. Kaufmann, G. Hoffmann	342562	5510424	0.99
+3	Fast As a Shark	3	2	1	F. Baltes, S. Kaufman, U. Dirkscneider & W. Hoffman	230619	3990994	0.99
+*/
+================================== Ai Message ==================================
+Tool Calls:
+  sql_db_query (call_cb9ApLfZLSq7CWg6jd0im90b)
+ Call ID: call_cb9ApLfZLSq7CWg6jd0im90b
+  Args:
+    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AvgMilliseconds FROM Track JOIN Genre ON Track.GenreId = Genre.GenreId GROUP BY Genre.GenreId ORDER BY AvgMilliseconds DESC LIMIT 5;
+================================== Ai Message ==================================
+Tool Calls:
+  sql_db_query (call_DMVALfnQ4kJsuF3Yl6jxbeAU)
+ Call ID: call_DMVALfnQ4kJsuF3Yl6jxbeAU
+  Args:
+    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AvgMilliseconds FROM Track JOIN Genre ON Track.GenreId = Genre.GenreId GROUP BY Genre.GenreId ORDER BY AvgMilliseconds DESC LIMIT 5;
+================================= Tool Message =================================
+Name: sql_db_query
+
+[('Sci Fi & Fantasy', 2911783.0384615385), ('Science Fiction', 2625549.076923077), ('Drama', 2575283.78125), ('TV Shows', 2145041.0215053763), ('Comedy', 1585263.705882353)]
+================================== Ai Message ==================================
+
+The genre with the longest tracks on average is "Sci Fi & Fantasy," with an average track length of approximately 2,911,783 milliseconds. Other genres with relatively long tracks include "Science Fiction," "Drama," "TV Shows," and "Comedy."
+```
+<Tip>
+See [LangSmith trace](https://smith.langchain.com/public/94b8c9ac-12f7-4692-8706-836a1f30f1ea/r) for the above run.
+</Tip>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\sql-agent.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

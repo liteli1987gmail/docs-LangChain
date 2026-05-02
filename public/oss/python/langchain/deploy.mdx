@@ -1,0 +1,35 @@
+---
+title: LangSmith 部署
+sidebarTitle: 部署
+---
+
+import DeployPy from '/snippets/oss/deploy-py.mdx';
+import DeployJs from '/snippets/oss/deploy-js.mdx';
+
+当您准备好将 LangChain 代理部署到生产环境时，LangSmith 提供了一个专为代理工作负载设计的托管托管平台。传统托管平台面向无状态的短期 Web 应用程序，而 LangGraph **专为有状态的长期运行代理而构建**，这些代理需要持久状态和后台执行。LangSmith 处理基础设施、扩展和运营问题，让您可以直接从代码仓库部署。
+
+## 前置条件
+
+在开始之前，请确保您具备以下条件：
+
+- 一个 [GitHub 账户](https://github.com/)
+- 一个 [LangSmith 账户](https://smith.langchain.com/)（免费注册）
+
+## 部署您的代理
+
+### 1. 在 GitHub 上创建代码仓库
+
+您的应用程序代码必须位于 GitHub 代码仓库中才能在 LangSmith 上部署。支持公开和私有仓库。对于这个快速入门，首先请确保您的应用程序通过遵循[本地服务器设置指南](/oss/python/langchain/studio)与 LangGraph 兼容。然后，将您的代码推送到代码仓库。
+
+<DeployPy />
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\deploy.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

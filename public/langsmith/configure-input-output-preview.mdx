@@ -1,0 +1,141 @@
+---
+title: 配置运行输入和输出预览
+sidebarTitle: 配置运行预览
+description: 通过为特定追踪类型配置自定义预览路径，自定义 Runs 表格中 Input 和 Output 列显示的内容。
+---
+
+默认情况下，LangSmith 使用启发式方法确定**Runs**表格中 **Input** 和 **Output** 列显示的内容。但是，您可以通过为特定追踪类型配置自定义预览路径来自定义这些列中显示的内容。
+
+这在以下情况下特别有用：
+
+- 您的追踪具有深层嵌套结构。
+- 您希望聚焦于数据中的特定字段。
+- 默认启发式方法没有显示与您的用例最相关的信息。
+
+## 在 UI 中配置预览格式
+
+### 访问预览设置
+
+1. 导航到项目中的追踪。
+1. 选择 **Runs** 选项卡。
+1. 在运行表格顶部找到 <Icon icon="adjustments-horizontal" /> **Format**。
+1. 在 **Configure Input and Output previews** 侧边窗口中，从下拉菜单中选择追踪名称。
+
+<img
+className="block dark:hidden"
+src="/langsmith/images/tracing-table.png"
+alt="Runs table showing the Format button at the top to configure input and output previews"
+/>
+
+<img
+className="hidden dark:block"
+src="/langsmith/images/tracing-table-dark.png"
+alt="Runs table showing the Format button at the top to configure input and output previews"
+/>
+
+当您选择追踪名称时，LangSmith 会加载一个成功的追踪示例并将其结构渲染为可展开的树。树中的每个节点代表您数据中的一个字段，显示：
+
+- 字段名称（例如，`messages` 用于大型语言模型对话历史记录、`output`、`metadata`）。
+- 数组索引（例如，[0]、[1]、[-1] 表示最后一项）。
+- 数组的条目计数（例如，(3) 表示 3 个条目）。
+- 内联显示的字符串和数字预览值。
+
+<img
+className="block dark:hidden"
+src="/langsmith/images/configure-preview.png"
+alt="Configure Input and Output previews side panel showing the tree view of trace data structure"
+/>
+
+<img
+className="hidden dark:block"
+src="/langsmith/images/configure-preview-dark.png"
+alt="Configure Input and Output previews side panel showing the tree view of trace data structure"
+/>
+
+### 设置路径
+
+1. 选择 **Input** 或 **Output** 选项卡。然后，以下两种方式之一：
+    - 下拉菜单直接从输入数据中指定应显示在预览中的路径。
+    - 示例追踪数据结构的交互式树视图，您可以浏览并选择要显示的精确字段。
+
+    选择字段：
+
+    1. 点击箭头图标 (▶) 展开或折叠嵌套对象和数组来浏览树。
+    1. 点击要显示在预览中的字段旁边的复选框。所选路径会显示在树前面的文本输入框中。
+
+    当您选择复选框时，路径会自动使用正确的语法构建（例如，messages[-1].content）。
+
+
+| 方法 | 适用于 | 示例 |
+| --- | --- | --- |
+| 树选择 | 浏览不熟悉的数据结构，查看示例值 | 点击浏览：messages → [-1] → content |
+| 手动输入 | 当您确切知道想要什么时，对于深层路径更快 | 输入：output.data.results[0].answer |
+
+包含超过 3 个项目的数组会自动折叠以防止视图过于拥挤：
+
+```
+☐ messages (15)
+  ☐ [0]
+  ☐ [1]
+  ... (click to expand all 15 items)
+```
+
+点击 **...** 按钮展开并查看所有数组项。
+
+## 示例
+
+例如，您的追踪输入如下：
+
+```
+{
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant"},
+    {"role": "user", "content": "What is the weather today?"}
+  ],
+  "metadata": {
+    "user_id": "user123",
+    "session_id": "sess456"
+  }
+}
+```
+
+在此示例中，`messages` 是消息对象的数组，每个对象都有 `role`（如 `system` 或 `user`）和 `content` 字段。
+
+要显示用户的问题：
+
+1. 展开 **messages** 节点（显示数组项）。
+1. 展开 `[1]`（第二条消息，即用户消息）。
+1. 点击 **content** 旁边的复选框。
+1. 输入字段显示：`messages[1].content`。
+
+或者，对最后一条消息使用负索引：
+
+1. 展开 **messages**。
+1. 展开 `[-1]`。
+1. 点击 **content**。
+1. 结果：`messages[-1].content`（始终显示最后一条消息）。
+
+<Note>
+如果您在树中看到 `"No paths available"`：
+
+- 确保您在最近 7 天内有一条具有所选追踪名称的成功追踪。
+- 追踪必须在您配置的输入/输出字段中有数据。
+- 如果需要，尝试发送一条测试追踪。
+</Note>
+
+## 后续步骤
+
+- 了解有关[查看和筛选追踪](/langsmith/filter-traces-in-application)的更多信息。
+- 探索[自定义输出渲染](/langsmith/custom-output-rendering)以进行高级可视化。
+- 设置[元数据和标签](/langsmith/add-metadata-tags)来组织您的追踪。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\configure-input-output-preview.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

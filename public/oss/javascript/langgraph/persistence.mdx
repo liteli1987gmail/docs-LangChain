@@ -1,0 +1,213 @@
+---
+title: 持久化
+---
+
+
+
+LangGraph 具有内置的持久化层，将图状态保存为检查点。当您用检查点编译图时，图状态的快照会在执行每一步时保存，并组织成线程。这使得人工介入工作流、对话记忆、时间旅行调试和容错执行成为可能。
+
+![Checkpoints](/oss/images/checkpoints.jpg)
+
+<Info>
+**代理服务器自动处理检查点**
+当使用[代理服务器](/langsmith/agent-server)时，您不需要手动实现或配置检查点。服务器在幕后为您处理所有持久化基础设施。
+</Info>
+
+## 为什么使用持久化
+
+以下功能需要持久化：
+
+- **人工介入**：检查点通过允许人工检查、中断和批准图步骤来促进[人工介入工作流](/oss/javascript/langgraph/interrupts)。这些工作流需要检查点，因为人员必须能够随时查看图的状态，而且图必须在人员对状态进行任何更新后能够恢复执行。请参阅[中断](/oss/javascript/langgraph/interrupts)查看示例。
+- **内存**：检查点允许["内存"](/oss/javascript/concepts/memory)在交互之间存在。在重复人工交互的情况下（如对话），任何后续消息都可以发送到该线程，它将保留对之前消息的记忆。请参阅[添加内存](/oss/javascript/langgraph/add-memory)了解如何使用检查点添加和管理对话内存的信息。
+- **时间旅行**：检查点允许["时间旅行"](/oss/javascript/langgraph/use-time-travel)，允许用户重放之前的图执行以审查和/或调试特定图步骤。此外，检查点使得可以在任意检查点分叉图状态以探索替代轨迹。
+- **容错**：检查点提供容错和错误恢复：如果在一个给定的超级步骤中一个或多个节点失败，您可以从最后一个成功步骤重新启动图。
+<a id="pending-writes"></a>
+- **待处理写入**：当图节点在给定的[超级步骤](#super-steps)中执行中途失败时，LangGraph 会存储来自在该超级步骤中成功完成的其他节点的待处理检查点写入。当您从该超级步骤恢复图执行时，您不需要重新运行成功的节点。
+
+## 核心概念
+
+### 线程
+
+线程是分配给检查点保存器保存的每个检查点的唯一 ID 或线程标识符。它包含一系列[运行](/langsmith/runs)的累积状态。当执行运行时，助手底层图的[状态](/oss/javascript/langgraph/graph-api#state)将被持久化到线程。
+
+当使用检查点调用图时，您**必须**指定 `thread_id` 作为配置中 `configurable` 部分的一部分：
+
+
+
+```typescript
+{
+  configurable: {
+    thread_id: "1";
+  }
+}
+```
+
+
+可以检索线程的当前和历史状态。要持久化状态，必须在执行运行之前创建线程。LangSmith API 提供了多个用于创建和管理线程及线程状态的端点。请参阅 [API 参考](https://reference.langchain.com/python/langsmith/) 了解更多信息。
+
+检查点使用 `thread_id` 作为存储和检索检查点的主键。没有它，检查点无法保存状态或在[中断](/oss/javascript/langgraph/interrupts)后恢复执行，因为检查点使用 `thread_id` 加载保存的状态。
+
+### 检查点
+
+线程在特定时间点的状态称为检查点。检查点是在每个[超级步骤](#super-steps)保存的图状态快照，由 `StateSnapshot` 对象表示（请参阅 [StateSnapshot 字段](#statesnapshot-fields) 获取完整字段参考）。
+
+#### 超级步骤
+
+LangGraph 在每个**超级步骤**边界创建检查点。超级步骤是图的单个"刻度"，其中所有为该步骤调度的节点执行（可能并行）。对于像 `START -> A -> B -> END` 这样的顺序图，输入、节点 A 和节点 B 有单独的超级步骤——每个之后产生一个检查点。了解超级步骤边界对于[时间旅行](/oss/javascript/langgraph/use-time-travel)很重要，因为您只能从检查点（即超级步骤边界）恢复执行。
+
+检查点被持久化，可用于稍后恢复线程的状态。
+
+让我们看看调用简单图时保存了哪些检查点：
+
+
+
+```typescript
+import { StateGraph, StateSchema, ReducedValue, START, END, MemorySaver } from "@langchain/langgraph";
+import { z } from "zod/v4";
+
+const State = new StateSchema({
+  foo: z.string(),
+  bar: new ReducedValue(
+    z.array(z.string()).default(() => []),
+    {
+      inputSchema: z.array(z.string()),
+      reducer: (x, y) => x.concat(y),
+    }
+  ),
+});
+
+const workflow = new StateGraph(State)
+  .addNode("nodeA", (state) => {
+    return { foo: "a", bar: ["a"] };
+  })
+  .addNode("nodeB", (state) => {
+    return { foo: "b", bar: ["b"] };
+  })
+  .addEdge(START, "nodeA")
+  .addEdge("nodeA", "nodeB")
+  .addEdge("nodeB", END);
+
+const checkpointer = new MemorySaver();
+const graph = workflow.compile({ checkpointer });
+
+const config = { configurable: { thread_id: "1" } };
+await graph.invoke({ foo: "", bar: [] }, config);
+```
+
+
+
+
+运行图后，我们期望看到正好 4 个检查点：
+
+* 空检查点，[`START`](https://reference.langchain.com/javascript/langchain-langgraph/index/START) 作为下一个要执行的节点
+* 检查点包含用户输入 `{'foo': '', 'bar': []}`，下一个要执行的节点是 `nodeA`
+* 检查点包含 `nodeA` 的输出 `{'foo': 'a', 'bar': ['a']}`，下一个要执行的节点是 `nodeB`
+* 检查点包含 `nodeB` 的输出 `{'foo': 'b', 'bar': ['a', 'b']}`，没有下一个要执行的节点
+
+请注意，`bar` 通道值包含来自两个节点的输出，因为我们为 `bar` 通道有一个 reducer。
+
+
+#### 检查点命名空间
+
+每个检查点都有一个 `checkpoint_ns`（检查点命名空间）字段，标识它属于哪个图或子图：
+
+- **`""`**（空字符串）：检查点属于父（根）图。
+- **`"node_name:uuid"`**：检查点属于作为给定节点调用的子图。对于嵌套子图，命名空间用 `|` 分隔符连接（例如，`"outer_node:uuid|inner_node:uuid"`）。
+
+您可以通过配置从节点内访问检查点命名空间：
+
+
+
+```typescript
+import { RunnableConfig } from "@langchain/core/runnables";
+
+function myNode(state: typeof State.Type, config: RunnableConfig) {
+  const checkpointNs = config.configurable?.checkpoint_ns;
+  // "" for the parent graph, "node_name:uuid" for a subgraph
+}
+```
+
+
+请参阅[子图](/oss/javascript/langgraph/use-subgraphs)了解更多关于处理子图状态和检查点的详细信息。
+
+## 获取和更新状态
+
+### 获取状态
+
+
+
+在与保存的图状态交互时，您**必须**指定一个[线程标识符](#threads)。您可以通过调用 `graph.getState(config)` 查看图的_最新_状态。这将返回一个 `StateSnapshot` 对象，对应于配置中提供的线程 ID 关联的最新检查点，或与线程的检查点 ID 关联的检查点（如果提供）。
+
+```typescript
+// get the latest state snapshot
+const config = { configurable: { thread_id: "1" } };
+await graph.getState(config);
+
+// get a state snapshot for a specific checkpoint_id
+const config = {
+  configurable: {
+    thread_id: "1",
+    checkpoint_id: "1ef663ba-28fe-6528-8002-5a559208592c",
+  },
+};
+await graph.getState(config);
+```
+
+
+
+
+在我们的示例中，`getState` 的输出将如下所示：
+
+```
+StateSnapshot {
+  values: { foo: 'b', bar: ['a', 'b'] },
+  next: [],
+  config: {
+    configurable: {
+      thread_id: '1',
+      checkpoint_ns: '',
+      checkpoint_id: '1ef663ba-28fe-6528-8002-5a559208592c'
+    }
+  },
+  metadata: {
+    source: 'loop',
+    writes: { nodeB: { foo: 'b', bar: ['b'] } },
+    step: 2
+  },
+  createdAt: '2024-08-29T19:19:38.821749+00:00',
+  parentConfig: {
+    configurable: {
+      thread_id: '1',
+      checkpoint_ns: '',
+      checkpoint_id: '1ef663ba-28f9-6ec4-8001-31981c2c39f8'
+    }
+  },
+  tasks: []
+}
+```
+
+
+#### StateSnapshot 字段
+
+
+:::js
+
+| 字段 | 类型 | 描述 |
+|-------|------|-------------|
+| `values` | `object` | 此检查点的状态通道值。 |
+| `next` | `string[]` | 接下来要执行的节点名称。空的 `[]` 表示图已完成。 |
+| `config` | `object` | 包含 `thread_id`、`checkpoint_ns` 和 `checkpoint_id`。 |
+| `metadata` | `object` | 执行元数据。包含 `source`（`"input"`、`"loop"` 或 `"update"`）、`writes`（节点输出）和 `step`（超级步骤计数器）。 |
+| `createdAt` | `string` | 此检查点创建时间的 ISO 8601 时间戳。 |
+| `parentConfig` | `object \| null` | 上一个检查点的配置。第一个检查点为 `null`。 |
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\persistence.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

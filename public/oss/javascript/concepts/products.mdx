@@ -1,0 +1,142 @@
+---
+title: 框架、运行时和工具
+sidebarTitle: LangChain vs. LangGraph vs. Deep Agents
+description: 了解 LangChain、LangGraph 和 Deep Agents 之间的差异以及何时使用每个产品
+---
+
+LangChain 维护多个开源包来帮助你构建代理。每个包在代理开发堆栈中服务于不同的目的。理解[代理框架](#agent-frameworks-like-langchain)、[代理运行时](#agent-runtimes-like-langgraph)和[代理工具](#agent-harnesses-like-the-deep-agents-sdk)之间的区别，有助于你为需求选择正确的工具。
+
+<table className="products-page">
+  <thead>
+    <tr>
+      <th></th>
+      <th>框架（Framework）</th>
+      <th>运行时（Runtime）</th>
+      <th>工具（Harness）</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>核心价值</td>
+      <td class="tdlist"><ul><li>抽象层</li><li>集成</li></ul></td>
+      <td class="tdlist"><ul><li>持久执行</li><li>流式处理</li><li>HITL</li><li>持久化</li></ul></td>
+      <td class="tdlist"><ul><li>预定义工具</li><li>提示词</li><li>子代理</li></ul></td>
+    </tr>
+    <tr>
+      <td>何时使用</td>
+      <td class="tdlist"><ul><li>快速上手</li><li>标准化团队构建方式</li></ul></td>
+      <td class="tdlist"><ul><li>低级控制</li><li>长时间运行的有状态工作流和代理</li></ul></td>
+      <td class="tdlist"><ul><li>更自主的代理</li><li>面对复杂、非确定性任务的代理</li></ul></td>
+    </tr>
+    <tr>
+      <td>选项</td>
+      <td class="tdlist"><ul><li>LangChain</li><li>Vercel 的 AI SDK</li><li>CrewAI</li><li>OpenAI Agents SDK</li><li>Google ADK</li><li>LlamaIndex</li></ul></td>
+      <td class="tdlist"><ul><li>LangGraph</li><li>Temporal</li><li>Inngest</li></ul></td>
+      <td class="tdlist"><ul><li>Deep Agents SDK</li><li>Claude Agent SDK</li><li>Manus</li></ul></td>
+    </tr>
+  </tbody>
+</table>
+
+## 代理框架（如 LangChain）
+
+代理框架提供抽象层，使在使用大型语言模型构建时更容易上手。
+
+[LangChain](/oss/javascript/langchain/overview) 是一个提供结构化内容块、代理循环和中间件等抽象的代理框架。
+
+LangChain 的抽象设计为易于上手，同时仍提供高级用例所需的灵活性。
+
+虽然 LangChain 构建在 [LangGraph](/oss/javascript/langgraph/overview) 之上，但你不需要了解 LangGraph 也能使用 LangChain。
+
+代理框架的其他示例包括 [Vercel 的 AI SDK](https://ai-sdk.dev/docs/introduction)、[CrewAI](https://www.crewai.com/)、[OpenAI Agents SDK](https://openai.github.io/openai-agents-python/)、[Google ADK](https://google.github.io/adk-docs/)、[LlamaIndex](https://www.llamaindex.ai/) 等等。
+
+### 何时使用 LangChain
+
+在以下情况下使用 LangChain：
+
+- 你想快速构建代理和自主应用。
+- 你需要模型、工具和代理循环的标准抽象。
+- 你想要一个易于使用但仍提供灵活性的框架。
+- 你正在构建没有复杂编排需求的简单代理应用。
+
+## 代理运行时（如 LangGraph）
+
+代理运行时提供用于在生产环境中运行代理的工具。
+支持的工具可能包括：
+
+- **持久执行**：代理在故障中持久化，可以长时间运行，并从中断处恢复。
+- **流式处理**：支持流式工作流和响应。
+- **人在环中（Human-in-the-loop）**：通过检查和修改代理状态纳入人工监督。
+- **持久化**：用于状态管理的线程级和跨线程持久化。
+- **低级控制**：直接控制代理编排，不使用高级抽象。
+
+[LangGraph](/oss/javascript/langgraph/overview) 是一个低级编排框架和运行时，用于构建、管理和部署长时间运行的有状态代理。
+
+代理框架通常更高级，并在代理运行时上运行。
+例如，LangChain 1.0 构建在 LangGraph 之上。
+
+代理运行时的其他示例包括 [Temporal](https://temporal.io/)、[Inngest](https://www.inngest.com/) 和其他持久执行引擎。
+
+### 何时使用 LangGraph
+
+在以下情况下使用 LangGraph：
+
+- 你需要对代理编排进行细粒度、低级别的控制。
+- 你需要长时间运行的有状态代理的持久执行。
+- 你在构建结合确定性和代理步骤的复杂工作流。
+- 你需要用于代理部署的生产级基础设施。
+
+## 代理工具（如 Deep Agents SDK）
+
+代理工具是固执己见的、包含电池的框架，内置了用于构建复杂长时间运行代理的工具和能力。
+支持的工具可能包括：
+
+- **规划能力**：使用待办事项列表跟踪多个任务。
+- **任务委托**：委托工作并使用子代理保持上下文清晰。
+- **文件系统**：在不同可插拔存储后端上读取和写入访问。
+- **Token 管理**：对话历史摘要和大型工具结果驱逐。
+
+[Deep Agents SDK](/oss/javascript/deepagents/overview) 构建在 LangGraph 之上，添加了规划能力、用于上下文管理的文件系统、生成子代理的能力等等。
+Deep Agents 专为需要规划和分解的复杂多步骤任务而设计。
+
+示例任务包括处理搜索结果、脚本和其他状态中的产物。
+
+代理工具的其他示例包括 [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview)、[Manus](https://manus.im/) 和其他编码 CLI。
+
+### 何时使用 Deep Agents SDK
+
+在以下情况下使用 [Deep Agents SDK](/oss/javascript/deepagents/overview)：
+
+- 你正在构建长时间运行的代理。
+- 你正在构建需要处理复杂多步骤任务的代理。
+- 你想使用预定义工具，例如文件系统操作、bash 执行和自动上下文工程。
+- 你想使用预定义提示词和子代理。
+
+## 功能比较
+
+虽然你可以用 LangChain、LangGraph 和 Deep Agents 完成类似的任务，但它们之间的集成级别不同：
+
+| 功能 | LangChain | LangGraph   | Deep Agents |
+| ------- | --------- | ----------- | ----------- |
+| 短期记忆 | [短期记忆](/oss/javascript/langchain/short-term-memory) | [短期记忆](/oss/javascript/langgraph/add-memory#add-short-term-memory) | [`StateBackend`](/oss/javascript/deepagents/backends#statebackend-ephemeral) |
+| 长期记忆 | [长期记忆](/oss/javascript/langchain/long-term-memory) | [长期记忆](/oss/javascript/langgraph/add-memory#add-long-term-memory) | [长期记忆](/oss/javascript/deepagents/memory) |
+| 技能（Skills） | [多代理技能](/oss/javascript/langchain/multi-agent/skills) | - | [技能](/oss/javascript/deepagents/skills) |
+| 子代理 | [多代理子代理](/oss/javascript/langchain/multi-agent/subagents) | [子图](/oss/javascript/langgraph/use-subgraphs) | [子代理](/oss/javascript/deepagents/subagents) |
+| 人在环中 | [人在环中中间件](/oss/javascript/langchain/human-in-the-loop) | [中断](/oss/javascript/langgraph/interrupts) | [`interrupt_on` 参数](/oss/javascript/deepagents/harness#human-in-the-loop) |
+| 流式处理 | [代理流式处理](/oss/javascript/langchain/streaming/overview) | [流式处理](/oss/javascript/langgraph/streaming) | [流式处理](/oss/javascript/deepagents/streaming/overview) |
+
+## 了解更多
+
+- [LangChain 概述](/oss/javascript/langchain/overview)
+- [LangGraph 概述](/oss/javascript/langgraph/overview)
+- [Deep Agents 概述](/oss/javascript/deepagents/overview)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\concepts\products.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

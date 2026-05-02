@@ -1,0 +1,57 @@
+---
+title: "Spark integrations"
+description: "Integrate with Spark using LangChain Python."
+---
+
+[Apache Spark](https://spark.apache.org/) 是一个用于大规模数据处理的统一分析引擎。它提供了使用 Scala、Java、Python 和 R 的高级 API，以及支持通用计算图进行数据分析的优化引擎。它还支持丰富的更高级工具，包括用于 SQL 和 DataFrames 的 `Spark SQL`、用于 pandas 工作负载的 `pandas API on Spark`、用于机器学习的 `MLlib`、用于图处理的 `GraphX`，以及用于流处理的 `Structured Streaming`。
+
+## Document loaders
+
+### PySpark
+
+It loads data from a `PySpark` DataFrame.
+
+See a [usage example](/oss/python/integrations/document_loaders/pyspark_dataframe).
+
+```python
+from langchain_community.document_loaders import PySparkDataFrameLoader
+```
+
+## Tools/Toolkits
+
+### Spark SQL toolkit
+
+Toolkit for interacting with `Spark SQL`.
+
+See a [usage example](/oss/python/integrations/tools/spark_sql).
+
+```python
+from langchain_community.agent_toolkits import SparkSQLToolkit, create_spark_sql_agent
+from langchain_community.utilities.spark_sql import SparkSQL
+```
+
+#### Spark SQL individual tools
+
+You can use individual tools from the Spark SQL Toolkit:
+- `InfoSparkSQLTool`: tool for getting metadata about a Spark SQL
+- `ListSparkSQLTool`: tool for getting tables names
+- `QueryCheckerTool`: tool uses an LLM to check if a query is correct
+- `QuerySparkSQLTool`: tool for querying a Spark SQL
+
+```python
+from langchain_community.tools.spark_sql.tool import InfoSparkSQLTool
+from langchain_community.tools.spark_sql.tool import ListSparkSQLTool
+from langchain_community.tools.spark_sql.tool import QueryCheckerTool
+from langchain_community.tools.spark_sql.tool import QuerySparkSQLTool
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\spark.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

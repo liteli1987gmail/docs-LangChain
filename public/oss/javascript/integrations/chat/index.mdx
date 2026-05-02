@@ -1,0 +1,520 @@
+---
+title: "Chat model 集成s"
+sidebarTitle: "Chat models"
+description: "Integrate with chat models using LangChain JavaScript."
+---
+
+[Chat models](/oss/javascript/langchain/models) are 语言模型 使用一系列 [messages](/oss/javascript/langchain/messages) 作为输入并返回 消息作为输出 <Tooltip tip="不遵循聊天模型接口的旧模型 而是使用接受字符串输入并返回字符串输出的接口. 该se models typically do not include the prefix 'Chat' in their name or include 'LLM' as a suffix.">(（与纯文本相对）)</Tooltip>.
+
+## 安装与使用
+
+<Tip>
+    请参阅 [this section for general instructions on installing LangChain 包s](/oss/javascript/langchain/install).
+</Tip>
+
+<AccordionGroup>
+    <Accordion title="OpenAI">
+        Install:
+
+        <CodeGroup>
+            ```bash npm
+            npm i @langchain/openai
+            ```
+            ```bash yarn
+            yarn add @langchain/openai
+            ```
+            ```bash pnpm
+            pnpm add @langchain/openai
+            ```
+        </CodeGroup>
+
+        Add environment variables:
+
+        ```bash
+        OPENAI_API_KEY=your-api-key
+        ```
+
+        Instantiate the model:
+
+        ```typescript
+        import { ChatOpenAI } from "@langchain/openai";
+
+        const model = new ChatOpenAI({ model: "gpt-5.4-mini" });
+        ```
+        ```javascript
+        await model.invoke("Hello, world!")
+        ```
+    </Accordion>
+    <Accordion title="Anthropic">
+        Install:
+
+        <CodeGroup>
+            ```bash npm
+            npm i @langchain/anthropic
+            ```
+            ```bash yarn
+            yarn add @langchain/anthropic
+            ```
+            ```bash pnpm
+            pnpm add @langchain/anthropic
+            ```
+        </CodeGroup>
+
+        Add environment variables:
+
+        ```bash
+        ANTHROPIC_API_KEY=your-api-key
+        ```
+
+        Instantiate the model:
+
+        ```typescript
+        import { ChatAnthropic } from "@langchain/anthropic";
+
+        const model = new ChatAnthropic({
+        model: "claude-3-sonnet-20240620",
+        temperature: 0
+        });
+        ```
+        ```javascript
+        await model.invoke("Hello, world!")
+        ```
+    </Accordion>
+    <Accordion title="Google Gemini">
+        Install:
+
+        <CodeGroup>
+            ```bash npm
+            npm i @langchain/google
+            ```
+
+            ```bash yarn
+            yarn add @langchain/google
+            ```
+            ```bash pnpm
+            pnpm add @langchain/google
+            ```
+        </CodeGroup>
+
+        Add environment variables:
+
+        ```bash
+        GOOGLE_API_KEY=your-api-key
+        ```
+
+        Instantiate the model:
+
+        ```typescript
+        import { ChatGoogle } from "@langchain/google";
+
+        const model = new ChatGoogle("gemini-2.5-flash");
+        ```
+        ```javascript
+        await model.invoke("Hello, world!")
+        ```
+    </Accordion>
+    <Accordion title="MistralAI">
+        Install:
+
+        <CodeGroup>
+            ```bash npm
+            npm i @langchain/mistralai
+            ```
+
+            ```bash yarn
+            yarn add @langchain/mistralai
+            ```
+
+            ```bash pnpm
+            pnpm add @langchain/mistralai
+            ```
+        </CodeGroup>
+
+        Add environment variables:
+
+        ```bash
+        MISTRAL_API_KEY=your-api-key
+        ```
+
+        Instantiate the model:
+
+        ```typescript
+        import { ChatMistralAI } from "@langchain/mistralai";
+
+        const model = new ChatMistralAI({
+        model: "mistral-large-latest",
+        temperature: 0
+        });
+        ```
+        ```javascript
+        await model.invoke("Hello, world!")
+        ```
+    </Accordion>
+    <Accordion title="FireworksAI">
+        Install:
+
+        <CodeGroup>
+            ```bash npm
+            npm i @langchain/community
+            ```
+
+            ```bash yarn
+            yarn add @langchain/community
+            ```
+
+            ```bash pnpm
+            pnpm add @langchain/community
+            ```
+        </CodeGroup>
+
+        Add environment variables:
+
+        ```bash
+        FIREWORKS_API_KEY=your-api-key
+        ```
+
+        Instantiate the model:
+
+        ```typescript
+        import { ChatFireworks } from "@langchain/community/chat_models/fireworks";
+
+        const model = new ChatFireworks({
+        model: "accounts/fireworks/models/llama-v3p1-70b-instruct",
+        temperature: 0
+        });
+        ```
+        ```javascript
+        await model.invoke("Hello, world!")
+        ```
+    </Accordion>
+    <Accordion title="Groq">
+        Install:
+
+        <CodeGroup>
+            ```bash npm
+            npm i @langchain/groq
+            ```
+            ```bash yarn
+            yarn add @langchain/groq
+            ```
+            ```bash pnpm
+            pnpm add @langchain/groq
+            ```
+        </CodeGroup>
+
+        Add environment variables:
+
+        ```bash
+        GROQ_API_KEY=your-api-key
+        ```
+
+        Instantiate the model:
+
+        ```typescript
+        import { ChatGroq } from "@langchain/groq";
+
+        const model = new ChatGroq({
+        model: "llama-3.3-70b-versatile",
+        temperature: 0
+        });
+        ```
+        ```javascript
+        await model.invoke("Hello, world!")
+        ```
+    </Accordion>
+</AccordionGroup>
+
+## 精选模型
+
+<信息>
+    **While these LangChain classes support the indicated advanced feature**, you may need to refer to provider-specific documentation to learn which hosted models or backends support the feature.
+</信息>
+
+| Model | Stream | [Tool Calling](/oss/javascript/langchain/tools/) | [`withStructuredOutput()`](/oss/javascript/langchain/models#structured-output) | [`Multimodal`](/oss/javascript/langchain/messages#multimodal) |
+|-|-|-|-|-|
+| [`ChatOpenAI`](/oss/javascript/集成s/chat/openai/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatAnthropic`](/oss/javascript/集成s/chat/anthropic/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatGoogle`](/oss/javascript/集成s/chat/google/) | ✅ | ✅ | ✅ | ✅ |
+| [`BedrockChat`](/oss/javascript/集成s/chat/bedrock/) | ✅ | 🟡 (Bedrock Anthropic only) | 🟡 (Bedrock Anthropic only) | 🟡 (Bedrock Anthropic only) |
+| [`ChatBedrockConverse`](/oss/javascript/集成s/chat/bedrock_converse/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatCloudflareWorkersAI`](/oss/javascript/集成s/chat/cloudflare_workersai/) | ✅ | ❌ | ❌ | ❌ |
+| [`ChatCohere`](/oss/javascript/集成s/chat/cohere/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatFireworks`](/oss/javascript/集成s/chat/fireworks/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatGroq`](/oss/javascript/集成s/chat/groq/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatMistralAI`](/oss/javascript/集成s/chat/mistral/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatOllama`](/oss/javascript/集成s/chat/ollama/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatTogetherAI`](/oss/javascript/集成s/chat/togetherai/) | ✅ | ✅ | ✅ | ✅ |
+| [`ChatXAI`](/oss/javascript/集成s/chat/xai/) | ✅ | ✅ | ✅ | ❌ |
+
+## Chat completions API
+
+Certain model providers offer endpoints that are compatible with OpenAI's (legacy) [Chat Completions API](https://platform.openai.com/docs/guides/completions). In such case, you can use [`ChatOpenAI`](/oss/javascript/integrations/chat/openai) with a custom `base_url` to connect to these endpoints. Note that features built on top of the Chat Completions API may not be fully supported by `ChatOpenAI`; in such cases, consider using a provider-specific class if available.
+
+<Accordion title="Example: OpenRouter">
+    To use OpenRouter, you will need to sign up for an account and obtain an [API key](https://openrouter.ai/docs/api/reference/authentication).
+
+    ```typescript
+    import { ChatOpenAI } from "@langchain/openai";
+
+    const model = new ChatOpenAI({
+        model: "...", // Specify a model available on OpenRouter
+        configuration: {
+        apiKey: "OPENROUTER_API_KEY",
+        baseURL: "https://openrouter.ai/api/v1",
+        }
+    });
+    ```
+
+    Refer to the [OpenRouter documentation](https://openrouter.ai/docs/quickstart) for more details.
+</Accordion>
+
+## 所有聊天模型
+
+<Columns cols={3}>
+    <Card
+        title="Alibaba Tongyi"
+        icon="link"
+        href="/oss/javascript/集成s/chat/alibaba_tongyi"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Anthropic"
+        icon="link"
+        href="/oss/javascript/集成s/chat/anthropic"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Arcjet Redact"
+        icon="link"
+        href="/oss/javascript/集成s/chat/arcjet"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Azure OpenAI"
+        icon="link"
+        href="/oss/javascript/集成s/chat/azure"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Baidu Qianfan"
+        icon="link"
+        href="/oss/javascript/集成s/chat/baidu_qianfan"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Amazon Bedrock"
+        icon="link"
+        href="/oss/javascript/集成s/chat/bedrock"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Amazon Bedrock Converse"
+        icon="link"
+        href="/oss/javascript/集成s/chat/bedrock_converse"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Cerebras"
+        icon="link"
+        href="/oss/javascript/集成s/chat/cerebras"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Cloudflare Workers AI"
+        icon="link"
+        href="/oss/javascript/集成s/chat/cloudflare_workersai"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Cohere"
+        icon="link"
+        href="/oss/javascript/集成s/chat/cohere"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Deep Infra"
+        icon="link"
+        href="/oss/javascript/集成s/chat/deep_infra"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Deep请参阅k"
+        icon="link"
+        href="/oss/javascript/集成s/chat/deep请参阅k"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Fake LLM"
+        icon="link"
+        href="/oss/javascript/集成s/chat/fake"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Fireworks"
+        icon="link"
+        href="/oss/javascript/集成s/chat/fireworks"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Friendli"
+        icon="link"
+        href="/oss/javascript/集成s/chat/friendli"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Google Gemini"
+        icon="link"
+        href="/oss/javascript/集成s/chat/google"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Groq"
+        icon="link"
+        href="/oss/javascript/集成s/chat/groq"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="IBM watsonx.ai"
+        icon="link"
+        href="/oss/javascript/集成s/chat/ibm"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Llama CPP"
+        icon="link"
+        href="/oss/javascript/集成s/chat/llama_cpp"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Minimax"
+        icon="link"
+        href="/oss/javascript/集成s/chat/minimax"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="MistralAI"
+        icon="link"
+        href="/oss/javascript/集成s/chat/mistral"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Moonshot"
+        icon="link"
+        href="/oss/javascript/集成s/chat/moonshot"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="否vita AI"
+        icon="link"
+        href="/oss/javascript/集成s/chat/novita"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Ollama"
+        icon="link"
+        href="/oss/javascript/集成s/chat/ollama"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="OpenAI"
+        icon="link"
+        href="/oss/javascript/集成s/chat/openai"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Perplexity"
+        icon="link"
+        href="/oss/javascript/集成s/chat/perplexity"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="PremAI"
+        icon="link"
+        href="/oss/javascript/集成s/chat/premai"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Tencent Hunyuan"
+        icon="link"
+        href="/oss/javascript/集成s/chat/tencent_hunyuan"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="Together"
+        icon="link"
+        href="/oss/javascript/集成s/chat/togetherai"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="WebLLM"
+        icon="link"
+        href="/oss/javascript/集成s/chat/web_llm"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="xAI"
+        icon="link"
+        href="/oss/javascript/集成s/chat/xai"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="YandexGPT"
+        icon="link"
+        href="/oss/javascript/集成s/chat/yandex"
+        arrow="true"
+        cta="View guide"
+    />
+    <Card
+        title="ZhipuAI"
+        icon="link"
+        href="/oss/javascript/集成s/chat/zhipuai"
+        arrow="true"
+        cta="View guide"
+    />
+</Columns>
+
+<信息>
+    If you'd like to contribute an 集成, 请参阅 [Contributing 集成s](/oss/javascript/contributing#add-a-new-集成).
+</信息>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\chat\index.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

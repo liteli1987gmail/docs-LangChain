@@ -1,0 +1,287 @@
+---
+title: 管理数据集
+sidebarTitle: 管理数据集
+---
+
+LangSmith 提供了用于管理和操作[_数据集_](/langsmith/evaluation-concepts#datasets)的工具。本页面介绍了数据集操作，包括：
+
+- [对数据集进行版本控制](#version-a-dataset)以跟踪随时间的变更。
+- [过滤](#evaluate-on-a-filtered-view-of-a-dataset)和[分割](#evaluate-on-a-dataset-split)数据集以进行评估。
+- [公开分享数据集](#share-a-dataset)。
+- [以各种格式导出数据集](#export-a-dataset)。
+
+您还将学习如何从[实验](/langsmith/evaluation-concepts#experiment)向数据集[导出过滤后的追踪](#export-filtered-traces-from-experiment-to-dataset)，以便进一步分析和迭代。
+
+## 对数据集进行版本控制
+
+在 LangSmith 中，数据集是有版本控制的。这意味着每次您在数据集中添加、更新或删除示例时，都会创建一个新版本的数据集。
+
+### 创建数据集的新版本
+
+每当您在数据集中添加、更新或删除示例时，都会创建数据集的新[版本](/langsmith/evaluation-concepts#dataset-organization)。这允许您跟踪数据集随时间的变更，并了解数据集是如何演变的。
+
+默认情况下，版本由更改的时间戳定义。当您在**示例**标签中点击数据集的特定版本（按时间戳）时，您将找到该时间点数据集的状态。
+
+![Version Datasets](/langsmith/images/version-dataset.png)
+
+请注意，在查看数据集的过去版本时，示例是只读的。您还可以看到该版本的数据集与最新版本之间的操作。
+
+<Note>
+默认情况下，**示例**标签中显示数据集的最新版本，**测试**标签中显示所有版本的实验。
+</Note>
+
+在**测试**标签中，您将找到在不同版本的数据集上运行的测试结果。
+
+![Version Datasets](/langsmith/images/version-dataset-tests.png)
+
+### 标记版本
+
+您还可以为数据集的版本添加标签，给予它们更人性化的名称，这对于标记数据集历史中的重要里程碑很有用。
+
+例如，您可以将数据集的某个版本标记为"prod"，并使用它对大型语言模型流水线进行测试。
+
+您可以通过在**示例**标签中点击**+ 标记此版本**来在 UI 中为数据集的版本添加标签。
+
+![Tagging Datasets](/langsmith/images/tag-this-version.png)
+
+您也可以使用 SDK 为数据集的版本添加标签。以下是使用 [Python SDK](https://docs.smith.langchain.com/reference/python/reference) 为数据集版本添加标签的示例：
+
+```python
+from langsmith import Client
+from datetime import datetime
+
+client = Client()
+initial_time = datetime(2024, 1, 1, 0, 0, 0) # 您想要标记的版本的时间戳
+
+# 您可以使用语义名称（如"prod"）标记特定的数据集版本
+client.update_dataset_tag(
+    dataset_name=toxic_dataset_name, as_of=initial_time, tag="prod"
+)
+```
+
+要在数据集的特定标记版本上运行评估，请参阅[评估特定数据集版本部分](#evaluate-on-a-specific-dataset-version)。
+
+## 评估特定数据集版本
+
+<Check>
+在阅读本节之前，您可能会发现参考以下内容很有帮助：
+
+- [对数据集进行版本控制](#version-a-dataset)。
+- [获取示例](/langsmith/manage-datasets-programmatically#fetch-examples)。
+</Check>
+
+### 使用 `list_examples`
+
+您可以使用 `evaluate` / `aevaluate` 传递要评估的数据集特定版本的示例迭代器。使用 `list_examples` / `listExamples` 通过 `as_of` / `asOf` 从特定版本标签获取示例，并将其传递到 `data` 参数中。
+
+<CodeGroup>
+
+```python Python
+from langsmith import Client
+
+ls_client = Client()
+
+# 假设实际输出有 'class' 键。
+# 假设示例输出有 'label' 键。
+def correct(outputs: dict, reference_outputs: dict) -> bool:
+  return outputs["class"] == reference_outputs["label"]
+
+results = ls_client.evaluate(
+    lambda inputs: {"class": "Not toxic"},
+    # 在此处传入过滤后的数据：
+    data=ls_client.list_examples(
+      dataset_name="Toxic Queries",
+      as_of="latest",  # 在此处指定版本
+    ),
+    evaluators=[correct],
+)
+```
+
+```typescript TypeScript
+import { evaluate } from "langsmith/evaluation";
+
+await evaluate((inputs) => labelText(inputs["input"]), {
+  data: langsmith.listExamples({
+    datasetName: datasetName,
+    asOf: "latest",
+  }),
+  evaluators: [correctLabel],
+});
+```
+
+```java Java
+import com.langchain.smith.models.examples.ExampleListParams;
+
+ExampleListParams listParams = ExampleListParams.builder()
+    .datasetId(datasetId)
+    .asOf("latest")
+var examples = client.examples().list(listParams);
+```
+
+</CodeGroup>
+
+详细了解如何在[以编程方式创建和管理数据集](/langsmith/manage-datasets-programmatically#fetch-datasets)页面上获取数据集的视图。
+
+## 评估数据集的分割/过滤视图
+
+<Check>
+在阅读本节之前，您可能会发现参考以下内容很有帮助：
+
+- [获取示例](/langsmith/manage-datasets-programmatically#fetch-examples)。
+- [创建和管理数据集分割](/langsmith/manage-datasets-in-application#create-and-manage-dataset-splits)。
+</Check>
+
+### 评估数据集的过滤视图
+
+您可以使用 `list_examples` / `listExamples` 方法从数据集中[获取](/langsmith/manage-datasets-programmatically#fetch-examples)要评估的示例子集。
+
+一种常见的工作流程是获取具有特定元数据键值对的示例。
+
+<CodeGroup>
+
+```python Python
+from langsmith import evaluate
+
+results = evaluate(
+    lambda inputs: label_text(inputs["text"]),
+    data=client.list_examples(dataset_name=dataset_name, metadata={"desired_key": "desired_value"}),
+    evaluators=[correct_label],
+    experiment_prefix="Toxic Queries",
+)
+```
+
+```typescript TypeScript
+import { evaluate } from "langsmith/evaluation";
+
+await evaluate((inputs) => labelText(inputs["input"]), {
+  data: langsmith.listExamples({
+    datasetName: datasetName,
+    metadata: {"desired_key": "desired_value"},
+  }),
+  evaluators: [correctLabel],
+  experimentPrefix: "Toxic Queries",
+});
+```
+
+```java Java
+import com.langchain.smith.models.examples.ExampleListParams;
+
+ExampleListParams listParams = ExampleListParams.builder()
+    .datasetId(datasetId)
+    .metadata("{\"desired_key\":\"desired_value\"}")
+    .build();
+var examples = client.examples().list(listParams);
+```
+
+</CodeGroup>
+
+更多过滤功能，请参阅此[操作指南](/langsmith/manage-datasets-programmatically#list-examples-by-structured-filter)。
+
+### 评估数据集分割
+
+您可以使用 `list_examples` / `listExamples` 方法对数据集的一个或多个[分割](/langsmith/evaluation-concepts#dataset-organization)进行评估。`splits` 参数接受您想要评估的分割列表。
+
+<CodeGroup>
+
+```python Python
+from langsmith import evaluate
+
+results = evaluate(
+    lambda inputs: label_text(inputs["text"]),
+    data=client.list_examples(dataset_name=dataset_name, splits=["test", "training"]),
+    evaluators=[correct_label],
+    experiment_prefix="Toxic Queries",
+)
+```
+
+```typescript TypeScript
+import { evaluate } from "langsmith/evaluation";
+
+await evaluate((inputs) => labelText(inputs["input"]), {
+  data: langsmith.listExamples({
+    datasetName: datasetName,
+    splits: ["test", "training"],
+  }),
+  evaluators: [correctLabel],
+  experimentPrefix: "Toxic Queries",
+});
+```
+
+```java Java
+import com.langchain.smith.models.examples.ExampleListParams;
+import java.util.Arrays;
+import java.util.List;
+
+List<String> splits = Arrays.asList("test", "training");
+
+ExampleListParams listParams = ExampleListParams.builder()
+    .datasetId(datasetId)
+    .splits(splits)
+    .build();
+var examples = client.examples().list(listParams);
+```
+
+</CodeGroup>
+
+有关获取数据集视图的更多详细信息，请参阅[获取数据集](/langsmith/manage-datasets-programmatically#fetch-datasets)指南。
+
+## 分享数据集
+
+### 公开分享数据集
+
+<Warning>
+公开分享数据集将使**数据集示例、实验及相关联的追踪和反馈可被任何有链接的人访问**，即使他们没有 LangSmith 账户。请确保您没有分享敏感信息。
+
+此功能仅在云托管版本的 LangSmith 中可用。
+</Warning>
+
+在**数据集与实验**标签中，选择一个数据集，点击 **⋮**（页面右上角），点击**分享数据集**。这将打开一个对话框，您可以在其中复制数据集的链接。
+
+![Share Dataset](/langsmith/images/share-dataset.gif)
+
+### 取消分享数据集
+
+1. 点击任何公开分享的数据集右上角的**公开**，然后在对话框中点击**取消分享**。![Unshare Dataset](/langsmith/images/unshare-dataset.png)
+
+2. 通过点击**设置** -> **分享链接**或[此链接](https://smith.langchain.com/settings/shared)导航到您组织的公开分享数据集列表，然后点击要取消分享的数据集旁边的**取消分享**。
+
+![Unshare Trace List](/langsmith/images/unshare-trace-list.png)
+
+## 导出数据集
+
+您可以从 LangSmith UI 将 LangSmith 数据集导出为 CSV、JSONL 或 [OpenAI 的微调格式](https://platform.openai.com/docs/guides/fine-tuning#example-format)。
+
+在**数据集与实验**标签中，选择一个数据集，点击 **⋮**（页面右上角），点击**下载数据集**。
+
+![Export Dataset Button](/langsmith/images/export-dataset-button.gif)
+
+## 从实验导出过滤后的追踪到数据集
+
+在 LangSmith 中运行[离线评估](/langsmith/evaluation-concepts#offline-evaluations)后，您可能希望将符合某些评估条件的[追踪](/langsmith/observability-concepts#traces)导出到数据集中。
+
+### 查看实验追踪
+
+![Export filtered traces](/langsmith/images/export-filtered-trace-to-dataset.png)
+
+首先，点击实验名称旁边的箭头。这将引导您到一个包含实验生成的追踪的项目。
+
+![Export filtered traces](/langsmith/images/experiment-tracing-project.png)
+
+在那里，您可以根据评估条件过滤追踪。在这个例子中，我们过滤所有准确率分数大于 0.5 的追踪。
+
+![Export filtered traces](/langsmith/images/filtered-traces-from-experiment.png)
+
+在项目上应用过滤器后，我们可以多选运行添加到数据集，然后点击**添加到数据集**。
+
+![Export filtered traces](/langsmith/images/add-filtered-traces-to-dataset.png)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\manage-datasets.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,81 @@
+---
+title: 概览
+description: 在代理执行的每一步进行控制和自定义
+---
+
+Middleware 提供了一种更紧密地控制代理内部发生的事情的方法。中间件适用于以下场景：
+
+- 使用日志、分析和调试来跟踪代理行为。
+- 转换提示词、[工具选择](/oss/python/langchain/middleware/built-in#llm-tool-selector)和输出格式。
+- 添加[重试](/oss/python/langchain/middleware/built-in#tool-retry)、[回退](/oss/python/langchain/middleware/built-in#model-fallback)和提前终止逻辑。
+- 应用[速率限制](/oss/python/langchain/middleware/built-in#model-call-limit)、防护栏和 [PII 检测](/oss/python/langchain/middleware/built-in#pii-detection)。
+
+通过将中间件传递给 [`create_agent`](https://reference.langchain.com/python/langchain/agents/factory/create_agent) 来添加中间件：
+
+```python
+from langchain.agents import create_agent
+from langchain.agents.middleware import SummarizationMiddleware, HumanInTheLoopMiddleware
+
+agent = create_agent(
+    model="gpt-5.4",
+    tools=[...],
+    middleware=[
+        SummarizationMiddleware(...),
+        HumanInTheLoopMiddleware(...)
+    ],
+)
+```
+
+
+
+
+## 代理循环
+
+核心代理循环涉及调用模型、让它选择要执行的工具，然后在不再调用工具时结束：
+
+<img
+    src="/oss/images/core_agent_loop.png"
+    alt="Core agent loop diagram"
+    style={{height: "200px", width: "auto", justifyContent: "center"}}
+    className="rounded-lg block mx-auto"
+/>
+
+中间件在这些步骤的每一步之前和之后暴露钩子：
+
+<img
+    src="/oss/images/middleware_final.png"
+    alt="Middleware flow diagram"
+    style={{height: "300px", width: "auto", justifyContent: "center"}}
+    className="rounded-lg mx-auto"
+/>
+
+## 其他资源
+
+<CardGroup cols={2}>
+    <Card title="内置中间件" icon="box" href="/oss/python/langchain/middleware/built-in">
+        探索用于常见用例的内置中间件。
+    </Card>
+    <Card title="自定义中间件" icon="code" href="/oss/python/langchain/middleware/custom">
+        使用钩子和装饰器构建您自己的中间件。
+    </Card>
+    <Card title="中间件 API 参考" icon="book" href="https://reference.langchain.com/python/langchain/middleware/">
+        完整的中间件 API 参考。
+    </Card>
+    <Card title="中间件集成" icon="plug" href="/oss/python/integrations/middleware/">
+        针对 Anthropic、AWS、OpenAI 等的提供商特定中间件。
+    </Card>
+    <Card title="测试代理" icon="scale" href="/oss/python/langchain/test/">
+        使用 LangSmith 测试您的代理。
+    </Card>
+</CardGroup>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\middleware\overview.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

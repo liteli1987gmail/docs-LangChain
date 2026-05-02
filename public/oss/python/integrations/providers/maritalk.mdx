@@ -1,0 +1,41 @@
+---
+title: "Maritalk integrations"
+description: "Integrate with Maritalk using LangChain Python."
+---
+
+[MariTalk](https://www.maritaca.ai/en) 是一个基于LLM的聊天机器人，经过训练以满足巴西的需求。
+
+## Installation and setup
+
+You have to get the MariTalk API key.
+
+You also need to install the `httpx` Python package.
+
+<CodeGroup>
+```bash pip
+pip install httpx
+```
+
+```bash uv
+uv add httpx
+```
+</CodeGroup>
+
+## Chat models
+
+See a [usage example](/oss/python/integrations/chat/maritalk).
+
+```python
+from langchain_community.chat_models import ChatMaritalk
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\maritalk.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

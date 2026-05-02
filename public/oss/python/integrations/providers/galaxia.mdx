@@ -1,0 +1,52 @@
+---
+title: "Smabbler integrations"
+description: "Integrate with Smabbler using LangChain Python."
+---
+
+Smabbler 的 graph-powered 平台通过将数据转化为结构化的知识基础来加速 AI 开发。
+
+## Galaxia
+
+Galaxia Knowledge Base 是一个综合知识 base 和 retrieval 机制，用于 RAG。与 standard solution 不同，它基于使用 symbolic NLP 和 Knowledge Representation 解决方案构建的 Knowledge Graphs。Provided texts 经过分析并转换为包含文本、语言和 semantic 信息的 Graphs。这种 rich structure 允许基于 semantic information 进行 retrieval，而不是基于 vector similarity/distance。
+
+Implementing RAG using Galaxia involves first uploading your files to [Galaxia](https://beta.cloud.smabbler.com/home), analyzing them there and then building a model (knowledge graph). When the model is built, you can use `GalaxiaRetriever` to connect to the API and start retrieving.
+
+More information: [docs](https://smabbler.gitbook.io/smabbler)
+
+## Installation
+<CodeGroup>
+```bash pip
+pip install langchain-galaxia-retriever
+```
+
+```bash uv
+uv add langchain-galaxia-retriever
+```
+</CodeGroup>
+
+## Usage
+
+```
+from langchain_galaxia_retriever.retriever import GalaxiaRetriever
+
+gr = GalaxiaRetriever(
+    api_url="beta.api.smabbler.com",
+    api_key="<key>",
+    knowledge_base_id="<knowledge_base_id>",
+    n_retries=10,
+    wait_time=5,
+)
+
+result = gr.invoke('<test question>')
+print(result)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\galaxia.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

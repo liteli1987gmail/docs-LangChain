@@ -1,0 +1,84 @@
+---
+title: 管理模型配置
+description: 管理模型配置并控制其在 LangSmith 功能中的可用性。
+---
+
+模型配置定义 LangSmith 功能在调用 AI 提供商时使用的模型和参数。单个共享配置库跨越您的整个[工作区](/langsmith/administration-overview#workspaces)，因此您创建的任何配置都可以在以下功能中使用而无需重复：
+
+- [**Playground**](/langsmith/prompt-engineering-concepts)
+- [**Evaluators**](/langsmith/evaluation)
+- [**Fleet**](/langsmith/fleet/index)
+- [**Polly**](/langsmith/polly)
+- [**Insights**](/langsmith/insights)
+
+[工作区管理员](/langsmith/rbac#workspace-admin)可以创建、编辑和删除配置，并控制每个功能中可用的提供商和模型。非管理员成员可以查看配置但不能修改。
+
+## 功能访问
+
+**Feature Access** 表格独立控制每个 LangSmith 功能的提供商和模型可用性。
+
+| **功能** | **模型选择体验** |
+|---------|---------------------------|
+| Playground | 完整模型控制——查看和调整所有参数。无内置模型；依赖于工作区配置。 |
+| Evaluators | 完整模型控制——查看和调整所有参数。无内置模型；依赖于工作区配置。 |
+| Fleet | 默认从精选列表中选择。您也可以添加自定义工作区配置。 |
+| Polly | 默认从精选列表中选择。您也可以添加自定义工作区配置。 |
+| Insights (Thinking) | 用于深度分析的模型。默认从精选列表中选择，并带有提供商推荐。您也可以添加自定义工作区配置。 |
+| Insights (Summarization) | 用于轻量级摘要的模型。默认从精选列表中选择，并带有提供商推荐。您也可以添加自定义工作区配置。 |
+
+所有功能都支持自定义工作区配置，因此您可以使用任何提供商或模型——即使对于默认显示精选列表的功能也是如此。
+
+<Note>
+**Insights** 使用两个独立的行——一个用于分析，一个用于摘要。如果为任一行选择了不兼容的提供商或非推荐模型，UI 会显示警告。
+</Note>
+
+### 配置功能访问
+
+要在 [UI](https://smith.langchain.com) 中配置功能访问：
+
+1. 导航到 **Settings** > **Model configurations**。
+1. 在 **Feature Access** 表格中，找到您想要配置的功能。
+1. 点击 **Enabled Providers** 并为该功能打开或关闭提供商。
+1. 点击 **Available Models** 并选择用户可以选择的模型。
+1. 使用 **Default Model** 下拉菜单设置用户打开功能时预先选择的模型。
+
+## 配置
+
+**Configurations** 表格是您工作区的命名模型配置共享库。您在 LangSmith 中创建的配置（包括来自 [Playground](/langsmith/managing-model-configurations) 的配置）会出现在这里，您可以在所有功能中重复使用它们。
+
+### 创建配置
+
+1. 导航到 **Settings** > **Model configurations**。
+1. 在 **Configurations** 下，点击 **+ Create**。
+1. 选择 **Provider** 和 **Model**。
+1. 输入 **API Key Name**——存储提供商 API 密钥的工作区中密钥的名称。
+1. 根据需要调整参数。参数分组为以下部分：
+    - **Standard sampling settings**：temperature、top P、top K、presence penalty、frequency penalty、max output tokens
+    - **Reasoning**：reasoning effort、service tier
+    - **Provider config**：provider API、base URL
+    - **Options**：stop sequences、seed、JSON mode、extra headers、requests per second、extra parameters
+
+    可用参数因提供商而异——请参阅提供商的文档获取详细信息。
+1. 点击 **Save**。
+
+### 编辑配置
+
+1. 在 **Configurations** 表格中，点击配置旁边的溢出菜单 <Icon icon="dots-vertical" iconType="regular" />。
+1. 选择 **Edit**。
+1. 更新配置并点击 **Save**。
+
+### 删除配置
+
+1. 在 **Configurations** 表格中，点击配置旁边的溢出菜单 <Icon icon="dots-vertical" iconType="regular" />。
+1. 选择 <Icon icon="trash" iconType="regular" /> **Delete** 并确认。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\model-configurations.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,121 @@
+---
+title: 管理代理设置
+sidebarTitle: 代理设置
+description: 在 Fleet 中管理您的代理。
+---
+
+本页面说明如何管理 LangSmith Fleet 中代理的设置。
+
+## 更改模型
+
+要更改代理的模型：
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到您的代理收件箱。
+1. 在代理名称旁边，点击 <Icon icon="pencil" /> **编辑代理**图标。
+1. 在右上角，点击 <Icon icon="settings" /> **设置**图标。
+1. 选择您想要使用的**模型**。
+1. 输入模型的 API 密钥。
+
+有关如何添加自定义模型的信息，请参阅[自定义模型](/langsmith/fleet/essentials#custom-models)。
+
+## 重新连接工具集成
+
+要将工具集成重新连接到代理：
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到您的代理收件箱。
+1. 在代理名称旁边，点击 <Icon icon="pencil" /> **编辑代理**图标。
+1. 在右上角，点击 <Icon icon="settings" /> **设置**图标。
+1. 在**已连接的集成**部分，点击您想要重新连接的工具旁边的**连接**按钮。
+
+## 下载代理文件
+
+要下载代理的文件，请点击代理右上角的 <Icon icon="settings" /> **设置**图标并选择**下载 ZIP**。这会将代理配置导出为 ZIP 文件。
+
+## 更改对代理的访问权限
+
+代理可以是创建者私有的或在 LangSmith 工作区内共享。
+
+| 功能 | 私有代理 | [工作区代理](#workspace-scoped-agent-details) |
+| --- | --- | --- |
+| **所有权和访问** | 仅对创建者可见 | 对同一 LangSmith 工作区内的任何人可见 |
+| **OAuth 认证** | OAuth 凭证仅限于创建者 | OAuth 凭证仅限于每个用户；克隆工作区代理的新用户必须使用所选工具重新进行身份验证 |
+| **密钥** | 使用工作区范围的 LangSmith 密钥 | 使用工作区范围的 LangSmith 密钥（与私有代理相同） |
+
+要更改代理可见性，请点击代理右上角的 <Icon icon="lock" /> **可见性设置**图标，然后选择**仅我**或**工作区**。
+
+### 工作区范围的代理详情
+
+虽然工作区范围的代理是共享的，但有些详情是公开的，而其他则是私密的：
+
+- **线程始终是用户范围的**，因此即使代理是工作区范围的，在该代理内创建的聊天历史记录始终是私密的，只有创建它的特定用户才能访问。
+- **系统提示词、所选工具和子代理将在工作区范围的代理上公开。** 用户将无法修改原始工作区代理上的这些字段，但可以在克隆代理后进行更改。
+- **工作区范围代理上的渠道类型是公开的**（例如，收到的 Slack 消息），但与渠道的特定连接（例如，Slack 频道或 Gmail 地址）不会共享。这样，用户在克隆代理时就知道使用什么渠道，但无法对原始用户设置的任何连接获得未授权的访问。
+
+## 更新记忆
+
+您的代理可以记住之前对话中的信息，并使用它来在未来的对话中做出更好的决策。代理通过使用 `write_file` 和 `edit_file` 工具调用将文件写入**记忆文件夹**来持久化记忆。
+
+默认情况下，您的代理在保存到记忆文件夹之前需要获得批准。启用此设置后，代理会暂停并等待您在 Fleet UI 中接受、编辑或拒绝每个记忆更新，然后再继续。
+
+<Tip>
+如果您的代理按[计划](/langsmith/fleet/schedules#add-a-schedule)或其他自动计划运行，请禁用记忆批准要求。否则，代理将在每个涉及记忆更新的计划运行上暂停，并无限期地等待手动批准。
+</Tip>
+
+### 禁用记忆更新的必需批准
+
+要禁用记忆批准要求：
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到您的代理收件箱。
+1. 在代理名称旁边，点击 <Icon icon="pencil" /> **编辑代理**图标。
+1. 在右上角，点击 <Icon icon="settings" /> **设置**图标。
+1. 在**记忆**部分，将**需要批准才能更新记忆**切换为关闭。
+
+## 以编程方式使用代理
+
+您可以使用 [LangGraph SDK](/langsmith/reference) 通过代码连接到您的代理。要查看以编程方式调用代理所需的代码片段：
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到您的代理收件箱。
+1. 在代理名称旁边，点击 <Icon icon="pencil" /> **编辑代理**图标。
+1. 在右上角，点击 <Icon icon="settings" /> **设置**图标。
+1. 点击**查看代码片段**按钮。
+1. 复制为您的代理预填充的代码片段。
+
+有关更多信息，请参阅[从代码调用代理](/langsmith/fleet/code)。
+
+## 暂停代理
+
+要暂停代理，请暂停其渠道：
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到您的代理收件箱。
+1. 在代理名称旁边，点击 <Icon icon="pencil" /> **编辑代理**图标。
+1. 在图形视图中，点击**渠道**框中的**暂停**按钮。
+1. 点击**保存更改**。
+
+<Tip>
+要恢复，请点击**渠道**框中的**恢复渠道**按钮。
+</Tip>
+
+## 删除代理
+
+要永久删除代理：
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到您的代理收件箱。
+1. 在代理名称旁边，点击 <Icon icon="pencil" /> **编辑代理**图标。
+1. 在右上角，点击 <Icon icon="settings" /> **设置**图标。
+1. 点击**删除代理**按钮。
+1. 要确认删除，请点击**删除**按钮。
+
+<Warning>
+此操作无法撤消。它将永久删除代理、所有链接到代理的线程，并取消链接任何附加的渠道。
+</Warning>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\fleet\manage-agent-settings.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

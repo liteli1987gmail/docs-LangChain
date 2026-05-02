@@ -1,0 +1,212 @@
+---
+title: Analyze an experiment
+sidebarTitle: Analyze an experiment
+---
+
+This page describes some of the essential tasks for working with [_experiments_](/langsmith/evaluation-concepts#experiment) in LangSmith:
+
+- **[分析单个实验](#analyze-a-single-experiment)**：查看和解释实验结果，自定义列，过滤数据以及比较运行。
+- **[在实验标签页视图中设置基线](#set-a-baseline-in-the-experiments-tab-view)**：为您想要超越的数据集设置基线。
+- **[在实验标签页视图中按模型、提示词和工具进行过滤和分组](#filter-and-group-by-models-prompts-and-tools-in-the-experiments-tab-view)**：使用**模型**、**提示词**和**工具**列在**实验**标签页视图中过滤和分组实验。
+- **[将实验结果下载为 CSV](#download-experiment-results-as-a-csv)**：导出您的实验数据以进行外部分析和共享。
+- **[重命名实验](#rename-an-experiment)**：在 Playground 和实验视图中更新实验名称。
+
+## 分析单个实验
+
+运行实验后，您可以使用 LangSmith 的实验视图分析结果并从实验性能中获取洞察。
+
+### 打开实验视图
+
+要打开实验视图：
+
+1. 从**数据集和实验**页面中选择相关的[_数据集_](/langsmith/evaluation-concepts#datasets)，这将打开**实验**标签页视图。
+2. 点击您要查看的实验的行。
+
+![打开实验视图](/langsmith/images/select-experiment.png)
+
+### 查看实验结果
+
+#### 自定义列
+
+默认情况下，实验视图显示数据集中每个[示例](/langsmith/evaluation-concepts#examples)的输入、输出和参考输出，来自评估的反馈分数以及实验指标，如成本、Token 计数、延迟和状态。
+
+您可以点击视图右上角的**列**图标自定义列，以便更容易地解释实验结果：
+
+- **将输入、输出和参考输出中的字段分解到它们自己的列中**。如果您有很长的输入/输出/参考输出并想要显示重要字段，这将特别有帮助。
+- **隐藏和重新排序列**以创建专注的分析视图。
+- **控制反馈分数的小数精度**。默认情况下，LangSmith 以 2 位小数精度显示数字反馈分数，但您可以自定义此设置，最多 6 位小数。
+- **为数字反馈分数设置热图阈值**，高、中和低，这会影响分数芯片渲染为红色或绿色的阈值：
+
+![列热图配置](/langsmith/images/column-heat-map.png)
+
+<Tip>
+您可以为整个数据集设置默认配置，也可以仅为自己临时保存设置。
+</Tip>
+
+#### 排序和过滤
+
+要按反馈分数对行进行排序，请点击列标题中的**排序依据**图标。
+
+![排序列](/langsmith/images/column-sort.png)
+
+要过滤行，请点击列标题中的 <Icon icon="dots-vertical"/> 图标并配置您的过滤设置。
+
+![过滤列](/langsmith/images/column-filter.png)
+
+#### 表格视图
+
+在实验视图顶部选择三个表格视图图标之一：
+
+- **紧凑**：将每个运行显示为单行，以便快速分数比较。
+- **完整**：显示每个运行的完整输出。
+- **差异**：显示参考输出与每个运行输出之间的文本差异。
+
+![差异视图](/langsmith/images/diff-mode.png)
+
+#### 查看追踪
+
+点击实验视图中的任意行以打开详情面板，该面板显示该运行的追踪以及反馈、输入、输出和属性。
+
+![查看追踪](/langsmith/images/view-trace.png)
+
+要查看整个追踪项目，请点击实验视图右上角的**查看项目**图标。
+
+#### 查看评估器运行
+
+通过悬停在评估器分数上，您可以查看该评估器运行的更多详细信息。对于[大型语言模型作为评估器](/langsmith/llm-as-judge)，点击**来源**链接查看使用的提示词，或**评估器追踪**在新浏览器标签页中打开追踪。对于具有[重复](/langsmith/repetition)的实验，点击聚合平均分数以查看所有单独运行的链接。
+
+![查看评估器运行](/langsmith/images/evaluator-run.png)
+
+### 按元数据分组结果
+
+您可以将元数据添加到示例以对其进行分类和组织。例如，如果您正在评估问答数据集中的事实准确性，元数据可能包括每个问题所属的学科领域。元数据可以通过 [UI](/langsmith/manage-datasets-in-application#edit-example-metadata) 或 [SDK](/langsmith/manage-datasets-programmatically#update-single-example) 添加。
+
+要按元数据分析结果，请使用实验视图右上角的**分组依据**图标并选择您想要的元数据键。这将显示每个元数据组的平均反馈分数、延迟、总 Token 和成本。
+
+<Info>
+您只能按 2025 年 2 月 20 日之后创建的实验的示例元数据进行分组。该日期之前的任何实验仍可以按元数据分组，但仅当元数据在实验追踪本身上时。
+</Info>
+
+### 重复
+
+如果您使用[_重复_](/langsmith/repetition)运行了实验，请点击任意行以打开详情面板。**重复摘要**显示指标表、所有反馈分数，并允许您切换输出或查看具有其追踪的各个重复。
+
+![重复](/langsmith/images/repetitions.png)
+
+### 与另一个实验比较
+
+在实验视图的右上角，您可以选择另一个实验进行比较。这将打开比较视图，您可以从中查看两个实验的比较方式。要了解有关比较视图的更多信息，请参阅[如何比较实验结果](/langsmith/compare-experiment-results)。
+
+## 在实验标签页视图中设置基线
+
+虽然您可能运行了数十次测试，但您通常有一个特定的基准要努力超越。设置_基线_将您的结果绑定到此参考点，这允许您在拥挤的实验列表中识别改进或回归。
+
+通过指定基线，您可以：
+
+- **突出显示参考**：明确标记您表现最好的运行，以便在迭代时将其保持在**实验**标签页视图的顶部可见。
+- **查看即时差异**：自动查看所有实验的性能增量，这意味着您不一定需要执行手动并排选择。
+- **加速评估**：快速确定新迭代是否满足或超过您当前的性能标准。
+
+<img
+  className="block dark:hidden"
+  src="/langsmith/images/baseline-experiment-view-light.png"
+  alt="The Experiments tab view with an experiment marked as the baseline at the top of the table. Scores show against the baseline on the rows of other experiments."
+/>
+
+<img
+  className="hidden dark:block"
+  src="/langsmith/images/baseline-experiment-view-dark.png"
+  alt="The Experiments tab view with an experiment marked as the baseline at the top of the table. Scores show against the baseline on the rows of other experiments."
+/>
+
+要为数据集设置基线：
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到左侧菜单中的**数据集和实验**选项。
+1. 从表格中选择您要使用的数据集。
+1. 在**实验**标签页视图中，将鼠标悬停在实验行上，以在行的右端显示**设置基线**按钮。点击以选择您的基线实验。
+
+您的基线实验将固定在表格顶部，并在其名称旁边带有**基线**标签。一旦实验被设置为基线，表格将显示每个实验相对于每个列的基线的分数。当您选择多个实验进行比较时，基线实验将是默认的源实验，用于进行比较。
+
+## 在实验标签页视图中按模型、提示词和工具进行过滤和分组
+
+实验表格包括**模型**、**提示词**和**工具**列，显示用于每个实验的模型、提示词和工具，使您可以更轻松地一目了然地了解运行之间的变化。
+
+这些列在您从 Playground 运行实验时自动填充。通过 SDK 运行实验时，传递带有 `models`、`prompts` 和 `tools` 键的 `metadata` 对象给 `evaluate()`：
+
+```python
+results = client.evaluate(
+    target,
+    data="my-dataset",
+    evaluators=[...],
+    metadata={
+        "models": "openai:gpt-5.4-mini",
+        "prompts": ["my-org/my-prompt:abc12345"],
+        "tools": [{"name": "web_search", "description": "Search the web for information"}],
+    },
+)
+```
+
+有关使用元数据的示例，请参阅[如何评估大型语言模型应用程序](/langsmith/evaluate-llm-application#run-the-evaluation)。
+
+这些列仅在该数据集中至少有一个实验设置了该字段时才会出现。填充后，点击这些列中的值以过滤或分组实验。
+
+<img
+  className="block dark:hidden"
+  src="/langsmith/images/metadata-columns-light.png"
+  alt="The Experiments tab view with metadata columns for models, prompts, and tools."
+/>
+
+<img
+  className="hidden dark:block"
+  src="/langsmith/images/metadata-columns-dark.png"
+  alt="The Experiments tab view with metadata columns for models, prompts, and tools."
+/>
+
+您还可以在**实验**标签页视图的左上方按模型、模型提供者、提示词、提示词提交、工具和其他实验元数据进行过滤和分组：
+
+<img
+  className="block dark:hidden"
+  src="/langsmith/images/metadata-group-by-light.png"
+  alt="The Experiments tab view with metadata columns for models, prompts, and tools."
+/>
+
+<img
+  className="hidden dark:block"
+  src="/langsmith/images/metadata-group-by-dark.png"
+  alt="The Experiments tab view with metadata columns for models, prompts, and tools."
+/>
+
+## 将实验结果下载为 CSV
+
+LangSmith 让您可以将实验结果下载为 CSV 文件以进行外部分析和共享。点击实验视图右上角的**下载为 CSV**图标。
+
+<Note>
+实验结果有 5,000 行的下载限制。
+</Note>
+
+## 重命名实验
+
+<Note>
+每个工作区中的实验名称必须是唯一的。
+</Note>
+
+您可以在 LangSmith UI 中的以下位置重命名实验：
+
+- **实验视图**：使用实验名称旁边的铅笔图标重命名实验。
+
+  ![在实验视图中编辑名称](/langsmith/images/rename-in-experiment-view.png)
+
+- **Playground**：会自动分配格式为 `pg::prompt-name::model::uuid`（例如 `pg::gpt-5.4-mini::897ee630`）的默认名称。您可以通过在 Playground 表格标题中编辑其名称，在运行后立即重命名实验。
+
+  ![在 playground 中编辑名称](/langsmith/images/rename-in-playground.png)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\analyze-an-experiment.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

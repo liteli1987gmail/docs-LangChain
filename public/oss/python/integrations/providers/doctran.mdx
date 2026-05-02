@@ -1,0 +1,55 @@
+---
+title: "Doctran integrations"
+description: "Integrate with Doctran using LangChain Python."
+---
+
+
+[Doctran](https://github.com/psychic-api/doctran) 是一个 Python 包。它使用 LLMs 和开源 NLP 库将原始文本转换为干净的、结构化的、信息密度高的文档，这些文档针对向量空间检索进行了优化。你可以把 `Doctran` 看作一个黑盒，杂乱的字符串进去，干净的、有标签的字符串出来。
+
+
+## Installation and setup
+
+<CodeGroup>
+```bash pip
+pip install doctran
+```
+
+```bash uv
+uv add doctran
+```
+</CodeGroup>
+
+## Document transformers
+
+### Document interrogator
+
+See a [usage example for DoctranQATransformer](/oss/python/integrations/document_transformers/doctran_interrogate_document).
+
+```python
+from langchain_community.document_transformers import DoctranQATransformer
+```
+### Property extractor
+
+See a [usage example for DoctranPropertyExtractor](/oss/python/integrations/document_transformers/doctran_extract_properties).
+
+```python
+from langchain_community.document_transformers import DoctranPropertyExtractor
+```
+### Document translator
+
+See a [usage example for DoctranTextTranslator](/oss/python/integrations/document_transformers/doctran_translate_document).
+
+```python
+from langchain_community.document_transformers import DoctranTextTranslator
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\doctran.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

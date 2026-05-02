@@ -1,0 +1,63 @@
+---
+title: "S3FileLoader 集成"
+description: "使用 LangChain JavaScript 与 S3FileLoader 文档加载器集成。"
+---
+
+<Tip>
+**兼容性**
+
+仅适用于 Node.js。
+</Tip>
+
+本文介绍如何从 s3 文件对象加载文档对象。
+
+## 设置
+
+要运行此索引，您需要已经设置并准备好在可用 URL 端点上使用 Unstructured。它也可以配置为在本地运行。
+
+有关如何执行此操作的信息，请参阅 [Unstructured 文件加载器文档](/oss/javascript/integrations/document_loaders/file_loaders/unstructured)。
+
+您还需要安装官方 AWS SDK：
+
+```bash npm
+npm install @langchain/community @langchain/core @aws-sdk/client-s3
+```
+
+## 使用方法
+
+配置 Unstructured 后，您可以使用 S3 加载器加载文件，然后将它们转换为文档。
+
+您可以选择提供 s3Config 参数来指定您的存储桶区域、访问密钥和秘密访问密钥。如果未提供这些参数，您将需要在您的环境中拥有它们（例如，通过运行 `aws configure`）。
+
+```typescript
+import { S3Loader } from "@langchain/community/document_loaders/web/s3";
+
+const loader = new S3Loader({
+  bucket: "my-document-bucket-123",
+  key: "AccountingOverview.pdf",
+  s3Config: {
+    region: "us-east-1",
+    credentials: {
+      accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+      secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    },
+  },
+  unstructuredAPIURL: "http://localhost:8000/general/v0/general",
+  unstructuredAPIKey: "", // 即将需要
+});
+
+const docs = await loader.load();
+
+console.log(docs);
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\document_loaders\web_loaders\s3.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

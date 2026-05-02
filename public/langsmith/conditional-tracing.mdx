@@ -1,0 +1,451 @@
+---
+title: 条件追踪
+sidebarTitle: 条件追踪
+---
+
+当您全局设置环境变量 `LANGSMITH_TRACING=true` 时，追踪会自动发送到 LangSmith。本指南介绍如何为特定请求选择性地禁用或自定义追踪。
+
+[`tracing_context`](https://reference.langchain.com/python/langsmith/run_helpers/tracing_context) 上下文管理器（Python）和 [`tracingEnabled`](https://reference.langchain.com/javascript/classes/langsmith.run_trees.RunTree.html#tracingenabled) 选项（TypeScript）允许您在运行时覆盖全局追踪设置，而无需重构代码或更改环境变量。
+
+在以下情况下使用条件追踪：
+
+- **遵守数据保留策略**：某些客户可能因合规或隐私原因需要零数据保留。
+- **处理敏感操作**：为涉及个人信息、凭证或机密数据的操作禁用追踪。
+- **实现每个租户的配置**：根据客户将追踪路由到不同项目或应用不同设置。
+- **控制成本**：为低价值请求禁用追踪，同时保持对关键操作的可视性。
+- **支持功能标志**：仅在特定功能或实验代码路径激活时启用追踪。
+
+<Note>
+以下部分提供特定语言的示例，您可以将其改编为您的应用程序逻辑和业务需求。
+</Note>
+
+<Tabs>
+<Tab title="Python" icon="brand-python">
+
+## 追踪上下文如何工作
+
+当您使用 [`tracing_context`](https://reference.langchain.com/python/langsmith/run_helpers/tracing_context) 上下文管理器时，它会覆盖在其范围内执行的代码的全局追踪配置。这意味着您可以保持全局自动追踪启用，同时选择性地控制特定函数调用的追踪行为。
+
+有三个优先级级别的控制：
+
+1. **`tracing_context(enabled=...)`**：最高优先级（用于作用域追踪控制的上下文管理器）。
+1. **`ls.configure(enabled=...)`**：全局配置（设置全局追踪行为）。
+1. **环境变量**：最低优先级（`LANGSMITH_TRACING`）。
+
+## 为特定调用禁用追踪
+
+要为特定操作禁用追踪，请使用 `enabled=False` 包装 `tracing_context`：
+
+```python
+import langsmith as ls
+from langsmith import traceable
+
+# LANGSMITH_TRACING=true 全局设置
+
+@traceable
+def my_function(input_text: str):
+    return process(input_text)
+
+# 默认调用 - 被追踪
+result = my_function("regular data")
+
+# 为敏感数据禁用追踪
+with ls.tracing_context(enabled=False):
+    result = my_function("sensitive data")  # 不被追踪
+```
+
+此模式适用于您知道特定数据不应记录的一次性情况。
+
+## 基于业务逻辑启用条件追踪
+
+您可以根据运行时条件动态启用或禁用追踪，例如客户端设置或请求属性。
+
+```python
+import langsmith as ls
+from langsmith import traceable
+
+@traceable
+def my_function(input_text: str):
+    return process(input_text)
+
+def client_requires_zero_retention(client_id: str) -> bool:
+    """
+    检查客户是否有零保留策略。
+
+    在生产中，这会查询数据库、配置服务或功能标志系统。
+    考虑缓存结果以提高性能。
+    """
+    # 示例：从数据库或配置中查询
+    zero_retention_clients = get_zero_retention_clients()  # 您的实现
+    return client_id in zero_retention_clients
+
+def handle_request(client_id: str, user_input: str):
+    """
+    根据客户要求处理具有条件追踪的请求。
+    """
+    should_disable = client_requires_zero_retention(client_id)
+
+    with ls.tracing_context(enabled=not should_disable):
+        return my_function(user_input)
+
+# 示例用法
+handle_request("client-a", "some input")  # 根据客户端设置被追踪或不被追踪
+```
+
+## 每个请求自定义追踪配置
+
+您还可以动态自定义追踪设置，例如将追踪路由到不同项目或添加特定于请求的元数据。
+
+```python
+import langsmith as ls
+from langsmith import traceable
+
+@traceable
+def my_function(input_text: str):
+    return process(input_text)
+
+def handle_request(client_id: str, user_input: str, region: str):
+    """
+    使用自定义元数据将追踪路由到特定于客户的项目。
+    """
+    client_tier = get_client_tier(client_id)  # 例如 "enterprise", "standard"
+
+    with ls.tracing_context(
+        enabled=True,
+        project_name=f"client-{client_id}",
+        tags=["production", f"tier-{client_tier}", f"region-{region}"],
+        metadata={
+            "client_id": client_id,
+            "region": region,
+            "tier": client_tier
+        }
+    ):
+        return my_function(user_input)
+
+# 追踪进入 "client-abc" 项目，带有自定义标签和元数据
+handle_request("abc", "some input", "us-west")
+```
+
+此模式适用于：
+
+- **多租户应用程序**：在独立项目中隔离客户的追踪
+- **区域部署**：按地理区域跟踪性能和行为
+- **功能分支**：将实验功能追踪路由到专用项目
+- **用户细分**：按用户层级、队列或 A/B 测试组分析行为
+
+## 与自动追踪一起工作
+
+[`tracing_context`](https://reference.langchain.com/python/langsmith/run_helpers/tracing_context) 上下文管理器与自动追踪配合使用。您可以保持全局设置 `LANGSMITH_TRACING=true`，并使用 `tracing_context` 覆盖特定请求的设置：
+
+```python
+import os
+import langsmith as ls
+
+# 设置全局环境变量
+os.environ["LANGSMITH_TRACING"] = "true"
+
+@ls.traceable
+def process_data(data: str):
+    return data.upper()
+
+# 自动追踪（遵循 LANGSMITH_TRACING）
+process_data("hello")
+
+# 覆盖全局设置 - 为此调用禁用
+with ls.tracing_context(enabled=False):
+    process_data("sensitive")  # 不被追踪
+
+# 覆盖全局设置 - 使用自定义配置启用
+with ls.tracing_context(
+    enabled=True,
+    project_name="special-project"
+):
+    process_data("important")  # 追踪到 "special-project"
+```
+
+## 嵌套追踪上下文
+
+当您嵌套 `tracing_context` 块时，最内层的上下文优先。
+
+```python Python
+import langsmith as ls
+
+@ls.traceable
+def inner_function(data: str):
+    return data
+
+@ls.traceable
+def outer_function(data: str):
+    # 此调用遵循内部上下文
+    return inner_function(data)
+
+# 外部上下文禁用追踪
+with ls.tracing_context(enabled=False):
+    # 但内部上下文重新启用它
+    with ls.tracing_context(enabled=True):
+        outer_function("data")  # 被追踪
+```
+
+当您想在通常不追踪的部分中临时启用追踪以进行调试时，这很有用。
+
+## 在部署的代理中自定义追踪
+
+在 LangSmith Deployment 的 [Agent Server](/langsmith/agent-server) 中默认启用追踪。当使用[工厂函数](/langsmith/graph-rebuild)时，您可以使用 `tracing_context` 包装生成的图来控制每次执行的追踪。这对于添加自定义元数据、完全禁用追踪或根据认证用户自定义追踪很有用。
+
+### 为图禁用追踪
+
+```python
+import contextlib
+import langsmith as ls
+from langgraph_sdk.runtime import ServerRuntime
+
+
+@contextlib.asynccontextmanager
+async def make_graph(runtime: ServerRuntime):
+    graph = build_my_graph()
+
+    # 您可以使用 tracing_context 动态启用/禁用追踪、
+    # 设置元数据或标签、覆盖追踪项目等。
+    with ls.tracing_context(enabled=False, metadata={"foo": "bar"}):
+        yield graph
+```
+
+### 每用户追踪
+
+```python
+import contextlib
+import langsmith as ls
+from langgraph_sdk.runtime import ServerRuntime
+
+def get_project_for_user(user_id: str) -> str | None:
+    ...
+    return "my-project"
+
+graph = build_my_graph()
+
+@contextlib.asynccontextmanager
+async def make_graph(runtime: ServerRuntime):
+    user = runtime.user
+    # 根据用户或完全禁用追踪将追踪路由到不同项目
+    project_name = get_project_for_user(user.identity)
+
+    if project_name is None:
+        with ls.tracing_context(enabled=False):
+            yield graph
+    else:
+        with ls.tracing_context(
+            enabled=True,
+            project_name=project_name,
+            metadata={"user_id": user.identity, "foo": "bar"},
+        ):
+            yield graph
+```
+
+## 可重用的追踪包装器
+
+创建一个装饰器以自动应用条件追踪逻辑。
+
+```python Python
+import functools
+import langsmith as ls
+from langsmith import traceable
+
+def conditional_trace(check_function):
+    """
+    根据检查函数有条件地追踪的装饰器。
+
+    Args:
+        check_function: 如果应启用追踪则返回 True 的函数
+    """
+    def decorator(func):
+        traced_func = traceable(func)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            should_trace = check_function(*args, **kwargs)
+            with ls.tracing_context(enabled=should_trace):
+                return traced_func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# 用法
+def should_trace_client(client_id: str, *args, **kwargs) -> bool:
+    return not client_requires_zero_retention(client_id)
+
+@conditional_trace(should_trace_client)
+def process_request(client_id: str, data: str):
+    return data.upper()
+
+# 根据 client_id 自动应用条件追踪
+process_request("client-a", "some data")
+```
+
+</Tab>
+<Tab title="TypeScript" icon="brand-javascript">
+
+## tracingEnabled 如何工作
+
+在 TypeScript 中，您使用调用 [`traceable()`](https://reference.langchain.com/python/langsmith/run_helpers/traceable) 时传递的 [`tracingEnabled`](https://reference.langchain.com/javascript/classes/langsmith.run_trees.RunTree.html#tracingenabled) 参数来控制每个函数的追踪。这允许您在函数级别选择性地启用或禁用追踪。
+
+两级系统，其中追踪在每个函数级别控制：
+
+1. **`tracingEnabled` 参数**：最高优先级（传递给 [`traceable()`](https://reference.langchain.com/python/langsmith/run_helpers/traceable) 配置）。
+1. **环境变量**：最低优先级（`LANGSMITH_TRACING`）。
+
+## 为特定调用禁用追踪
+
+要为特定操作禁用追踪，使用 `tracingEnabled: false` 创建您的可追踪函数版本：
+
+```typescript
+import { traceable } from "langsmith/traceable";
+
+const myFunction = traceable(
+    (inputText: string) => {
+        return process(inputText);
+    },
+    { name: "my_function" }
+);
+
+// 默认调用 - 被追踪
+await myFunction("regular data");
+
+// 为敏感数据禁用追踪
+const myFunctionNoTrace = traceable(
+    (inputText: string) => {
+        return process(inputText);
+    },
+    { name: "my_function", tracingEnabled: false }
+);
+
+await myFunctionNoTrace("sensitive data");  // 不被追踪
+```
+
+此模式适用于您知道特定数据不应记录的一次性情况。
+
+## 基于业务逻辑启用条件追踪
+
+在许多应用程序中，您需要根据运行时条件动态控制追踪——例如客户隐私要求、监管合规性或功能标志。
+
+在 TypeScript 中，最高效的方法是预先创建追踪和非追踪版本的函数，然后在运行时根据您的业务逻辑在它们之间选择。这样可以避免在每次请求时创建新的追踪包装器的性能开销，同时仍能对追踪发生的时间提供细粒度控制。例如：
+
+```typescript
+import { traceable } from "langsmith/traceable";
+
+// 定义核心逻辑一次
+function processText(inputText: string): string {
+    // 您的实际处理逻辑
+    return inputText.toUpperCase();
+}
+
+// 预先创建追踪和非追踪变体
+const myFunction = traceable(processText, { name: "my_function" });
+const myFunctionNoTrace = traceable(processText, {
+    name: "my_function",
+    tracingEnabled: false
+});
+
+function clientRequiresZeroRetention(clientId: string): boolean {
+    /**
+     * 检查客户是否有零保留策略。
+     *
+     * 在生产中，这会查询数据库、配置服务或功能标志系统。
+     * 考虑缓存结果以提高性能。
+     */
+    const zeroRetentionClients = getZeroRetentionClients();  // 您的实现
+    return zeroRetentionClients.includes(clientId);
+}
+
+async function handleRequest(clientId: string, userInput: string) {
+    /**
+     * 根据客户要求处理具有条件追踪的请求。
+     * 高效地选择预创建的可追踪或非可追踪变体。
+     */
+    const shouldDisable = clientRequiresZeroRetention(clientId);
+
+    // 选择适当的预创建变体
+    const fn = shouldDisable ? myFunctionNoTrace : myFunction;
+    return await fn(userInput);
+}
+
+// 示例用法
+await handleRequest("client-a", "some input");  # 根据客户端设置被追踪或不被追踪
+```
+
+## 与自动追踪一起工作
+
+[`tracingEnabled`](https://reference.langchain.com/javascript/classes/langsmith.run_trees.RunTree.html#tracingenabled) 选项与自动追踪无缝配合。您可以保持全局设置 `LANGSMITH_TRACING=true`，并使用 `tracingEnabled` 覆盖特定函数的设置。
+
+```typescript
+import { traceable } from "langsmith/traceable";
+
+// 通过环境启用全局追踪
+process.env.LANGSMITH_TRACING = "true";
+
+const processData = traceable(
+    (data: string) => {
+        return data.toUpperCase();
+    },
+    { name: "process_data" }
+);
+
+// 自动追踪（遵循 LANGSMITH_TRACING）
+await processData("hello");
+
+// 覆盖全局设置 - 为此调用禁用
+const processDataNoTrace = traceable(
+    (data: string) => {
+        return data.toUpperCase();
+    },
+    { name: "process_data", tracingEnabled: false }
+);
+
+await processDataNoTrace("sensitive");  // 不被追踪
+
+// 覆盖全局设置 - 使用自定义配置启用
+const processDataCustom = traceable(
+    (data: string) => {
+        return data.toUpperCase();
+    },
+    {
+        name: "process_data",
+        project_name: "special-project",
+        tracingEnabled: true
+    }
+);
+
+await processDataCustom("important");  // 追踪到 "special-project"
+```
+
+</Tab>
+</Tabs>
+
+## 与采样的比较
+
+条件追踪和[采样](/langsmith/sample-traces)有不同的用途：
+
+| 功能 | 条件追踪 | 采样 |
+|---------|-------------------|----------|
+| **控制** | 确定性（显式启用/禁用） | 概率性（随机采样） |
+| **用例** | 业务逻辑、合规性、每个请求决策 | 成本优化、高容量可观测性 |
+| **可预测性** | 特定请求的保证行为 | 流量统计表示 |
+| **配置** | 运行时代码逻辑 | 环境变量或客户端配置 |
+
+您可以结合这两种方法以实现细粒度控制。
+
+## 相关内容
+
+- [在没有环境变量的情况下追踪](/langsmith/trace-without-env-vars)：使用环境变量而不是编程方式配置追踪。
+- [为追踪设置采样率](/langsmith/sample-traces)：概率采样追踪以减少数量
+- [屏蔽追踪中的输入和输出](/langsmith/mask-inputs-outputs)：隐藏追踪中的敏感数据而不是完全禁用追踪。
+- [向追踪添加元数据和标签](/langsmith/add-metadata-tags)：使用自定义属性对追踪进行分类和筛选。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\conditional-tracing.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

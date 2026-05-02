@@ -1,0 +1,176 @@
+---
+title: 助手
+sidebarTitle: 概述
+---
+
+_助手_是 [Agent Server](/langsmith/agent-server) 的一个概念，它允许您将配置（例如提示词、LLM 选择、工具）与图的核心逻辑分开管理。这使您能够使用不同的运行时行为创建同一图架构的多个专门版本。通过配置变体（而不是结构性图更改），每个助手都针对不同的[用例](#use-cases)进行了优化。
+
+例如，想象一个建立在通用图架构上的通用写作代理。虽然结构保持不变，但不同的写作风格（如博客文章和推文）需要定制配置以优化性能。为了支持这些变体，您可以创建多个助手（例如，一个用于博客，另一个用于推文），它们共享底层图但在模型选择和系统提示词上有所不同。
+
+![助手版本](/langsmith/images/assistants.png)
+
+Agent Server API 提供了多个用于创建和管理助手及其版本的端点。请参阅 [API 参考](/langsmith/server-api-ref) 获取更多详细信息。
+
+<Info>
+助手是 [LangSmith 部署](/langsmith/deployment) 的概念。它们在开源 LangGraph 库中不可用。
+</Info>
+
+## 默认助手
+
+当您使用 LangSmith 部署部署图时，[Agent Server](/langsmith/agent-server) 会自动创建一个绑定到该图默认配置的**默认助手**。然后您可以为同一图创建额外的助手，每个助手都有自己的配置。
+
+如果您的部署在 [`langgraph.json`](/langsmith/application-structure#configuration-file) 中定义了多个图，每个图都会有自己的默认助手：
+
+```json
+{
+    "graphs": {
+        "graph_id_1": "path_to_graph_id_1",  // 为 graph_id_1 创建的默认助手
+        "graph_id_2": "path_to_graph_id_2"   // 为 graph_id_2 创建的默认助手
+    }
+}
+```
+
+助手有几个关键特性：
+
+- **[通过 API 和 UI 管理](/langsmith/configuration-cloud)**：使用 Agent Server/LangGraph SDK 或 [LangSmith UI](https://smith.langchain.com) 创建、列出、更新、版本化和获取助手。
+- **一个图，多个助手**：单个部署的图可以支持多个助手，每个助手具有不同的配置（例如提示词、模型、工具）。
+- **[版本化](#versioning)配置**：每个助手通过版本控制维护自己的配置历史。编辑助手会创建新版本，您可以提升或回滚到任何版本。
+- **[配置](#configuration)更新无需更改图**：通过助手配置更新提示词、模型选择和其他设置，无需修改或重新部署图代码即可实现快速迭代。
+
+<Note>
+调用助手时，您可以在 [`langgraph.json`](/langsmith/agent-server-api/thread-runs/create-background-run#body-assistant-id-one-of-0) 中指定：
+
+- **图 ID**（`langgraph.json` 中的键，例如 `"agent"`）：使用该图的默认助手。
+- **助手 ID**（UUID）：使用特定助手配置。
+
+这种灵活性允许您使用默认设置快速测试，或精确控制使用的配置。
+</Note>
+
+## 配置
+
+助手建立在 LangGraph 开源概念的[配置](/oss/python/langgraph/graph-api#runtime-context)之上。
+
+虽然配置在开源 LangGraph 库中可用，但助手仅在 [LangSmith 部署](/langsmith/deployments) 中存在，因为它们与您部署的图紧密耦合。部署时，[Agent Server](/langsmith/agent-server) 将使用图的默认配置设置自动为每个图创建默认助手。
+
+在实践中，助手只是具有特定配置的图的_实例_。因此，多个助手可以引用同一个图但包含不同的配置（例如提示词、模型、工具）。LangSmith 部署 API 提供了多个用于创建和管理助手的端点。请参阅 [API 参考](/langsmith/server-api-ref) 和[此操作指南](/langsmith/configuration-cloud)获取如何创建助手的更多详细信息。
+
+### 用例
+
+当您需要使用不同配置部署相同图架构时，助手是理想的选择。常见用例包括：
+
+- **用户级个性化**
+  - 根据用户自定义模型选择、系统提示词或工具可用性。
+  - 存储用户偏好并在每次交互中自动应用。
+  - 允许用户在不同 AI 个性或专业级别之间选择。
+
+- **客户或组织特定配置**
+  - 为不同客户或组织维护单独的配置。
+  - 为每个客户自定义行为而无需部署单独的基础设施。
+  - 将配置更改隔离到特定客户。
+
+```mermaid actions={false}
+graph TD
+    A["Graph: agent<br/>(deployed)"]
+    A --> B["Customer A Assistant<br/>━━━━━━━━━━━━━<br/>Model: GPT-4<br/>Tone: Legal<br/>Tools: Custom"]
+    A --> C["Customer B Assistant<br/>━━━━━━━━━━━━━<br/>Model: Claude<br/>Tone: Casual<br/>Tools: Standard"]
+    A --> D["Customer C Assistant<br/>━━━━━━━━━━━━━<br/>Model: GPT-3.5<br/>Tone: Formal<br/>Tools: Limited"]
+
+    style A fill:#E5F4FF,stroke:#006DDD,stroke-width:3px,color:#030710
+    style B fill:#B3E0F2,stroke:#4A90E2,stroke-width:2px,color:#1E3A5F
+    style C fill:#B3E0F2,stroke:#4A90E2,stroke-width:2px,color:#1E3A5F
+    style D fill:#B3E0F2,stroke:#4A90E2,stroke-width:2px,color:#1E3A5F
+```
+
+- **环境特定配置**
+  - 为开发、暂存和生产使用不同的模型或设置。
+  - 在提升到生产环境之前在暂存环境中测试配置更改。
+  - 使用较小的模型降低非生产环境的成本。
+
+- **A/B 测试和实验**
+  - 比较不同的提示词、模型或参数设置。
+  - 逐步向用户子集推出配置更改。
+  - 测量配置变体之间的性能差异。
+
+- **专门任务变体**
+  - 创建通用代理的领域特定版本。
+  - 针对不同语言、地区或行业优化配置。
+  - 在变化执行细节的同时保持一致的图逻辑。
+
+```mermaid actions={false}
+graph TD
+    A["Graph: writing-agent<br/>(deployed)"]
+    A --> B["Blog Assistant<br/>━━━━━━━━━━━━━<br/>Model: GPT-4<br/>Tone: Formal<br/>Style: Long-form<br/>Tools: SEO optimization"]
+    A --> C["Tweet Assistant<br/>━━━━━━━━━━━━━<br/>Model: GPT-4-mini<br/>Tone: Casual<br/>Style: 280-char limit<br/>Tools: Hashtag suggestions"]
+    A --> D["Email Assistant<br/>━━━━━━━━━━━━━<br/>Model: GPT-4<br/>Tone: Professional<br/>Style: Medium length<br/>Tools: Templates"]
+
+    style A fill:#E5F4FF,stroke:#006DDD,stroke-width:3px,color:#030710
+    style B fill:#B3E0F2,stroke:#4A90E2,stroke-width:2px,color:#1E3A5F
+    style C fill:#B3E0F2,stroke:#4A90E2,stroke-width:2px,color:#1E3A5F
+    style D fill:#B3E0F2,stroke:#4A90E2,stroke-width:2px,color:#1E3A5F
+```
+
+## 助手如何与部署配合工作
+
+当您使用 LangSmith 部署部署图时，[Agent Server](/langsmith/agent-server) 会自动创建一个绑定到该图默认配置的**默认助手**。然后您可以为同一图创建额外的助手，每个助手都有自己的配置。
+
+如果您的部署在 [`langgraph.json`](/langsmith/application-structure#configuration-file) 中定义了多个图，每个图都会有自己的默认助手：
+
+```json
+{
+    "graphs": {
+        "graph_id_1": "path_to_graph_id_1",  // 为 graph_id_1 创建的默认助手
+        "graph_id_2": "path_to_graph_id_2"   // 为 graph_id_2 创建的默认助手
+    }
+}
+```
+
+也就是说，可以有多个默认助手——部署中定义的每个图有一个。
+
+助手有几个关键特性：
+
+- **[通过 API 和 UI 管理](/langsmith/configuration-cloud)**：使用 Agent Server/LangGraph SDK 或 [LangSmith UI](https://smith.langchain.com) 创建、列出、更新、版本化和获取助手。
+- **一个图，多个助手**：单个部署的图可以支持多个助手，每个助手具有不同的配置（例如提示词、模型、工具）。
+- **[版本化](#versioning)配置**：每个助手通过版本控制维护自己的配置历史。编辑助手会创建新版本，您可以提升或回滚到任何版本。
+- **[配置](#configuration)更新无需更改图**：通过助手配置更新提示词、模型选择和其他设置，无需修改或重新部署图代码即可实现快速迭代。
+
+<Note>
+调用助手时，您可以在 [`langgraph.json`](/langsmith/application-structure#configuration-file) 中指定：
+- **图 ID**（例如 `"agent"`）：使用该图的默认助手
+- **助手 ID**（UUID）：使用特定助手配置
+
+这种灵活性允许您使用默认设置快速测试，或精确控制使用的配置。
+</Note>
+
+### 配置
+
+助手建立在 LangGraph 开源概念的[配置](/oss/python/langgraph/graph-api#runtime-context)之上。
+
+虽然配置在开源 LangGraph 库中可用，但助手仅在 [LangSmith 部署](/langsmith/deployment) 中存在，因为它们与您部署的图紧密耦合。部署时，[Agent Server](/langsmith/agent-server) 将使用图的默认配置设置自动为每个图创建默认助手。
+
+在实践中，助手只是具有特定配置的图的_实例_。因此，多个助手可以引用同一个图但包含不同的配置（例如提示词、模型、工具）。LangSmith 部署 API 提供了多个用于创建和管理助手的端点。请参阅 [API 参考](/langsmith/server-api-ref) 和[此操作指南](/langsmith/configuration-cloud)获取如何创建助手的更多详细信息。
+
+### 版本控制
+
+助手支持版本控制以跟踪随时间的变化。创建助手后，后续编辑将自动创建新版本。
+
+- 每次更新都会创建助手的新版本。
+- 您可以将任何版本提升为活动版本。
+- 回滚到以前的版本就像将其设置为主动一样简单。
+- 所有版本都可供参考和回滚。
+
+<Warning>
+更新助手时，必须提供完整的配置有效载荷。更新端点从头创建新版本，不会与以前的版本合并。确保包含您要保留的所有配置字段。
+</Warning>
+
+有关如何管理助手版本的更多详细信息，请参阅[管理助手指南](/langsmith/configuration-cloud#create-a-new-version-for-your-assistant)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\assistants.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

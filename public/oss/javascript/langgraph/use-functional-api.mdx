@@ -1,0 +1,127 @@
+---
+title: 使用函数式 API
+sidebarTitle: 使用函数式 API
+---
+
+
+
+[**函数式 API**](/oss/javascript/langgraph/functional-api) 允许您以最小的改动将 LangGraph 的关键功能（[持久化](/oss/javascript/langgraph/persistence)、[内存](/oss/javascript/langgraph/add-memory)、[人工介入](/oss/javascript/langgraph/interrupts)和[流式处理](/oss/javascript/langgraph/streaming)）添加到您的应用程序中。
+
+<Tip>
+有关函数式 API 的概念信息，请参阅[函数式 API](/oss/javascript/langgraph/functional-api)。
+</Tip>
+
+## 创建简单工作流
+
+在定义 `entrypoint` 时，输入被限制为函数的第一个参数。要传递多个输入，您可以使用字典。
+
+
+
+```typescript
+const checkpointer = new MemorySaver();
+
+const myWorkflow = entrypoint(
+  { checkpointer, name: "myWorkflow" },
+  async (inputs: { value: number; anotherValue: number }) => {
+    const value = inputs.value;
+    const anotherValue = inputs.anotherValue;
+    // ...
+  }
+);
+
+await myWorkflow.invoke({ value: 1, anotherValue: 2 });
+```
+
+
+<Accordion title="扩展示例：简单工作流">
+
+
+  ```typescript
+  import { v7 as uuid7 } from "uuid";
+  import { entrypoint, task, MemorySaver } from "@langchain/langgraph";
+
+  // Task that checks if a number is even
+  const isEven = task("isEven", async (number: number) => {
+    return number % 2 === 0;
+  });
+
+  // Task that formats a message
+  const formatMessage = task("formatMessage", async (isEven: boolean) => {
+    return isEven ? "The number is even." : "The number is odd.";
+  });
+
+  // Create a checkpointer for persistence
+  const checkpointer = new MemorySaver();
+
+  const workflow = entrypoint(
+    { checkpointer, name: "workflow" },
+    async (inputs: { number: number }) => {
+      // Simple workflow to classify a number
+      const even = await isEven(inputs.number);
+      return await formatMessage(even);
+    }
+  );
+
+  // Run the workflow with a unique thread ID
+  const config = { configurable: { thread_id: uuid7() } };
+  const result = await workflow.invoke({ number: 7 }, config);
+  console.log(result);
+  ```
+
+</Accordion>
+
+<Accordion title="扩展示例：使用大型语言模型创作论文">
+  此示例演示如何使用 `@task` 和 `@entrypoint` 装饰器进行语法组合。由于提供了检查点，工作流结果将保存在检查点中。
+
+
+
+  ```typescript
+  import { v7 as uuid7 } from "uuid";
+  import { ChatOpenAI } from "@langchain/openai";
+  import { entrypoint, task, MemorySaver } from "@langchain/langgraph";
+
+  const model = new ChatOpenAI({ model: "gpt-3.5-turbo" });
+
+  // Task: generate essay using an LLM
+  const composeEssay = task("composeEssay", async (topic: string) => {
+    // Generate an essay about the given topic
+    const response = await model.invoke([
+      { role: "system", content: "You are a helpful assistant that writes essays." },
+      { role: "user", content: `Write an essay about ${topic}.` }
+    ]);
+    return response.content as string;
+  });
+
+  // Create a checkpointer for persistence
+  const checkpointer = new MemorySaver();
+
+  const workflow = entrypoint(
+    { checkpointer, name: "workflow" },
+    async (topic: string) => {
+      // Simple workflow that generates an essay with an LLM
+      return await composeEssay(topic);
+    }
+  );
+
+  // Execute the workflow
+  const config = { configurable: { thread_id: uuid7() } };
+  const result = await workflow.invoke("the history of flight", config);
+  console.log(result);
+  ```
+
+</Accordion>
+
+## 并行执行
+
+可以通过同时调用任务并等待结果来并行执行任务。这对于提高 IO 密集型任务（例如，为大型语言模型调用 API）的性能很有用。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\use-functional-api.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

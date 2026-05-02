@@ -1,0 +1,44 @@
+---
+title: "ArangoDB integrations"
+description: "Integrate with ArangoDB using LangChain Python."
+---
+
+> [ArangoDB](https://github.com/arangodb/arangodb) 是一个可扩展的图数据库系统，能够从关联数据中更快地获取价值。原生的图结构、内置的搜索引擎以及对 JSON 的支持，都通过一种统一的查询语言来实现。ArangoDB 可在本地部署、云端运行——随时随地。
+
+## Installation and setup
+
+Install the [ArangoDB Python Driver](https://github.com/ArangoDB-Community/python-arango) package with
+
+<CodeGroup>
+```bash pip
+pip install python-arango
+```
+
+```bash uv
+uv add python-arango
+```
+</CodeGroup>
+
+## Graph QA chain
+
+Connect your `ArangoDB` Database with a chat model to get insights on your data.
+
+See the [ArangoDB notebook example](/oss/python/integrations/graphs/arangodb).
+
+```python
+from arango import ArangoClient
+
+from langchain_community.graphs import ArangoGraph
+from langchain_classic.chains import ArangoGraphQAChain
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\arangodb.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

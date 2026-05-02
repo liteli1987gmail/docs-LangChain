@@ -1,0 +1,51 @@
+---
+title: "Discord (community loader) integrations"
+description: "Integrate with Discord (community loader) using LangChain Python."
+---
+
+Discord是一个VoIP和即时通讯社交平台。用户可以通过语音通话、视频通话、短信、媒体和文件进行交流，无论是在私人聊天中还是作为被称为“服务器”的社区的一部分。服务器是持久化聊天房间和语音频道的集合，可以通过邀请链接访问。
+
+## Installation and setup
+
+<CodeGroup>
+```bash pip
+pip install pandas
+```
+
+```bash uv
+uv add pandas
+```
+</CodeGroup>
+
+Follow these steps to download your `Discord` data:
+
+1. Go to your **User Settings**
+2. Then go to **Privacy and Safety**
+3. Head over to the **Request all of my Data** and click on **Request Data** button
+
+It might take 30 days for you to receive your data. You'll receive an email at the address which is registered
+with Discord. That email will have a download button using which you would be able to download your personal Discord data.
+
+
+## Document loader
+
+See a [usage example](/oss/python/integrations/document_loaders/discord).
+
+**NOTE:** The  `DiscordChatLoader` is not the `ChatLoader` but a `DocumentLoader`.
+It is used to load the data from the `Discord` data dump.
+For the `ChatLoader` see Chat Loader section below.
+
+```python
+from langchain_community.document_loaders import DiscordChatLoader
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\discord.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

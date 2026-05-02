@@ -1,0 +1,471 @@
+---
+title: 构建自定义 SQL 代理
+sidebarTitle: 自定义 SQL 代理
+---
+
+import ChatModelTabsPy from '/snippets/chat-model-tabs.mdx';
+import ChatModelTabsJS from '/snippets/chat-model-tabs-js.mdx';
+
+
+在本教程中，我们将构建一个可以使用 LangGraph 回答 SQL 数据库相关问题的自定义代理。
+
+LangChain 提供了内置的[代理](/oss/javascript/langchain/agents)实现，使用 [LangGraph](/oss/javascript/langgraph/overview) 原语实现。如果需要更深入的定制，可以直接在 LangGraph 中实现代理。本指南演示了 SQL 代理的示例实现。有关实际介绍，请参阅[使用高层 LangChain 抽象构建 SQL 代理](/oss/javascript/langchain/sql-agent)。
+
+<Warning>
+构建 SQL 数据库的问答系统需要执行模型生成的 SQL 查询。这样做存在固有风险。请确保您的数据库连接权限始终尽可能地缩小到代理需要的范围。这将减轻（但不能消除）构建模型驱动系统的风险。
+</Warning>
+
+[预构建代理](/oss/javascript/langchain/sql-agent)让我们可以快速开始，但我们依靠系统提示词来约束其行为——例如，我们指示代理始终以"列出表"工具开始，始终在执行查询之前运行查询检查工具。
+
+通过在 LangGraph 中自定义代理，我们可以实现更高程度的控制。在这里，我们实现了一个简单的 ReAct 代理设置，为特定工具调用提供专用节点。我们将使用与预构建代理相同的[状态]。
+
+### 概念
+
+我们将涵盖以下概念：
+
+- [工具](/oss/javascript/langchain/tools)用于读取 SQL 数据库
+- LangGraph [Graph API](/oss/javascript/langgraph/graph-api)，包括状态、节点、边和条件边。
+- [人工介入](/oss/javascript/langgraph/interrupts)流程
+
+## 设置
+
+### 安装
+
+
+    <CodeGroup>
+    ```bash npm
+    npm i langchain @langchain/core @langchain/classic @langchain/langgraph @langchain/openai typeorm sqlite3 zod
+    ```
+    ```bash yarn
+    yarn add langchain @langchain/core @langchain/classic @langchain/langgraph @langchain/openai typeorm sqlite3 zod
+    ```
+    ```bash pnpm
+    pnpm add langchain @langchain/core @langchain/classic @langchain/langgraph @langchain/openai typeorm sqlite3 zod
+    ```
+    </CodeGroup>
+
+
+### LangSmith
+设置 [LangSmith](https://smith.langchain.com) 来检查您的链或代理内部发生了什么。然后设置以下环境变量：
+
+    ```shell
+    export LANGSMITH_TRACING="true"
+    export LANGSMITH_API_KEY="..."
+    ```
+
+## 1. 选择大型语言模型
+
+选择一个支持[工具调用](/oss/javascript/integrations/providers/overview)的模型：
+
+
+<ChatModelTabsJS />
+
+
+下面示例中显示的输出使用了 OpenAI。
+
+## 2. 配置数据库
+
+您将为本教程创建一个 [SQLite 数据库](https://www.sqlitetutorial.net/sqlite-sample-database/)。SQLite 是一个轻量级数据库，易于设置和使用。我们将加载 `chinook` 数据库，这是一个代表数字媒体商店的示例数据库。
+
+为方便起见，我们将数据库（`Chinook.db`）托管在公共 GCS 存储桶上。
+
+
+```typescript
+import fs from "node:fs/promises";
+import path from "node:path";
+
+const url = "https://storage.googleapis.com/benchmarks-artifacts/chinook/Chinook.db";
+const localPath = path.resolve("Chinook.db");
+
+async function resolveDbPath() {
+  const exists = await fs.access(localPath).then(() => true).catch(() => false);
+  if (exists) {
+    console.log(`${localPath} already exists, skipping download.`);
+    return localPath;
+  }
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Failed to download DB. Status code: ${resp.status}`);
+  const buf = Buffer.from(await resp.arrayBuffer());
+  await fs.writeFile(localPath, buf);
+  console.log(`File downloaded and saved as ${localPath}`);
+  return localPath;
+}
+```
+
+我们将使用 `@langchain/classic/sql_db` 模块中提供的便捷 SQL 数据库包装器来与数据库交互。包装器提供了一个简单的界面来执行 SQL 查询和获取结果：
+
+```typescript
+import { SqlDatabase } from "@langchain/classic/sql_db";
+import { DataSource } from "typeorm";
+
+const dbPath = await resolveDbPath();
+const datasource = new DataSource({ type: "sqlite", database: dbPath });
+const db = await SqlDatabase.fromDataSourceParams({ appDataSource: datasource });
+const dialect = db.appDataSourceOptions.type;
+
+console.log(`Dialect: ${dialect}`);
+const tableNames = db.allTables.map(t => t.tableName);
+console.log(`Available tables: ${tableNames.join(", ")}`);
+const sampleResults = await db.run("SELECT * FROM Artist LIMIT 5;");
+console.log(`Sample output: ${sampleResults}`);
+```
+```
+Dialect: sqlite
+Available tables: Album, Artist, Customer, Employee, Genre, Invoice, InvoiceLine, MediaType, Playlist, PlaylistTrack, Track
+Sample output: [{"ArtistId":1,"Name":"AC/DC"},{"ArtistId":2,"Name":"Accept"},{"ArtistId":3,"Name":"Aerosmith"},{"ArtistId":4,"Name":"Alanis Morissette"},{"ArtistId":5,"Name":"Alice In Chains"}]
+```
+
+
+## 3. 添加数据库交互工具
+
+
+我们将创建自定义工具来与数据库交互：
+
+```typescript
+import { tool } from "langchain";
+import * as z from "zod";
+
+// Tool to list all tables
+const listTablesTool = tool(
+  async () => {
+    const tableNames = db.allTables.map(t => t.tableName);
+    return tableNames.join(", ");
+  },
+  {
+    name: "sql_db_list_tables",
+    description: "Input is an empty string, output is a comma-separated list of tables in the database.",
+    schema: z.object({}),
+  }
+);
+
+// Tool to get schema for specific tables
+const getSchemaTool = tool(
+  async ({ table_names }) => {
+    const tables = table_names.split(",").map(t => t.trim());
+    return await db.getTableInfo(tables);
+  },
+  {
+    name: "sql_db_schema",
+    description: "Input to this tool is a comma-separated list of tables, output is the schema and sample rows for those tables. Be sure that the tables actually exist by calling sql_db_list_tables first! Example Input: table1, table2, table3",
+    schema: z.object({
+      table_names: z.string().describe("Comma-separated list of table names"),
+    }),
+  }
+);
+
+// Tool to execute SQL query
+const queryTool = tool(
+  async ({ query }) => {
+    try {
+      const result = await db.run(query);
+      return typeof result === "string" ? result : JSON.stringify(result);
+    } catch (error) {
+      return `Error: ${error.message}`;
+    }
+  },
+  {
+    name: "sql_db_query",
+    description: "Input to this tool is a detailed and correct SQL query, output is a result from the database. If the query is not correct, an error message will be returned. If an error is returned, rewrite the query, check the query, and try again.",
+    schema: z.object({
+      query: z.string().describe("SQL query to execute"),
+    }),
+  }
+);
+
+const tools = [listTablesTool, getSchemaTool, queryTool];
+
+for (const tool of tools) {
+  console.log(`${tool.name}: ${tool.description}\n`);
+}
+```
+```
+sql_db_list_tables: Input is an empty string, output is a comma-separated list of tables in the database.
+
+sql_db_schema: Input to this tool is a comma-separated list of tables, output is the schema and sample rows for those tables. Be sure that the tables actually exist by calling sql_db_list_tables first! Example Input: table1, table2, table3
+
+sql_db_query: Input to this tool is a detailed and correct SQL query, output is a result from the database. If the query is not correct, an error message will be returned. If an error is returned, rewrite the query, check the query, and try again.
+```
+
+
+## 4. 定义应用程序步骤
+
+我们为以下步骤构建专用节点：
+
+- 列出数据库表
+- 调用"获取架构"工具
+- 生成查询
+- 检查查询
+
+将这些步骤放在专用节点中让我们可以 (1) 在需要时强制工具调用，和 (2) 自定义与每个步骤关联的提示词。
+
+
+```typescript
+import { AIMessage, ToolMessage, SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { StateSchema, MessagesValue, GraphNode, StateGraph, START, END } from "@langchain/langgraph";
+import { z } from "zod/v4";
+
+// Create tool nodes for schema and query execution
+const getSchemaNode = new ToolNode([getSchemaTool]);
+const runQueryNode = new ToolNode([queryTool]);
+
+// Define state schema
+const MessagesState = new StateSchema({
+  messages: MessagesValue,
+});
+
+// Example: create a predetermined tool call
+const listTables: GraphNode<typeof MessagesState> = async (state) => {
+  const toolCall = {
+    name: "sql_db_list_tables",
+    args: {},
+    id: "abc123",
+    type: "tool_call" as const,
+  };
+  const toolCallMessage = new AIMessage({
+    content: "",
+    tool_calls: [toolCall],
+  });
+
+  const toolMessage = await listTablesTool.invoke({});
+  const response = new AIMessage(`Available tables: ${toolMessage}`);
+
+  return { messages: [toolCallMessage, new ToolMessage({ content: toolMessage, tool_call_id: "abc123" }), response] };
+};
+
+// Example: force a model to create a tool call
+const callGetSchema: GraphNode<typeof MessagesState> = async (state) => {
+  const llmWithTools = model.bindTools([getSchemaTool], {
+    tool_choice: "any",
+  });
+  const response = await llmWithTools.invoke(state.messages);
+
+  return { messages: [response] };
+};
+
+const topK = 5;
+
+const generateQuerySystemPrompt = `
+You are an agent designed to interact with a SQL database.
+Given an input question, create a syntactically correct ${dialect}
+query to run, then look at the results of the query and return the answer. Unless
+the user specifies a specific number of examples they wish to obtain, always limit
+your query to at most ${topK} results.
+
+You can order the results by a relevant column to return the most interesting
+examples in the database. Never query for all the columns from a specific table,
+only ask for the relevant columns given the question.
+
+DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+`;
+
+const generateQuery: GraphNode<typeof MessagesState> = async (state) => {
+  const systemMessage = new SystemMessage(generateQuerySystemPrompt);
+  // We do not force a tool call here, to allow the model to
+  // respond naturally when it obtains the solution.
+  const llmWithTools = model.bindTools([queryTool]);
+  const response = await llmWithTools.invoke([systemMessage, ...state.messages]);
+
+  return { messages: [response] };
+};
+
+const checkQuerySystemPrompt = `
+You are a SQL expert with a strong attention to detail.
+Double check the ${dialect} query for common mistakes, including:
+- Using NOT IN with NULL values
+- Using UNION when UNION ALL should have been used
+- Using BETWEEN for exclusive ranges
+- Data type mismatch in predicates
+- Properly quoting identifiers
+- Using the correct number of arguments for functions
+- Casting to the correct data type
+- Using the proper columns for joins
+
+If there are any of the above mistakes, rewrite the query. If there are no mistakes,
+just reproduce the original query.
+
+You will call the appropriate tool to execute the query after running this check.
+`;
+
+const checkQuery: GraphNode<typeof MessagesState> = async (state) => {
+  const systemMessage = new SystemMessage(checkQuerySystemPrompt);
+
+  // Generate an artificial user message to check
+  const lastMessage = state.messages[state.messages.length - 1];
+  if (!lastMessage.tool_calls || lastMessage.tool_calls.length === 0) {
+    throw new Error("No tool calls found in the last message");
+  }
+  const toolCall = lastMessage.tool_calls[0];
+  const userMessage = new HumanMessage(toolCall.args.query);
+  const llmWithTools = model.bindTools([queryTool], {
+    tool_choice: "any",
+  });
+  const response = await llmWithTools.invoke([systemMessage, userMessage]);
+  // Preserve the original message ID
+  response.id = lastMessage.id;
+
+  return { messages: [response] };
+};
+```
+
+
+## 5. 实现代理
+
+我们现在可以使用 [Graph API](/oss/javascript/langgraph/graph-api) 将这些步骤组装成工作流。我们在查询生成步骤定义一个[条件边](/oss/javascript/langgraph/graph-api#conditional-edges)，如果生成了查询则路由到查询检查器，如果没有工具调用则结束，因为大型语言模型已经向查询提供了响应。
+
+
+```typescript
+import { StateGraph, ConditionalEdgeRouter } from "@langchain/langgraph";
+
+const shouldContinue: ConditionalEdgeRouter<typeof MessagesState, "check_query"> = (state) => {
+  const messages = state.messages;
+  const lastMessage = messages[messages.length - 1];
+  if (!lastMessage.tool_calls || lastMessage.tool_calls.length === 0) {
+    return END;
+  } else {
+    return "check_query";
+  }
+};
+
+const builder = new StateGraph(MessagesState)
+  .addNode("list_tables", listTables)
+  .addNode("call_get_schema", callGetSchema)
+  .addNode("get_schema", getSchemaNode)
+  .addNode("generate_query", generateQuery)
+  .addNode("check_query", checkQuery)
+  .addNode("run_query", runQueryNode)
+  .addEdge(START, "list_tables")
+  .addEdge("list_tables", "call_get_schema")
+  .addEdge("call_get_schema", "get_schema")
+  .addEdge("get_schema", "generate_query")
+  .addConditionalEdges("generate_query", shouldContinue)
+  .addEdge("check_query", "run_query")
+  .addEdge("run_query", "generate_query");
+
+const agent = builder.compile();
+```
+We visualize the application below:
+```typescript
+import * as fs from "node:fs/promises";
+
+const drawableGraph = await agent.getGraphAsync();
+const image = await drawableGraph.drawMermaidPng();
+const imageBuffer = new Uint8Array(await image.arrayBuffer());
+
+await fs.writeFile("graph.png", imageBuffer);
+```
+
+<img
+  src="/oss/images/sql-agent-langgraph.png"
+  alt="SQL agent graph"
+  style={{ height: "800px" }}
+/>
+
+我们现在可以调用图了：
+
+```typescript
+const question = "Which genre on average has the longest tracks?";
+
+const stream = await agent.stream(
+  { messages: [{ role: "user", content: question }] },
+  { streamMode: "values" }
+);
+
+for await (const step of stream) {
+  if (step.messages && step.messages.length > 0) {
+    const lastMessage = step.messages[step.messages.length - 1];
+    console.log(lastMessage.toFormattedString());
+  }
+}
+```
+
+```
+================================ Human Message =================================
+
+Which genre on average has the longest tracks?
+================================== Ai Message ==================================
+
+Available tables: Album, Artist, Customer, Employee, Genre, Invoice, InvoiceLine, MediaType, Playlist, PlaylistTrack, Track
+================================== Ai Message ==================================
+Tool Calls:
+  sql_db_schema (call_yzje0tj7JK3TEzDx4QnRR3lL)
+ Call ID: call_yzje0tj7JK3TEzDx4QnRR3lL
+  Args:
+    table_names: Genre, Track
+================================= Tool Message =================================
+Name: sql_db_schema
+
+
+CREATE TABLE "Genre" (
+	"GenreId" INTEGER NOT NULL,
+	"Name" NVARCHAR(120),
+	PRIMARY KEY ("GenreId")
+)
+
+/*
+3 rows from Genre table:
+GenreId	Name
+1	Rock
+2	Jazz
+3	Metal
+*/
+
+
+CREATE TABLE "Track" (
+	"TrackId" INTEGER NOT NULL,
+	"Name" NVARCHAR(200) NOT NULL,
+	"AlbumId" INTEGER,
+	"MediaTypeId" INTEGER NOT NULL,
+	"GenreId" INTEGER,
+	"Composer" NVARCHAR(220),
+	"Milliseconds" INTEGER NOT NULL,
+	"Bytes" INTEGER,
+	"UnitPrice" NUMERIC(10, 2) NOT NULL,
+	PRIMARY KEY ("TrackId"),
+	FOREIGN KEY("MediaTypeId") REFERENCES "MediaType" ("MediaTypeId"),
+	FOREIGN KEY("GenreId") REFERENCES "Genre" ("GenreId"),
+	FOREIGN KEY("AlbumId") REFERENCES "Album" ("AlbumId")
+)
+
+/*
+3 rows from Track table:
+TrackId	Name	AlbumId	MediaTypeId	GenreId	Composer	Milliseconds	Bytes	UnitPrice
+1	For Those About To Rock (We Salute You)	1	1	1	Angus Young, Malcolm Young, Brian Johnson	343719	11170334	0.99
+2	Balls to the Wall	2	2	1	U. Dirkschneider, W. Hoffmann, H. Frank, P. Baltes, S. Kaufmann, G. Hoffmann	342562	5510424	0.99
+3	Fast As a Shark	3	2	1	F. Baltes, S. Kaufman, U. Dirkscneider & W. Hoffman	230619	3990994	0.99
+*/
+================================== Ai Message ==================================
+Tool Calls:
+  sql_db_query (call_cb9ApLfZLSq7CWg6jd0im90b)
+ Call ID: call_cb9ApLfZLSq7CWg6jd0im90b
+  Args:
+    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AvgMilliseconds FROM Track JOIN Genre ON Track.GenreId = Genre.GenreId GROUP BY Genre.GenreId ORDER BY AvgMilliseconds DESC LIMIT 5;
+================================== Ai Message ==================================
+Tool Calls:
+  sql_db_query (call_DMVALfnQ4kJsuF3Yl6jxbeAU)
+ Call ID: call_DMVALfnQ4kJsuF3Yl6jxbeAU
+  Args:
+    query: SELECT Genre.Name, AVG(Track.Milliseconds) AS AvgMilliseconds FROM Track JOIN Genre ON Track.GenreId = Genre.GenreId GROUP BY Genre.GenreId ORDER BY AvgMilliseconds DESC LIMIT 5;
+================================= Tool Message =================================
+Name: sql_db_query
+
+[('Sci Fi & Fantasy', 2911783.0384615385), ('Science Fiction', 2625549.076923077), ('Drama', 2575283.78125), ('TV Shows', 2145041.0215053763), ('Comedy', 1585263.705882353)]
+================================== Ai Message ==================================
+
+The genre with the longest tracks on average is "Sci Fi & Fantasy," with an average track length of approximately 2,911,783 milliseconds. Other genres with relatively long tracks include "Science Fiction," "Drama," "TV Shows," and "Comedy."
+```
+
+<Tip>
+See [LangSmith trace](https://smith.langchain.com/public/a6a96896-686a-4040-b9b5-28d701453d6f/r) for the above run.
+</Tip>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\sql-agent.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

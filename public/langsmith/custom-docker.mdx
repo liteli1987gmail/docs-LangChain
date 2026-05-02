@@ -1,0 +1,32 @@
+---
+title: 如何自定义 Dockerfile
+sidebarTitle: 自定义 Dockerfile
+---
+用户可以添加一组额外的行，这些行在从父 LangGraph 镜像导入后添加到 Dockerfile 中。为此，您只需修改您的 `langgraph.json` 文件，传入您想要运行的命令到 `dockerfile_lines` 键。例如，如果我们想在图中使用 `Pillow`，您需要添加以下依赖项：
+
+```
+{
+    "dependencies": ["."],
+    "graphs": {
+        "openai_agent": "./openai_agent.py:agent",
+    },
+    "env": "./.env",
+    "dockerfile_lines": [
+        "RUN apt-get update && apt-get install -y libjpeg-dev zlib1g-dev libpng-dev",
+        "RUN pip install Pillow"
+    ]
+}
+```
+
+这将安装使用 Pillow（如果我们使用 `jpeg` 或 `png` 图像格式）所需的系统包。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\custom-docker.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,188 @@
+---
+title: 运行（跨度）数据格式
+sidebarTitle: 运行（跨度）数据格式
+---
+
+LangSmith 将每个[运行](/langsmith/observability-concepts)存储为结构化记录。了解此格式对于导出追踪、查询 API 或构建集成很有用。
+
+| 字段名称                    | 类型             | 描述                                                                                                                   |
+| --------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **`id`**                        | UUID             | 跨度的唯一标识符。                                                                                               |
+| **`name`**                      | string           | 与运行关联的名称。                                                                                             |
+| **`inputs`**                    | object           | 提供给运行的输入映射。对于 `run_type='llm'` 的运行，这通常包含发送给模型的消息对象数组。                                                                                   |
+| **`run_type`**                 | string           | [运行的类型](#run-types)，例如 `'llm'`、`'chain'`、`'tool'`。                                                            |
+| **`start_time`**               | datetime         | 运行开始时间。                                                                                                        |
+| **`end_time`**                 | datetime         | 运行结束时间。                                                                                                          |
+| **`extra`**                     | object           | 任何额外的运行信息。                                                                                                    |
+| **`error`**                     | string           | 如果运行遇到错误，则为错误消息。                                                                                |
+| **`outputs`**                   | object           | 运行生成的输出映射。对于 `run_type='llm'` 的运行，这通常包含由模型返回的消息对象数组。                                                                                 |
+| **`events`**                    | array of objects | 与运行关联的事件对象列表。这与使用流式传输执行的运行相关。                           |
+| **`tags`**                      | array of strings | 与运行关联的标签或标记。                                                                                       |
+| **`trace_id`**                 | UUID             | 运行所属追踪的唯一标识符。这也是追踪根运行的 `id` 字段                |
+| **`dotted_order`**             | string           | [排序字符串](#what-is-dotted_order)，分层的。格式：`<run_start_time>Z<run_uuid>`。`<child_run_start_time>Z<child_run_uuid>`...                 |
+| **`status`**                    | string           | 运行执行的当前状态，例如 `'error'`、`'pending'`、`'success'`                                                      |
+| **`child_run_ids`**           | array of UUIDs   | 所有子运行的 ID 列表。                                                                                               |
+| **`direct_child_run_ids`**   | array of UUIDs   | 此运行的直接子项的 ID 列表。                                                                                  |
+| **`parent_run_ids`**          | array of UUIDs   | 所有父运行的 ID 列表。                                                                                              |
+| **`feedback_stats`**           | object           | 此运行的反馈统计聚合                                                                              |
+| **`reference_example_id`**    | UUID             | 与运行关联的参考示例的 ID。这通常仅对评估运行存在。                          |
+| **`total_tokens`**             | integer          | 运行处理的令牌总数。                                                                                  |
+| **`prompt_tokens`**            | integer          | 运行提示中的令牌数。                                                                                    |
+| **`completion_tokens`**        | integer          | 运行的完成中的令牌数。                                                                                |
+| **`total_cost`**               | decimal          | 处理运行的相关总成本。                                                                                |
+| **`prompt_cost`**              | decimal          | 运行提示部分的相关成本。                                                                              |
+| **`completion_cost`**          | decimal          | 运行完成部分的相关成本。                                                                               |
+| **`first_token_time`**        | datetime         | 生成模型输出的第一个令牌的时间。仅适用于 `run_type="llm"` 且启用了流式传输的运行。 |
+| **`session_id`**               | string           | 运行的会话标识符，也称为追踪项目 ID。                                                         |
+| **`in_dataset`**               | boolean          | 指示运行是否包含在数据集中。                                                                           |
+| **`parent_run_id`**           | UUID             | 父运行的唯一标识符。                                                                                          |
+| `execution_order` (deprecated) | integer          | 此运行在追踪中的执行顺序。                                                                    |
+| `serialized`                    | object           | 执行运行的对象的序列化状态（如果适用）。                                                               |
+| `manifest_id` (deprecated)     | UUID             | 与跨度关联的清单的标识符。                                                                           |
+| `manifest_s3_id`              | UUID             | 清单的 S3 标识符。                                                                                              |
+| `inputs_s3_urls`              | object           | 输入的 S3 URL。                                                                                                       |
+| `outputs_s3_urls`             | object           | 输出的 S3 URL。                                                                                                      |
+| `price_model_id`              | UUID             | 应用于运行的定价模型的标识符。                                                                          |
+| `app_path`                     | string           | 此运行的应用程序（UI）路径。                                                                                   |
+| `last_queued_at`              | datetime         | 跨度最后一次排入队列的时间。                                                                                                |
+| `share_token`                  | string           | 用于共享访问运行数据的令牌。                                                                                   |
+
+以下是上述格式的运行的 JSON 表示示例：
+
+```json
+{
+  "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
+  "name": "string",
+  "inputs": {},
+  "run_type": "llm",
+  "start_time": "2024-04-29T00:49:12.090000",
+  "end_time": "2024-04-29T00:49:12.459000",
+  "extra": {},
+  "error": "string",
+  "execution_order": 1,
+  "serialized": {},
+  "outputs": {},
+  "parent_run_id": "f8faf8c1-9778-49a4-9004-628cdb0047e5",
+  "manifest_id": "82825e8e-31fc-47d5-83ce-cd926068341e",
+  "manifest_s3_id": "0454f93b-7eb6-4b9d-a203-f1261e686840",
+  "events": [{}],
+  "tags": ["foo"],
+  "inputs_s3_urls": {},
+  "outputs_s3_urls": {},
+  "trace_id": "df570c03-5a03-4cea-8df0-c162d05127ac",
+  "dotted_order": "20240429T004912090000Z497f6eca-6276-4993-bfeb-53cbbbba6f08",
+  "status": "string",
+  "child_run_ids": ["497f6eca-6276-4993-bfeb-53cbbbba6f08"],
+  "direct_child_run_ids": ["497f6eca-6276-4993-bfeb-53cbbbba6f08"],
+  "parent_run_ids": ["f8faf8c1-9778-49a4-9004-628cdb0047e5"],
+  "feedback_stats": {
+    "correctness": {
+      "n": 1,
+      "avg": 1.0
+    }
+  },
+  "reference_example_id": "9fb06aaa-105f-4c87-845f-47d62ffd7ee6",
+  "total_tokens": 0,
+  "prompt_tokens": 0,
+  "completion_tokens": 0,
+  "total_cost": 0.0,
+  "prompt_cost": 0.0,
+  "completion_cost": 0.0,
+  "price_model_id": "0b5d9575-bec3-4256-b43a-05893b8b8440",
+  "first_token_time": null,
+  "session_id": "1ffd059c-17ea-40a8-8aef-70fd0307db82",
+  "app_path": "string",
+  "last_queued_at": null,
+  "in_dataset": true,
+  "share_token": "d0430ac3-04a1-4e32-a7ea-57776ad22c1c"
+}
+```
+
+## 运行类型
+
+`run_type` 字段标识跨度所代表的操作类型。LangSmith 使用它来在追踪 UI 中应用适当的渲染，并启用特定于类型的特性。
+
+| 运行类型 | 描述 |
+|----------|-------------|
+| `chain` | 步骤的序列或组合。 |
+| `llm` | 对语言模型的调用。 |
+| `embedding` | Embedding API 调用。（在 UI 中以 `chain` 图标显示。） |
+| `prompt` | 在传递给模型之前格式化输入的[提示词模板](/langsmith/prompt-template-format)。 |
+| `tool` | 模型调用的函数或外部操作。 |
+| `retriever` | 获取相关文档或上下文的查找。 |
+| `parser` | 将原始模型输出转换为结构化格式的输出解析器。 |
+
+在使用 [`@traceable`](/langsmith/annotate-code#use-%40traceable-%2F-traceable) 或 [`RunTree`](/langsmith/annotate-code#use-the-runtree-api) 进行检测时设置 [`run_type`](https://reference.langchain.com/python/langsmith/schemas/RunBase/run_type)：
+
+<CodeGroup>
+```python Python
+from langsmith import traceable
+
+@traceable(run_type="tool")
+def my_tool(query: str) -> str:
+    ...
+```
+```typescript TypeScript
+import { traceable } from "langsmith/traceable";
+
+const myTool = traceable(
+  async (query: string): Promise<string> => {
+    // ...
+  },
+  { run_type: "tool" }
+);
+```
+</CodeGroup>
+
+某些运行类型在 LangSmith UI 中有专门的追踪视图：
+
+- [记录 LLM 调用](/langsmith/log-llm-trace)
+- [记录检索器追踪](/langsmith/log-retriever-trace)
+
+## 什么是 `dotted_order`？
+
+运行的虚线顺序是一个可排序的键，它完整指定了其在追踪层次结构中的位置。
+
+以以下示例为例：
+
+```python
+import langsmith as ls
+
+@ls.traceable
+def grandchild():
+    p("grandchild")
+
+@ls.traceable
+def child():
+    grandchild()
+
+@ls.traceable
+def parent():
+    child()
+```
+
+如果您在每个阶段打印出 ID，可能会得到以下内容：
+
+```python
+parent	run_id=0e01bf50-474d-4536-810f-67d3ee7ea3e7	trace_id=0e01bf50-474d-4536-810f-67d3ee7ea3e7  parent_run_id=null	dotted_order=20240919T171648521691Z0e01bf50-474d-4536-810f-67d3ee7ea3e7
+child	run_id=a8024e23-5b82-47fd-970e-f6a5ba3f5097	trace_id=0e01bf50-474d-4536-810f-67d3ee7ea3e7  parent_run_id=0e01bf50-474d-4536-810f-67d3ee7ea3e7	dotted_order=20240919T171648521691Z0e01bf50-474d-4536-810f-67d3ee7ea3e7.20240919T171648523407Za8024e23-5b82-47fd-970e-f6a5ba3f5097
+grandchild	run_id=0ec6b845-18b9-4aa1-8f1b-6ba3f9fdefd6	trace_id=0e01bf50-474d-4536-810f-67d3ee7ea3e7  parent_run_id=a8024e23-5b82-47fd-970e-f6a5ba3f5097	dotted_order=20240919T171648521691Z0e01bf50-474d-4536-810f-67d3ee7ea3e7.20240919T171648523407Za8024e23-5b82-47fd-970e-f6a5ba3f5097.20240919T171648523563Z0ec6b845-18b9-4aa1-8f1b-6ba3f9fdefd6
+```
+
+请注意几个不变量：
+
+- `id` 等于虚线顺序的最后 36 个字符（最后一个 `'Z'` 之后的后缀）。例如，在 grandchild 中请参见 `0ec6b845-18b9-4aa1-8f1b-6ba3f9fdefd6`。
+- `trace_id` 等于虚线顺序中的第一个 UUID（即 `dotted_order.split('.')[0].split('Z')[1]`）
+- 如果 `parent_run_id` 存在，它是虚线顺序中的倒数第二个 UUID。例如，在 grandchild 中请参见 `a8024e23-5b82-47fd-970e-f6a5ba3f5097`。
+- 如果您按点分割 `dotted_order`，每个段的格式为 (`<run_start_time>Z<run_id>`)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\run-data-format.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

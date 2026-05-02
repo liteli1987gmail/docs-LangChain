@@ -1,0 +1,84 @@
+---
+title: "Gel integrations"
+description: "Integrate with Gel using LangChain Python."
+---
+
+[Gel](https://www.geldata.com/) is a powerful data platform built on top of PostgreSQL.
+
+- Think in objects and graphs instead of tables and JOINs.
+- Use the advanced Python SDK, integrated GUI, migrations engine, Auth and AI layers, and much more.
+- Run locally, remotely, or in a [fully managed cloud](https://www.geldata.com/cloud).
+
+## Installation
+
+<CodeGroup>
+```bash pip
+pip install langchain-gel
+```
+
+```bash uv
+uv add langchain-gel
+```
+</CodeGroup>
+
+## Setup
+
+1. Run `gel project init`
+2. Edit the schema. You need the following types to use the LangChain vectorstore:
+
+```gel
+using extension pgvector;
+
+module default {
+    scalar type EmbeddingVector extending ext::pgvector::vector<1536>;
+
+    type Record {
+        required collection: str;
+        text: str;
+        embedding: EmbeddingVector;
+        external_id: str {
+            constraint exclusive;
+        };
+        metadata: json;
+
+        index ext::pgvector::hnsw_cosine(m := 16, ef_construction := 128)
+            on (.embedding)
+    }
+}
+```
+
+It looks like you've shared a documentation note about **Gel** (a GraphQL-like query language or schema system). The note describes a minimal setup approach where you can add as many types, properties, and links as needed, and points to the official documentation.
+
+How can I help you with this? For example:
+
+1. **Explain Gel's schema concepts** - I can help you understand the structure of types, properties, and links in Gel
+2. **Create a schema** - I can help you build out a Gel schema with specific types and relationships
+3. **Review existing schema** - If you have a schema you'd like me to look at or improve
+4. **Answer questions** - If you have questions about how Gel works
+
+What would you like to do?
+
+3. Run the migration: `gel migration create && gel migrate`.
+
+## Usage
+
+```python
+from langchain_gel import GelVectorStore
+
+vector_store = GelVectorStore(
+    embeddings=embeddings,
+)
+```
+
+See the [full GEL vectorstore usage example](/oss/python/integrations/vectorstores/gel).
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\gel.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

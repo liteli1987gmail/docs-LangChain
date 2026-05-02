@@ -1,0 +1,186 @@
+---
+title: 使用标准测试
+sidebarTitle: 标准测试
+---
+
+**标准测试确保你的集成按预期工作。**
+
+在为自己创建自定义类或发布到 LangChain 集成时，有必要添加测试以确保它按预期工作。LangChain 为每种集成类型提供全面的[测试集](https://pypi.org/project/langchain-tests/)。本指南将向你展示如何将 LangChain 的标准测试套件添加到每种集成类型中。
+
+## 设置
+
+首先，安装所需的依赖：
+
+<CardGroup cols={2}>
+    <Card title="langchain-core" icon="cube" href="https://github.com/langchain-ai/langchain/tree/master/libs/core#readme" arrow>
+        定义我们要导入的接口以定义我们的自定义组件
+    </Card>
+
+    <Card title="langchain-tests" icon="flask" href="https://github.com/langchain-ai/langchain/tree/master/libs/standard-tests#readme" arrow>
+        提供运行它们所需的标准测试和 `pytest` 插件
+    </Card>
+</CardGroup>
+
+
+
+<Warning>
+因为 `langchain-tests` 新版本中添加的测试可能会破坏你的 CI/CD 管道，我们建议固定到 [`langchain-tests`](https://pypi.org/project/langchain-tests/#history) 的最新版本以避免意外更改。
+
+
+<CodeGroup>
+    ```bash pip
+    pip install -U langchain-core
+    pip install -U langchain-tests
+    ```
+    ```bash uv
+    uv add langchain-core
+    uv add langchain-tests
+    ```
+</CodeGroup>
+
+
+
+
+`langchain-tests` 包中有 2 个命名空间：
+
+<AccordionGroup>
+    <Accordion title="单元测试" icon="settings">
+        **位置**：`langchain_tests.unit_tests`
+
+
+
+        旨在隔离测试组件，不访问外部服务
+
+        [查看 API 参考](https://reference.langchain.com/python/langchain_tests/unit_tests)
+    </Accordion>
+
+    <Accordion title="集成测试" icon="network">
+        **位置**：`langchain_tests.integration_tests`
+
+
+
+        旨在在访问外部服务的情况下测试组件，特别是组件设计用于交互的外部服务
+
+        [查看 API 参考](https://reference.langchain.com/python/langchain_tests/integration_tests)
+    </Accordion>
+</AccordionGroup>
+
+两种类型的测试都实现为 [`pytest`](https://docs.pytest.org/en/stable/) 基于类的测试套件。
+
+
+## 实现标准测试
+
+根据你的集成类型，你需要实现单元测试、集成测试或两者。
+
+通过为你的集成类型子类化标准测试套件，你可以获得该类型的完整标准测试集合。对于测试运行成功，只有在模型支持被测试的能力时，相应测试才应该通过。否则，应该跳过测试。
+
+因为不同的集成提供独特的功能集，LangChain 提供的大多数标准测试默认情况下是**选择加入的**，以防止误报。因此，你需要覆盖属性以指示你的集成支持哪些功能——见下面的示例说明。
+
+```python tests/integration_tests/test_standard.py
+# Indicate that a chat model supports image inputs
+
+class TestChatParrotLinkStandard(ChatModelIntegrationTests):
+    # ... other required properties
+
+    @property
+    def supports_image_inputs(self) -> bool:
+        return True  # (The default is False)
+```
+
+
+
+<Note>
+    你应该相对于包根目录在这些子目录中组织测试：
+    - `tests/unit_tests` 用于单元测试
+    - `tests/integration_tests` 用于集成测试
+</Note>
+
+要查看可配置功能的完整列表及其默认值，请访问标准测试的 [API 参考](https://reference.langchain.com/python/langchain_tests)。
+
+
+
+
+以下是来自流行集成的标准测试的一些示例实现：
+
+<Tabs>
+    <Tab title="单元测试">
+        <Columns cols={3}>
+            <Card title="ChatOpenAI" href="https://github.com/langchain-ai/langchain/blob/master/libs/partners/openai/tests/unit_tests/chat_models/test_base_standard.py" arrow>单元测试</Card>
+            <Card title="ChatAnthropic" href="https://github.com/langchain-ai/langchain/blob/master/libs/partners/anthropic/tests/unit_tests/test_standard.py" arrow>单元测试</Card>
+            <Card title="ChatGenAI" href="https://github.com/langchain-ai/langchain-google/blob/main/libs/genai/tests/unit_tests/test_standard.py" arrow>单元测试</Card>
+        </Columns>
+    </Tab>
+    <Tab title="集成测试">
+        <Columns cols={3}>
+            <Card title="ChatOpenAI" href="https://github.com/langchain-ai/langchain/blob/master/libs/partners/openai/tests/integration_tests/chat_models/test_base_standard.py" arrow>集成测试</Card>
+            <Card title="ChatAnthropic" href="https://github.com/langchain-ai/langchain/blob/master/libs/partners/anthropic/tests/integration_tests/test_standard.py" arrow>集成测试</Card>
+            <Card title="ChatGenAI" href="https://github.com/langchain-ai/langchain-google/blob/main/libs/genai/tests/integration_tests/test_standard.py" arrow>集成测试</Card>
+        </Columns>
+    </Tab>
+    <Tab title="沙盒集成测试">
+        确保你的集成通过标准测试套件。
+        参阅 [Daytona 集成](https://github.com/langchain-ai/deepagents/blob/main/libs/partners/daytona/tests/integration_tests/test_integration.py) 作为参考。
+
+        <Card title="Daytona" href="https://github.com/langchain-ai/deepagents/blob/main/libs/partners/daytona/tests/integration_tests/test_integration.py" arrow>沙盒集成测试</Card>
+    </Tab>
+</Tabs>
+
+
+
+## 沙盒集成
+
+Deep Agents 沙盒集成使用 `langchain_tests.integration_tests` 中的 `SandboxIntegrationTests`。
+对其进行子类化并提供一个 `sandbox` fixture，产生一个 `SandboxBackendProtocol` 实例。
+使用 [Daytona 集成测试](https://github.com/langchain-ai/deepagents/blob/main/libs/partners/daytona/tests/integration_tests/test_integration.py) 作为参考实现。
+有关发布指南，请参阅[贡献沙盒集成](/oss/python/contributing/integrations-langchain)。
+
+
+
+
+
+---
+
+## 运行测试
+
+如果从模板引导集成，则提供了一个 Makefile，其中包含运行单元和集成测试的目标：
+
+```bash
+make test
+make integration_test
+```
+
+否则，如果你遵循推荐的目录结构，你可以运行测试：
+
+```bash
+# Run all tests
+uv run --group test pytest tests/unit_tests/
+uv run --group test --group test_integration pytest -n auto tests/integration_tests/
+
+# For certain unit tests, you may need to set certain flags and environment variables:
+TIKTOKEN_CACHE_DIR=tiktoken_cache uv run --group test pytest --disable-socket --allow-unix-socket tests/unit_tests/
+
+# Run a specific test file
+uv run --group test pytest tests/integration_tests/test_chat_models.py
+
+# Run a specific test function in a file
+uv run --group test pytest tests/integration_tests/test_chat_models.py::test_chat_completions
+
+# Run a specific test function within a class
+uv run --group test pytest tests/integration_tests/test_chat_models.py::TestChatParrotLinkIntegration::test_chat_completions
+```
+
+
+## 故障排除
+
+有关可用的标准测试套件的完整列表，以及包含哪些测试以及如何排查常见问题，请参阅[标准测试 API 参考](https://reference.langchain.com/python/langchain_tests)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\contributing\standard-tests-langchain.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

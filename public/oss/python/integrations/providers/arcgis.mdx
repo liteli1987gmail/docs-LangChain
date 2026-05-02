@@ -1,0 +1,43 @@
+---
+title: "Arcgis integrations"
+description: "Integrate with Arcgis using LangChain Python."
+---
+
+[ArcGIS](https://www.esri.com/en-us/arcgis/about-arcgis/overview) 是由 [Esri](https://www.esri.com/) 开发并维护的客户端、服务器和在线地理信息系统软件产品组合。
+
+`ArcGISLoader` 使用 `arcgis` 包。
+
+`arcgis` 是一个 Python 库，用于矢量和栅格分析、地理编码、地图制作、路由和导航。它在您的 GIS 中管理、组织和维护用户、群组和信息项。
+
+它使您能够访问来自 `Esri` 和其他权威来源的现成地图和精选地理数据，同时也能处理您自己的数据。
+
+## Installation and setup
+
+We have to install the `arcgis` package.
+
+<CodeGroup>
+```bash pip
+pip install -U arcgis
+```
+
+```bash uv
+uv add arcgis
+```
+</CodeGroup>
+
+## Document loader
+
+```python
+from langchain_community.document_loaders import ArcGISLoader
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\arcgis.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

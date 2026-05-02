@@ -1,0 +1,40 @@
+---
+title: "Bibtex integrations"
+description: "Integrate with Bibtex using LangChain Python."
+---
+
+[BibTeX]是一种文件格式和参考文献管理系统，通常与`LaTeX`排版系统配合使用。它用于组织和存储学术及研究文档的参考文献信息。
+
+## Installation and setup
+
+We have to install the `bibtexparser` and `pymupdf` packages.
+
+<CodeGroup>
+```bash pip
+pip install bibtexparser pymupdf
+```
+
+```bash uv
+uv add bibtexparser pymupdf
+```
+</CodeGroup>
+
+
+## Document loader
+
+See a [usage example](/oss/python/integrations/document_loaders/bibtex).
+
+```python
+from langchain_community.document_loaders import BibtexLoader
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\bibtex.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

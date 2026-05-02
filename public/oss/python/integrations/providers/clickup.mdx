@@ -1,0 +1,33 @@
+---
+title: "Clickup integrations"
+description: "Integrate with Clickup using LangChain Python."
+---
+
+> [ClickUp](https://clickup.com/) 是一款一体化生产力平台，为各行各业的小型团队和大型团队提供灵活且可定制的工作管理解决方案、工具和功能。
+
+> 它是一款基于云端的项目管理解决方案，面向各种规模的企业，具有沟通和协作工具，可帮助实现组织目标。
+
+## Installation and setup
+
+1. Create a [ClickUp App](https://help.clickup.com/hc/en-us/articles/6303422883095-Create-your-own-app-with-the-ClickUp-API)
+2. Follow [these steps](https://clickup.com/api/developer-portal/authentication/) to get your client_id and client_secret.
+
+## Toolkits
+
+```python
+from langchain_community.agent_toolkits.clickup.toolkit import ClickupToolkit
+from langchain_community.utilities.clickup import ClickupAPIWrapper
+```
+
+See a [usage example](/oss/python/integrations/tools/clickup).
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\clickup.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,353 @@
+---
+title: 构建深度研究代理
+sidebarTitle: 深度研究
+description: 使用子代理委托构建多步骤网络研究代理
+---
+
+import DeepResearchToolsPy from '/snippets/code-samples/deep-research-tools-py.mdx';
+import DeepResearchAgentClaudePy from '/snippets/code-samples/deep-research-agent-claude-py.mdx';
+import DeepResearchRunSyncPy from '/snippets/code-samples/deep-research-run-sync-py.mdx';
+import DeepResearchRunStreamPy from '/snippets/code-samples/deep-research-run-stream-py.mdx';
+import DeepResearchToolsJs from '/snippets/code-samples/deep-research-tools-js.mdx';
+import DeepResearchAgentClaudeJs from '/snippets/code-samples/deep-research-agent-claude-js.mdx';
+import DeepResearchRunSyncJs from '/snippets/code-samples/deep-research-run-sync-js.mdx';
+import DeepResearchRunStreamJs from '/snippets/code-samples/deep-research-run-stream-js.mdx';
+
+## 概述
+
+本指南演示如何从头开始构建一个多步骤网络研究代理。该代理将研究问题分解为专注的任务，将任务委托给专门的子代理，并将发现综合成一份全面的报告。
+
+您构建的代理将：
+
+1. 使用待办事项列表进行规划
+2. 将专注的研究任务委托给具有隔离上下文的子代理
+3. 在收集信息时评估搜索结果并规划下一步
+4. 将发现与适当的引用综合成最终报告
+
+生成的子代理将使用 Tavily 进行网络搜索，获取完整网页内容以进行分析。
+
+### 关键概念
+
+本教程涵盖：
+
+- 用于并行、上下文隔离研究的[子代理](/oss/javascript/deepagents/subagents)
+- 用于网络搜索的自定义[工具](/oss/javascript/langchain/tools)
+- 使用[内置规划工具](/oss/javascript/deepagents/harness#planning-capabilities)进行多步骤规划
+
+## 前置要求
+
+需要以下 API 密钥：
+
+- Anthropic (Claude) 或 Google (Gemini)
+- [Tavily](https://www.tavily.com/) 用于网络搜索（可选——免费层级足够）
+- [LangSmith](https://smith.langchain.com/) 用于追踪（可选）
+
+## 设置
+
+
+
+<Steps>
+<Step title="创建项目目录">
+
+```bash
+mkdir deep-research-agent
+cd deep-research-agent
+```
+
+</Step>
+<Step title="安装依赖">
+
+<Tabs>
+<Tab title="Claude">
+```bash npm wrap
+npm install deepagents @langchain/anthropic @langchain/core
+```
+</Tab>
+<Tab title="Gemini">
+```bash npm wrap
+npm install deepagents @langchain/google-genai @langchain/core
+```
+</Tab>
+</Tabs>
+
+</Step>
+<Step title="设置 API 密钥">
+
+<Tabs>
+<Tab title="Claude">
+```bash
+export ANTHROPIC_API_KEY="your_anthropic_api_key"
+export TAVILY_API_KEY="your_tavily_api_key"
+export LANGSMITH_API_KEY="your_langsmith_api_key"   # 可选
+```
+</Tab>
+<Tab title="Gemini">
+```bash
+export GOOGLE_API_KEY="your_google_api_key"
+export TAVILY_API_KEY="your_tavily_api_key"
+export LANGSMITH_API_KEY="your_langsmith_api_key"   # 可选
+```
+</Tab>
+</Tabs>
+
+</Step>
+</Steps>
+
+
+## 构建代理
+
+
+
+在您的项目目录中创建 `agent.ts`：
+
+
+<Steps>
+<Step title="添加工具">
+
+添加自定义搜索工具。`tavily_search` 工具使用 Tavily 进行 URL 发现，然后获取完整网页内容，以便代理可以分析完整来源而不是摘要。
+
+
+
+<DeepResearchToolsJs />
+
+
+</Step>
+<Step title="添加提示词">
+
+
+
+将协调工作流和子代理提示词模板添加到 `agent.ts`：
+
+
+
+
+```ts expandable wrap
+const RESEARCH_WORKFLOW_INSTRUCTIONS = `# 研究工作流
+
+对于所有研究请求，请遵循此工作流：
+
+1. **规划**：使用 write_todos 创建待办事项列表，将研究分解为专注的任务
+2. **保存请求**：使用 write_file() 将用户的研究问题保存到 \`/research_request.md\`
+3. **研究**：使用 task() 工具将研究任务委托给子代理——始终使用子代理进行研究，切勿自己做研究
+4. **综合**：审查所有子代理的发现并合并引用（所有发现中每个唯一 URL 获得一个编号）
+5. **写报告**：将全面的最终报告写到 \`/final_report.md\`（请参阅下面的报告撰写指南）
+6. **验证**：读取 \`/research_request.md\` 并确认您已用适当的引用和结构解决了所有方面
+
+## 研究规划指南
+- 将相似的研究任务批处理成单个待办事项以最小化开销
+- 对于简单的查找事实问题，使用 1 个子代理
+- 对于比较或多方面的主题，委托给多个并行子代理
+- 每个子代理应该研究一个特定方面并返回发现
+
+## 报告撰写指南
+
+将最终报告写到 \`/final_report.md\` 时，请遵循这些结构模式：
+
+**对于比较：**
+1. 引言
+2. 主题 A 概述
+3. 主题 B 概述
+4. 详细比较
+5. 结论
+
+**对于列表/排名：**
+只需列出带详细信息的项目——不需要引言：
+1. 带解释的项目 1
+2. 带解释的项目 2
+3. 带解释的项目 3
+
+**对于摘要/概述：**
+1. 主题概述
+2. 关键概念 1
+3. 关键概念 2
+4. 关键概念 3
+5. 结论
+
+**一般指南：**
+- 使用清晰的章节标题（## 用于章节，### 用于子章节）
+- 默认使用段落形式——文字密集型，而不仅仅是项目符号
+- 不要使用自我参照语言（"我发现了..."，"我研究了..."）
+- 作为专业报告撰写，不使用元评论
+- 每个章节应该是全面且详细的
+- 仅在列表比散文更合适时才使用项目符号
+
+**引用格式：**
+- 使用 [1]、[2]、[3] 格式进行行内引用
+- 为所有子代理发现中的每个唯一 URL 分配一个引用编号
+- 以 ### Sources 章节结束，列出每个编号来源
+- 按顺序编号来源，无间隙（1,2,3,4...）
+- 格式：[1] 来源标题：URL（每行一个，以便正确列表呈现）
+- 示例：
+
+一些重要发现 [1]。另一个关键见解 [2]。
+
+### Sources
+[1] AI 研究论文：https://example.com/paper
+[2] 行业分析：https://example.com/analysis
+`;
+```
+
+```ts expandable wrap
+const RESEARCHER_INSTRUCTIONS = `你是一个研究助手，对用户输入的主题进行研究。为此，上今天的日期是 {date}。
+
+你的工作是使用工具收集关于用户输入主题的信息。
+你可以使用 tavily_search 工具查找可以帮助回答研究问题的资源。
+你可以串行或并行调用它，你的研究在工具调用循环中进行。
+
+你可以使用 tavily_search 工具进行网络搜索。
+
+像一个时间有限的人类研究员一样思考。遵循以下步骤：
+
+1. **仔细阅读问题** - 用户需要什么具体信息？
+2. **从更广泛的搜索开始** - 首先使用广泛、全面的查询
+3. **每次搜索后暂停和评估** - 我有足够的来回答了吗？还缺少什么？
+4. **随着收集信息执行更狭窄的搜索** - 填补空白
+5. **当你有把握回答时停止** - 不要为了完美而继续搜索
+
+**工具调用预算**（防止过度搜索）：
+- **简单查询**：最多使用 2-3 次搜索工具调用
+- **复杂查询**：最多使用 5 次搜索工具调用
+- **始终停止**：如果找不到正确的来源，5 次搜索工具调用后停止
+
+**立即停止当**：
+- 你可以全面回答用户的问题
+- 你有 3+ 个相关示例/来源来回答问题
+- 你的最后 2 次搜索返回了相似的信息
+
+每次搜索后，在继续之前评估结果：我发现了什么关键信息？还缺少什么？我有足够的来回答吗？我应该继续搜索还是提供答案？
+
+当您向协调器返回发现时：
+
+1. **构建您的响应**：用清晰的标题和详细解释组织发现
+2. **行内引用来源**：在引用搜索信息时使用 [1]、[2]、[3] 格式
+3. **包含来源章节**：以 ### Sources 结束，列出每个编号来源及其标题和 URL
+
+示例：
+## 关键发现
+上下文工程是 AI 代理的关键技术 [1]。研究表明，适当的上下文管理可将性能提高 40% [2]。
+
+### Sources
+[1] 上下文工程指南：https://example.com/context-guide
+[2] AI 性能研究：https://example.com/study
+
+协调器将把所有子代理的引用合并到最终报告中。
+`;
+```
+
+```ts expandable wrap
+const SUBAGENT_DELEGATION_INSTRUCTIONS = `# 子代理研究协调
+
+你的角色是通过从待办事项列表向专门的研究子代理委托任务来协调研究。
+
+## 委托策略
+
+**默认：从 1 个子代理开始**用于大多数查询：
+- "什么是量子计算？" -> 1 个子代理（一般概述）
+- "列出旧金山排名前十的咖啡店" -> 1 个子代理
+- "总结互联网的历史" -> 1 个子代理
+- "研究 AI 代理的上下文工程" -> 1 个子代理（涵盖所有方面）
+
+**仅当查询明确需要比较或具有明显独立的方面时才并行化：**
+
+**明确比较** -> 每个元素 1 个子代理：
+- "比较 OpenAI vs Anthropic vs DeepMind AI 安全方法" -> 3 个并行子代理
+- "比较 Python vs JavaScript 用于 Web 开发" -> 2 个并行子代理
+
+**明显分离的方面** -> 每个方面 1 个子代理（谨慎使用）：
+- "研究欧洲、亚洲和北美的可再生能源采用" -> 3 个并行子代理（地理分离）
+- 仅当方面无法通过单一综合搜索有效覆盖时才使用此模式
+
+## 关键原则
+- **偏向单一子代理**：一个综合的研究任务比多个狭窄的任务更节省 Token
+- **避免过早分解**：不要将"研究 X"分解为"研究 X 概述"、"研究 X 技术"、"研究 X 应用"——只需使用 1 个子代理研究所有 X
+- **仅为明确比较而并行化**：在比较不同实体或地理分离的数据时使用多个子代理
+
+## 并行执行限制
+- 每次迭代最多使用 {maxConcurrentResearchUnits} 个并行子代理
+- 在单个响应中进行多次 task() 调用以启用并行执行
+- 每个子代理独立返回发现
+
+## 研究限制
+- 如果您没有找到足够的来源，{maxResearcherIterations} 轮委托后停止
+- 当您有足够的信息进行全面回答时停止
+- 偏向专注研究而非穷尽探索`;
+```
+
+
+</Step>
+<Step title="创建代理">
+
+
+
+将模型初始化和代理创建添加到 `agent.ts`：
+
+<DeepResearchAgentClaudeJs />
+::
+
+</Step>
+</Steps>
+
+## 运行代理
+
+您可以同步运行代理，这意味着它将等待完整结果然后打印出来，或者您可以在更新到来时流式传输更新。
+
+python
+将相应选项卡中的代码添加到 `agent.py` 底部：
+:::
+
+将相应选项卡中的代码添加到 `agent.ts` 底部：
+
+
+<Tabs>
+<Tab title="同步运行" value="sync">
+
+js
+<DeepResearchRunSyncJs />
+::
+
+</Tab>
+<Tab title="流式更新" value="stream">
+
+js
+<DeepResearchRunStreamJs />
+::
+
+</Tab>
+</Tabs>
+
+从项目根目录运行代理：
+
+js
+```sh
+npx tsx agent.ts
+```
+::
+
+如果您在运行前设置了 `LANGSMITH_API_KEY` 环境变量，您可以在 [LangSmith](/langsmith/home) 中查看代理的追踪以调试和监控多步骤行为。
+
+## 完整代码
+
+在 GitHub 上查看完整的[深度研究示例](https://github.com/langchain-ai/deepagents/tree/main/examples/deep_research)。
+
+## 下一步
+
+现在您已经构建了代理，通过更改代理文件中的提示词常量来自定义它，以调整工作流、委托策略或研究员行为。
+您还可以调整委托限制以允许更多并行子代理或委托轮次。
+
+有关本教程中概念的更多信息，请查看以下资源：
+
+- [子代理](/oss/javascript/deepagents/subagents)：了解如何配置具有不同工具和提示词的子代理
+- [自定义](/oss/javascript/deepagents/customization)：自定义模型、工具、系统提示词和规划行为
+- [LangSmith](/langsmith/home)：追踪研究运行并调试多步骤行为
+- [深度研究课程](https://academy.langchain.com/courses/deep-research-with-langgraph)：使用 LangGraph 进行深度研究的完整课程
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\deep-research.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

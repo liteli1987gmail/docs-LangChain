@@ -1,0 +1,51 @@
+---
+title: "BedrockEmbeddings integration"
+description: "Integrate with the BedrockEmbeddings embedding model using LangChain Python."
+---
+
+[Amazon Bedrock](https://aws.amazon.com/bedrock/) 是一项完全托管的服务，通过单一 API 提供来自领先 AI 公司（如 `AI21 Labs`、`Anthropic`、`Cohere`、`Meta`、`Stability AI` 和 `Amazon`）的高性能基础模型 (FMs)，并配备构建生成式 AI 应用所需的各种功能，包括安全性、隐私性和负责任的 AI。使用 `Amazon Bedrock`，您可以轻松试验和评估顶级 FMs 以满足您的用例需求，使用微调 (fine-tuning) 和 `Retrieval Augmented Generation` (`RAG`) 等技术通过您的企业系统和数据源私下自定义模型，并构建能够执行任务的 Agent。由于 `Amazon Bedrock` 是无服务器 (serverless) 的，您无需管理任何基础设施，并且可以使用您已经熟悉的 AWS 服务安全地将生成式 AI 功能集成和部署到您的应用中。
+
+```python
+pip install -qU  boto3
+```
+
+```python
+from langchain_aws import BedrockEmbeddings
+
+embeddings = BedrockEmbeddings(
+    credentials_profile_name="bedrock-admin", region_name="us-east-1"
+)
+```
+
+```python
+embeddings.embed_query("This is a content of the document")
+```
+
+```python
+embeddings.embed_documents(
+    ["This is a content of the document", "This is another document"]
+)
+```
+
+```python
+# async embed query
+await embeddings.aembed_query("This is a content of the document")
+```
+
+```python
+# async embed documents
+await embeddings.aembed_documents(
+    ["This is a content of the document", "This is another document"]
+)
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\embeddings\bedrock.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

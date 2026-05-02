@@ -1,0 +1,87 @@
+---
+title: 设置多轮在线评估器
+sidebarTitle: 多轮评估器
+---
+
+多轮在线评估器允许您评估人类和代理之间的整个对话——而不仅仅是单个交换。它们测量线程中所有轮次的端到端交互质量。
+
+您可以使用多轮评估来衡量：
+1. 语义意图：用户想要做什么。
+2. 语义结果：实际发生了什么，任务是否成功。
+3. 轨迹：对话如何展开，包括工具调用的轨迹。
+
+<Note>运行多轮在线评估将把线程中的每个追踪自动升级到[扩展数据保留](/langsmith/administration-overview#data-retention-auto-upgrades)。此升级将影响追踪定价，但确保满足您评估标准的追踪（通常是最有价值的分析追踪）被保留用于调查。</Note>
+
+## 先决条件
+
+- 您的追踪项目必须使用[线程](/langsmith/threads)。
+- 线程中每个追踪的顶层输入和输出必须有一个包含消息列表的 `messages` 键。我们支持 [LangChain](/langsmith/log-llm-trace#messages-format)、[OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create) 和 [Anthropic Messages](https://platform.claude.com/docs/en/api/messages) 格式的消息。
+    - 如果每个追踪的顶层输入和输出仅包含对话中的最新消息，LangSmith 将自动跨轮次组合消息成为一个线程。
+    - 如果每个追踪的顶层输入和输出包含完整对话历史，LangSmith 将直接使用它。
+
+<Note>
+如果您的追踪不遵循上述格式，线程级评估器将不起作用。您需要更新您追踪到 LangSmith 的方式，以确保每个追踪的顶层输入和输出包含 `messages` 列表。
+
+请参阅[故障排除](/langsmith/online-evaluations-multi-turn#troubleshooting)部分获取更多信息。
+</Note>
+
+## 配置
+
+1. 导航到 **Tracing** 页面并选择一个追踪项目。
+2. 点击 **Evaluators** 选项卡，然后点击 **+ Evaluator**。在 **Create from scratch** 下选择 **LLM-as-a-Judge Evaluator**。在 **Source** 下，选择 **Threads**。
+3. **为您的评估器命名**。
+4. 应用 **Filters** 或 **Sampling Rate**。 <br />
+使用过滤器或采样来控制评估器成本。例如，仅评估少于 *N* 轮的线程或采样 10% 的所有线程。
+5. **配置空闲时间**。 <br />
+第一次配置线程级评估器时，您将定义空闲时间——线程中最后一个追踪之后的时长，之后认为其完成并准备好进行评估。这个值应该反映您应用中用户交互的预期长度。它适用于项目中的所有评估器。
+<Tip>
+首次测试评估器时，使用较短的空闲时间，以便您可以快速看到结果。验证后，增加它以匹配用户交互的预期长度。
+</Tip>
+6. **配置您的模型。**<br />
+选择您想要用于评估器的提供商和模型。线程往往会变长，因此您应该使用具有更高上下文窗口的模型以避免遇到限制。例如，OpenAI 的 GPT-5.4 mini 或 Gemini 2.5 Flash 都是很好的选择，因为它们都有 1M+ token 的上下文窗口。
+
+7. **配置您的 LLM-as-a-judge 提示词。**<br />
+定义您想要评估的内容。此提示词将用于评估线程。您还可以配置传递给评估器的 `messages` 列表的哪些部分，以控制它接收的内容：
+    - 所有消息：发送完整消息列表。
+    - 人类和 AI 对：仅发送用户和助手消息（不包括系统消息、工具调用等）。
+    - 第一个人类和最后一个 AI：仅发送第一个用户消息和最后一个助手回复。
+
+9. **设置您的反馈配置**。<br />
+为反馈键配置名称、您想要收集的反馈格式以及可选地启用反馈推理。
+
+<Warning>
+我们不建议将相同的反馈键用于线程级评估器和运行级评估器，因为这可能很难区分两者。
+</Warning>
+
+8. **保存您的评估器。**
+
+保存后，您的评估器将出现在 **Evaluators** 选项卡中。一旦为任何在保存后创建的新线程过去空闲时间，您就可以测试它。
+
+## 限制
+
+这些是多轮在线评估器的当前限制（可能会更改）。如果遇到任何这些限制，请联系我们。
+
+- **运行必须少于一周**：当线程变为空闲时，过去 7 天内的运行才有资格进行评估。
+- **一次最多评估 500 个线程**：如果您在五分钟内有超过 500 个线程标记为空闲，我们将自动采样超过 500。
+- **每个工作区最多 10 个多轮在线评估器**
+
+## 故障排除
+
+**检查评估器的状态** <br />
+您可以通过导航到追踪项目中的 **Evaluators** 选项卡，并为您创建的评估器点击 **Logs** 按钮来查看其上次运行的时间，从而检查评估器的状态。
+
+**检查发送给评估器的数据** <br />
+通过导航到追踪项目中的 **Evaluators** 选项卡，点击您创建的评估器，然后点击 **Evaluator traces** 选项卡来检查发送给评估器的数据。
+
+在此选项卡中，您可以看到传递给 LLM-as-a-judge 评估器的输入。如果您的消息没有正确传递，您将看到输入中的空值。如果您的消息格式不是[预期格式之一](/langsmith/online-evaluations-multi-turn#prerequisites)，就会发生这种情况。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\online-evaluations-multi-turn.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

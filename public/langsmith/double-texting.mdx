@@ -1,0 +1,59 @@
+---
+title: 双重消息
+sidebarTitle: 概述
+---
+
+<Info>
+**先决条件**
+* [Agent Server](/langsmith/agent-server)
+</Info>
+
+很多时候，用户可能会以意想不到的方式与您的图进行交互。
+例如，用户可能发送一条消息，但在图运行完成之前发送第二条消息。
+更一般地说，用户可能在第一次运行结束之前第二次调用图。
+我们称之为"双重消息"。
+
+[入队](#enqueue-default) 是在 [Agent Server](/langsmith/agent-server) 中创建运行时默认的双重消息（多任务）策略。
+
+<Note>
+双重消息是 LangSmith Deployment 的一项功能。它在 [LangGraph 开源框架](/oss/python/langgraph/overview)中不可用。
+</Note>
+
+![首次运行与第二次运行的双重消息策略：拒绝仅保留第一个；入队在第二个之后运行；中断停止第一个运行第二个；回滚撤销第一个并用第二个重新运行。](/langsmith/images/double-texting.png)
+
+## 入队（默认）
+
+此选项允许当前运行在处理任何新输入之前完成。传入的请求被排队，一旦先前的运行完成，按顺序执行。
+
+有关配置入队双重消息选项，请参阅[操作指南](/langsmith/enqueue-concurrent)。
+
+## 拒绝
+
+此选项拒绝任何额外的传入运行，同时当前运行正在进行，并防止并发执行或双重消息。
+
+有关配置拒绝双重消息选项，请参阅[操作指南](/langsmith/reject-concurrent)。
+
+## 中断
+
+此选项停止当前执行并保留到中断点为止取得的进度。然后插入新的用户输入，并从该状态继续执行。
+
+使用此选项时，您的图必须考虑潜在的边缘情况。例如，在中断时可能已启动但尚未完成的工具调用。在这种情况下，可能需要处理或删除部分工具调用以避免未解析的操作。
+
+有关配置中断双重消息选项，请参阅[操作指南](/langsmith/interrupt-concurrent)。
+
+## 回滚
+
+此选项停止当前执行并回滚所有进度——包括初始运行输入——然后处理新的用户输入。新输入被视为全新运行，从初始状态开始。
+
+有关配置回滚双重消息选项，请参阅[操作指南](/langsmith/rollback-concurrent)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\double-texting.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

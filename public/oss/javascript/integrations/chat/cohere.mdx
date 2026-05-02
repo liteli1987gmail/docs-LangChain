@@ -1,0 +1,524 @@
+---
+title: "ChatCohere 集成"
+description: "使用 LangChain JavaScript 与 ChatCohere 聊天模型集成。"
+---
+
+[Cohere](https://cohere.com/) 是一家加拿大初创公司，提供自然语言处理模型，帮助公司改善人机交互。
+
+本指南将帮助您开始使用 `ChatCohere` [聊天模型](/oss/javascript/langchain/models)。有关所有 `ChatCohere` 功能和配置的详细文档，请前往 [API 参考](https://reference.langchain.com/javascript/langchain-cohere/ChatCohere)。
+
+## 概述
+
+### 集成详情
+
+| 类 | 包 | 可序列化 | [Python 支持](https://python.langchain.com/docs/integrations/chat/cohere) | 下载量 | 版本 |
+| :--- | :--- | :---: |  :---: | :---: | :---: |
+| [`ChatCohere`](https://reference.langchain.com/javascript/langchain-cohere/ChatCohere) | [`@langchain/cohere`](https://www.npmjs.com/package/@langchain/cohere) | beta | ✅ | ![NPM - Downloads](https://img.shields.io/npm/dm/@langchain/cohere?style=flat-square&label=%20&) | ![NPM - Version](https://img.shields.io/npm/v/@langchain/cohere?style=flat-square&label=%20&) |
+
+### 模型功能
+
+请参阅下表标题中的链接，了解如何使用特定功能的指南。
+
+| [工具调用](/oss/javascript/langchain/tools) | [结构化输出](/oss/javascript/langchain/structured-output) | [图像输入](/oss/javascript/langchain/messages#multimodal) | 音频输入 | 视频输入 | [Token 级流式传输](/oss/javascript/langchain/streaming/) | [Token 使用量](/oss/javascript/langchain/models#token-usage) | [Logprobs](/oss/javascript/langchain/models#log-probabilities) |
+| :---: | :---: | :---: |  :---: | :---: | :---: | :---: | :---: |
+| ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+
+## 设置
+
+要使用 LangChain.js Cohere 集成，您需要一个 API 密钥。
+您可以[注册 Cohere 账户并创建 API 密钥](https://dashboard.cohere.com/welcome/register)。
+
+首先您需要安装 [`@langchain/cohere`](https://www.npmjs.com/package/@langchain/cohere) 包。
+
+### 凭据
+
+前往 [Cohere 网站](https://dashboard.cohere.com/welcome/register) 注册 Cohere 并生成 API 密钥。完成后，设置 `COHERE_API_KEY` 环境变量：
+
+```bash
+export COHERE_API_KEY="your-api-key"
+```
+
+如果您想获取模型调用的自动追踪，还可以通过取消注释来设置您的 [LangSmith](/langsmith/home) API 密钥：
+
+```bash
+# export LANGSMITH_TRACING="true"
+# export LANGSMITH_API_KEY="your-api-key"
+```
+
+### 安装
+
+LangChain ChatCohere 集成位于 `@langchain/cohere` 包中：
+
+<CodeGroup>
+```bash npm
+npm install @langchain/cohere @langchain/core
+```
+```bash yarn
+yarn add @langchain/cohere @langchain/core
+```
+```bash pnpm
+pnpm add @langchain/cohere @langchain/core
+```
+</CodeGroup>
+
+## 实例化
+
+现在我们可以实例化我们的模型对象并生成聊天补全：
+
+```typescript
+import { ChatCohere } from "@langchain/cohere"
+
+const llm = new ChatCohere({
+    model: "command-r-plus",
+    temperature: 0,
+    maxRetries: 2,
+    // other params... // 其他参数...
+})
+```
+
+### 为 Azure 上的 Cohere、AWS Bedrock 上的 Cohere 和独立 Cohere 实例自定义客户端
+
+我们可以实例化一个自定义的 `CohereClient` 并将其传递给 ChatCohere 构造函数。
+
+**注意：** 如果提供了自定义客户端，则 `COHERE_API_KEY` 环境变量和构造函数中的 `apiKey` 参数都将被忽略。
+
+```typescript
+import { ChatCohere } from "@langchain/cohere";
+import { CohereClient } from "cohere-ai";
+
+const client = new CohereClient({
+  token: "<your-api-key>",
+  environment: "<your-cohere-deployment-url>", // optional // 可选
+  // other params // 其他参数
+});
+
+const llmWithCustomClient = new ChatCohere({
+  client,
+  // other params... // 其他参数...
+});
+```
+
+## 调用
+
+```typescript
+const aiMsg = await llm.invoke([
+    [
+        "system",
+        "You are a helpful assistant that translates English to French. Translate the user sentence.", // 您是一个有用的助手，将英语翻译成法语。翻译用户句子。
+    ],
+    ["human", "I love programming."], // 我喜欢编程。
+])
+aiMsg
+```
+
+```text
+AIMessage {
+  "content": "J'adore programmer.",
+  "additional_kwargs": {
+    "response_id": "0056057a-6075-4436-b75a-b9455ac39f74",
+    "generationId": "3a0985db-92ff-41d8-b6b9-b7b77e300f3b",
+    "chatHistory": [
+      {
+        "role": "SYSTEM",
+        "message": "You are a helpful assistant that translates English to French. Translate the user sentence." // 您是一个有用的助手，将英语翻译成法语。翻译用户句子。
+      },
+      {
+        "role": "USER",
+        "message": "I love programming." // 我喜欢编程。
+      },
+      {
+        "role": "CHATBOT",
+        "message": "J'adore programmer."
+      }
+    ],
+    "finishReason": "COMPLETE",
+    "meta": {
+      "apiVersion": {
+        "version": "1"
+      },
+      "billedUnits": {
+        "inputTokens": 20,
+        "outputTokens": 5
+      },
+      "tokens": {
+        "inputTokens": 89,
+        "outputTokens": 5
+      }
+    }
+  },
+  "response_metadata": {
+    "estimatedTokenUsage": {
+      "completionTokens": 5,
+      "promptTokens": 89,
+      "totalTokens": 94
+    },
+    "response_id": "0056057a-6075-4436-b75a-b9455ac39f74",
+    "generationId": "3a0985db-92ff-41d8-b6b9-b7b77e300f3b",
+    "chatHistory": [
+      {
+        "role": "SYSTEM",
+        "message": "You are a helpful assistant that translates English to French. Translate the user sentence." // 您是一个有用的助手，将英语翻译成法语。翻译用户句子。
+      },
+      {
+        "role": "USER",
+        "message": "I love programming." // 我喜欢编程。
+      },
+      {
+        "role": "CHATBOT",
+        "message": "J'adore programmer."
+      }
+    ],
+    "finishReason": "COMPLETE",
+    "meta": {
+      "apiVersion": {
+        "version": "1"
+      },
+      "billedUnits": {
+        "inputTokens": 20,
+        "outputTokens": 5
+      },
+      "tokens": {
+        "inputTokens": 89,
+        "outputTokens": 5
+      }
+    }
+  },
+  "tool_calls": [],
+  "invalid_tool_calls": [],
+  "usage_metadata": {
+    "input_tokens": 89,
+    "output_tokens": 5,
+    "total_tokens": 94
+  }
+}
+```
+
+```typescript
+console.log(aiMsg.content)
+```
+
+```text
+J'adore programmer.
+```
+
+## RAG
+
+Cohere 还开箱即用地支持 RAG。
+您可以将文档作为上下文传递给 API 请求，Cohere 的模型在生成响应时会使用这些文档。
+
+```typescript
+import { ChatCohere } from "@langchain/cohere";
+import { HumanMessage } from "@langchain/core/messages";
+
+const llmForRag = new ChatCohere({
+  apiKey: process.env.COHERE_API_KEY, // Default // 默认
+});
+
+const documents = [
+  {
+    title: "Harrison's work", // Harrison 的工作
+    snippet: "Harrison worked at Kensho as an engineer.", // Harrison 在 Kensho 担任工程师。
+  },
+  {
+    title: "Harrison's work duration", // Harrison 的工作时间
+    snippet: "Harrison worked at Kensho for 3 years.", // Harrison 在 Kensho 工作了 3 年。
+  },
+  {
+    title: "Polar bears in the Appalachian Mountains", // 阿巴拉契亚山脉的北极熊
+    snippet:
+      "Polar bears have surprisingly adapted to the Appalachian Mountains, thriving in the diverse, forested terrain despite their traditional arctic habitat. This unique situation has sparked significant interest and study in climate adaptability and wildlife behavior.", // 北极熊令人惊讶地适应了阿巴拉契亚山脉，尽管其传统的北极栖息地，仍在多样化的森林地形中茁壮成长。这种独特的情况引起了人们对气候适应性和野生动物行为的极大兴趣和研究。
+  },
+];
+
+const ragResponse = await llmForRag.invoke(
+  [new HumanMessage("Where did Harrison work and for how long?")], // Harrison 在哪里工作？工作了多久？
+  {
+    documents,
+  }
+);
+console.log(ragResponse.content);
+```
+
+```text
+Harrison worked at Kensho as an engineer for 3 years. // Harrison 在 Kensho 担任工程师工作了 3 年。
+```
+
+## 连接器
+
+该 API 还允许其他非静态文档的连接。
+例如，他们的 `web-search` 连接器允许您传入查询，API 将搜索网络以获取相关文档。
+下面的示例演示了如何使用此功能。
+
+```typescript
+import { ChatCohere } from "@langchain/cohere";
+import { HumanMessage } from "@langchain/core/messages";
+
+const llmWithConnectors = new ChatCohere({
+  apiKey: process.env.COHERE_API_KEY, // Default // 默认
+});
+
+const connectorsRes = await llmWithConnectors.invoke(
+  [new HumanMessage("How tall are the largest penguins?")], // 最高的企鹅有多高？
+  {
+    connectors: [{ id: "web-search" }],
+  }
+);
+console.dir(connectorsRes, { depth: null });
+```
+
+```text
+AIMessage {
+  lc_serializable: true,
+  lc_kwargs: {
+    content: 'The largest penguin ever discovered is the prehistoric Palaeeudyptes klekowskii, or "colossus penguin", which stood at 6 feet 6 inches tall. The tallest penguin alive today is the emperor penguin, which stands at just over 4 feet tall.',
+    additional_kwargs: {
+      response_id: '8d5ae032-4c8e-492e-8686-289f198b5eb5',
+      generationId: '2224736b-430c-46cf-9ca0-a7f5737466aa',
+      chatHistory: [
+        { role: 'USER', message: 'How tall are the largest penguins?' },
+        {
+          role: 'CHATBOT',
+          message: 'The largest penguin ever discovered is the prehistoric Palaeeudyptes klekowskii, or "colossus penguin", which stood at 6 feet 6 inches tall. The tallest penguin alive today is the emperor penguin, which stands at just over 4 feet tall.'
+        }
+      ],
+      finishReason: 'COMPLETE',
+      meta: {
+        apiVersion: { version: '1' },
+        billedUnits: { inputTokens: 10474, outputTokens: 62 },
+        tokens: { inputTokens: 11198, outputTokens: 286 }
+      },
+      citations: [
+        {
+          start: 43,
+          end: 54,
+          text: 'prehistoric',
+          documentIds: [ 'web-search_1', 'web-search_2' ]
+        },
+        {
+          start: 55,
+          end: 79,
+          text: 'Palaeeudyptes klekowskii',
+          documentIds: [ 'web-search_0', 'web-search_1', 'web-search_2' ]
+        },
+        {
+          start: 84,
+          end: 102,
+          text: '"colossus penguin"',
+          documentIds: [ 'web-search_0', 'web-search_1', 'web-search_2' ]
+        },
+        {
+          start: 119,
+          end: 125,
+          text: '6 feet',
+          documentIds: [ 'web-search_0', 'web-search_1' ]
+        },
+        {
+          start: 126,
+          end: 134,
+          text: '6 inches',
+          documentIds: [ 'web-search_1' ]
+        },
+        {
+          start: 161,
+          end: 172,
+          text: 'alive today',
+          documentIds: [ 'web-search_0', 'web-search_5' ]
+        },
+        {
+          start: 180,
+          end: 195,
+          text: 'emperor penguin',
+          documentIds: [
+            'web-search_0',
+            'web-search_1',
+            'web-search_2',
+            'web-search_4',
+            'web-search_5'
+          ]
+        },
+        {
+          start: 213,
+          end: 235,
+          text: 'just over 4 feet tall.',
+          documentIds: [ 'web-search_0', 'web-search_5' ]
+        }
+      ],
+      documents: [
+        {
+          id: 'web-search_1',
+          snippet: 'Largest species of penguin ever\n' +
+            '\n' +
+            'TencentContact an Account Manager\n' +
+            '\n' +
+            "The largest species of penguin ever recorded is a newly described prehistoric species, Kumimanu fordycei, known from fossil remains discovered inside boulders in North Otago, on New Zealand's South Island. By comparing the size and density of its bones with those of modern-day penguins, researchers estimate that it weighed 154 kilograms (340 pounds), which is three times that of today's largest species, the emperor penguin (Aptenodytes forsteri). The rocks containing the remains of this new giant fossil species date between 55.5 million years and 59.5 million years old, meaning that it existed during the Late Palaeocene. Details of the record-breaking prehistoric penguin were published in the Journal of Paleontology on 8 February 2023.\n" +
+            '\n' +
+            'The height of K. fordycei is debated, though a related extinct species, K. biceae, has been estimated to have stood up to 1.77 m (5 ft). A lack of complete skeletons of extinct giant penguins found to date makes it difficult for height to be determined with any degree of certainty.\n' +
+            '\n' +
+            "Prior to the recent discovery and description of K. fordycei, the largest species of penguin known to science was the colossus penguin (Palaeeudyptes klekowskii), which is estimated to have weighed as much as 115 kg (253 lb 8 oz), and stood up to 2 m (6 ft 6 in) tall. It lived in Antarctica's Seymour Island approximately 37 million years ago, during the Late Eocene, and is represented by the most complete fossil remains ever found for a penguin species in Antarctica.\n" +
+            '\n' +
+            "This species exceeds in height the previous record holder, Nordenskjoeld's giant penguin (Anthropornis nordenskjoeldi), which stood 1.7 m (5 ft 6 in) tall and also existed during the Eocene epoch, occurring in New Zealand and in Antarctica's Seymour Island.\n" +
+            '\n' +
+            'Records change on a daily basis and are not immediately published online. For a full list of record titles, please use our Record Application Search. (You will need to register / login for access)\n' +
+            '\n' +
+            'Comments below may relate to previous holders of this record.',
+          timestamp: '2024-07-28T02:56:04',
+          title: 'Largest species of penguin ever',
+          url: 'https://www.guinnessworldrecords.com/world-records/84903-largest-species-of-penguin'
+        },
+        // ... 其他文档
+      ],
+      searchResults: [
+        {
+          searchQuery: {
+            text: 'How tall are the largest penguins?', // 最高的企鹅有多高？
+            generationId: '8d5ae032-4c8e-492e-8686-289f198b5eb5'
+          },
+          documentIds: [
+            'web-search_0',
+            'web-search_1',
+            'web-search_2',
+            'web-search_3',
+            'web-search_4',
+            'web-search_5'
+          ],
+          connector: { id: 'web-search' }
+        }
+      ],
+      searchQueries: [
+        {
+          text: 'How tall are the largest penguins?', // 最高的企鹅有多高？
+          generationId: '8d5ae032-4c8e-492e-8686-289f198b5eb5'
+        }
+      ]
+    },
+    tool_calls: [],
+    usage_metadata: { input_tokens: 11198, output_tokens: 286, total_tokens: 11484 },
+    invalid_tool_calls: [],
+    response_metadata: {}
+  },
+  lc_namespace: [ 'langchain_core', 'messages' ],
+  content: 'The largest penguin ever discovered is the prehistoric Palaeeudyptes klekowskii, or "colossus penguin", which stood at 6 feet 6 inches tall. The tallest penguin alive today is the emperor penguin, which stands at just over 4 feet tall.',
+  name: undefined,
+  additional_kwargs: {
+    response_id: '8d5ae032-4c8e-492e-8686-289f198b5eb5',
+    generationId: '2224736b-430c-46cf-9ca0-a7f5737466aa',
+    chatHistory: [
+      { role: 'USER', message: 'How tall are the largest penguins?' },
+      {
+        role: 'CHATBOT',
+        message: 'The largest penguin ever discovered is the prehistoric Palaeeudyptes klekowskii, or "colossus penguin", which stood at 6 feet 6 inches tall. The tallest penguin alive today is the emperor penguin, which stands at just over 4 feet tall.'
+      }
+    ],
+    finishReason: 'COMPLETE',
+    meta: {
+      apiVersion: { version: '1' },
+      billedUnits: { inputTokens: 10474, outputTokens: 62 },
+      tokens: { inputTokens: 11198, outputTokens: 286 }
+    },
+    citations: [
+      // ... 引文列表
+    ],
+    documents: [
+      // ... 文档列表
+    ],
+    searchResults: [
+      {
+        searchQuery: {
+          text: 'How tall are the largest penguins?', // 最高的企鹅有多高？
+          generationId: '8d5ae032-4c8e-492e-8686-289f198b5eb5'
+        },
+        documentIds: [
+          'web-search_0',
+          'web-search_1',
+          'web-search_2',
+          'web-search_3',
+          'web-search_4',
+          'web-search_5'
+        ],
+        connector: { id: 'web-search' }
+      }
+    ],
+    searchQueries: [
+      {
+        text: 'How tall are the largest penguins?', // 最高的企鹅有多高？
+        generationId: '8d5ae032-4c8e-492e-8686-289f198b5eb5'
+      }
+    ]
+  },
+  response_metadata: {
+    estimatedTokenUsage: { completionTokens: 286, promptTokens: 11198, totalTokens: 11484 },
+    response_id: '8d5ae032-4c8e-492e-8686-289f198b5eb5',
+    generationId: '2224736b-430c-46cf-9ca0-a7f5737466aa',
+    chatHistory: [
+      { role: 'USER', message: 'How tall are the largest penguins?' },
+      {
+        role: 'CHATBOT',
+        message: 'The largest penguin ever discovered is the prehistoric Palaeeudyptes klekowskii, or "colossus penguin", which stood at 6 feet 6 inches tall. The tallest penguin alive today is the emperor penguin, which stands at just over 4 feet tall.'
+      }
+    ],
+    finishReason: 'COMPLETE',
+    meta: {
+      apiVersion: { version: '1' },
+      billedUnits: { inputTokens: 10474, outputTokens: 62 },
+      tokens: { inputTokens: 11198, outputTokens: 286 }
+    },
+    citations: [
+      // ... 引文列表
+    ],
+    documents: [
+      // ... 文档列表
+    ],
+    searchResults: [
+      {
+        searchQuery: {
+          text: 'How tall are the largest penguins?', // 最高的企鹅有多高？
+          generationId: '8d5ae032-4c8e-492e-8686-289f198b5eb5'
+        },
+        documentIds: [
+          'web-search_0',
+          'web-search_1',
+          'web-search_2',
+          'web-search_3',
+          'web-search_4',
+          'web-search_5'
+        ],
+        connector: { id: 'web-search' }
+      }
+    ],
+    searchQueries: [
+      {
+        text: 'How tall are the largest penguins?', // 最高的企鹅有多高？
+        generationId: '8d5ae032-4c8e-492e-8686-289f198b5eb5'
+      }
+    ]
+  },
+  id: undefined,
+  tool_calls: [],
+  invalid_tool_calls: [],
+  usage_metadata: { input_tokens: 11198, output_tokens: 286, total_tokens: 11484 }
+}
+```
+
+我们可以在 `additional_kwargs` 对象中看到 API 请求做了以下几件事：
+
+- 执行了搜索查询，将结果数据存储在 `searchQueries` 和 `searchResults` 字段中。在 `searchQueries` 字段中，我们看到他们为获得更好的结果而重新表述了我们的查询。
+- 从搜索查询中生成了三个文档。
+- 生成了引文列表
+- 基于上述操作和内容生成了最终响应。
+
+---
+
+## API 参考
+
+有关所有 `ChatCohere` 功能和配置的详细文档，请前往 [API 参考](https://reference.langchain.com/javascript/langchain-cohere/ChatCohere)。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\chat\cohere.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

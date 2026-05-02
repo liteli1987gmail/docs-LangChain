@@ -1,0 +1,52 @@
+---
+title: "Tensorflow datasets integrations"
+description: "Integrate with Tensorflow datasets using LangChain Python."
+---
+
+[TensorFlow Datasets](https://www.tensorflow.org/datasets) 是一个现成的数据集集合，可与 TensorFlow 或其他 Python ML 框架（如 Jax）配合使用。所有数据集都作为 [tf.data.Datasets](https://www.tensorflow.org/api_docs/python/tf/data/Dataset) 提供，能够实现易于使用且高性能的输入管道。如需开始使用，请参阅[指南](https://www.tensorflow.org/datasets/overview)和[数据集列表](https://www.tensorflow.org/datasets/catalog/overview#all_datasets)。
+
+
+
+## Installation and setup
+
+You need to install `tensorflow` and `tensorflow-datasets` python packages.
+
+<CodeGroup>
+```bash pip
+pip install tensorflow
+```
+
+```bash uv
+uv add tensorflow
+```
+</CodeGroup>
+
+<CodeGroup>
+```bash pip
+pip install tensorflow-dataset
+```
+
+```bash uv
+uv add tensorflow-dataset
+```
+</CodeGroup>
+
+
+## Document loader
+
+See a [usage example](/oss/python/integrations/document_loaders/tensorflow_datasets).
+
+```python
+from langchain_community.document_loaders import TensorflowDatasetLoader
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\tensorflow_datasets.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

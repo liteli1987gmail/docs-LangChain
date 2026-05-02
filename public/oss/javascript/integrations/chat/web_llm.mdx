@@ -1,0 +1,93 @@
+---
+title: "WebLLM 集成"
+description: "使用 LangChain JavaScript 与 WebLLM 聊天模型集成。"
+---
+
+<Tip>
+**兼容性**
+
+仅在 Web 环境中可用。
+</Tip>
+
+您可以使用 LangChain 的 [WebLLM](https://webllm.mlc.ai) 集成直接在 Web 浏览器中运行 LLM。
+
+## 设置
+
+您需要安装 [WebLLM SDK](https://www.npmjs.com/package/@mlc-ai/web-llm) 模块来与您的本地模型通信。
+
+<Tip>
+有关安装 LangChain 软件包的常规说明，请参阅[此部分](/oss/javascript/langchain/install)。
+</Tip>
+
+```bash npm
+npm install -S @mlc-ai/web-llm @langchain/community @langchain/core
+```
+
+## 使用方法
+
+请注意，首次调用模型时，WebLLM 将下载该模型的完整权重。这可能是多个 GB，可能取决于最终用户的互联网连接和计算机规格，不一定对所有最终用户都可行。
+虽然浏览器会缓存该模型的后续调用，但我们建议使用尽可能最小的模型。
+
+我们还建议在调用和加载模型时使用[单独的 Web Worker](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers)，以免阻止执行。
+
+```typescript
+// Must be run in a web environment, e.g. a web worker // 必须在 Web 环境中运行，例如 Web Worker
+
+import { ChatWebLLM } from "@langchain/community/chat_models/webllm";
+import { HumanMessage } from "@langchain/core/messages";
+
+// Initialize the ChatWebLLM model with the model record and chat options. // 使用模型记录和聊天选项初始化 ChatWebLLM 模型。
+// Note that if the appConfig field is set, the list of model records // 请注意，如果设置了 appConfig 字段，
+// must include the selected model record for the engine. // 模型记录列表必须包含该引擎的选定模型记录。
+
+// You can import a list of models available by default here: // 您可以在此处导入默认可用的模型列表：
+// https://github.com/mlc-ai/web-llm/blob/main/src/config.ts
+//
+// Or by importing it via: // 或者通过以下方式导入：
+// import { prebuiltAppConfig } from "@mlc-ai/web-llm";
+const model = new ChatWebLLM({
+  model: "Phi-3-mini-4k-instruct-q4f16_1-MLC",
+  chatOptions: {
+    temperature: 0.5,
+  },
+});
+
+await model.initialize((progress: Record<string, unknown>) => {
+  console.log(progress);
+});
+
+// Call the model with a message and await the response. // 使用消息调用模型并等待响应。
+const response = await model.invoke([
+  new HumanMessage({ content: "What is 1 + 1?" }), // 1 + 1 等于多少？
+]);
+
+console.log(response);
+
+/*
+AIMessage {
+  content: ' 2\n',
+}
+*/
+```
+
+也支持流式传输。
+
+## 示例
+
+有关完整的端到端示例，请查看[此项目](https://github.com/jacoblee93/fully-local-pdf-chatbot)。
+
+## 相关内容
+
+- 聊天模型[概念指南](/oss/javascript/langchain/models)
+- 聊天模型[操作指南](/oss/javascript/langchain/models)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\chat\web_llm.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

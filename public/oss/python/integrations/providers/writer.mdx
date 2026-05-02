@@ -1,0 +1,87 @@
+---
+title: "Writer integrations"
+description: "Integrate with Writer using LangChain Python."
+---
+
+All functionality related to WRITER
+
+
+> 本页面介绍如何在 LangChain 中使用 [WRITER](https://writer.com/) 生态系统。更多信息请参阅 Writer [文档](https://dev.writer.com/home/introduction)。
+>
+> [Palmyra](https://writer.com/blog/palmyra/) 是由 `WRITER` 开发的大型语言模型（LLM）。
+>
+> [Writer API](https://dev.writer.com/api-guides/introduction) 由多种具有不同能力和价位的 Palmyra 子模型提供支持。
+
+## Installation and setup
+
+Install the integration package with
+<CodeGroup>
+```bash pip
+pip install langchain-writer
+```
+
+```bash uv
+uv add langchain-writer
+```
+</CodeGroup>
+
+Get a WRITER API key and set it as an environment variable (`WRITER_API_KEY`)
+
+## Chat model
+
+```python
+from langchain_writer import ChatWriter
+```
+See [details](/oss/python/integrations/chat/writer).
+
+
+## PDF parser
+
+```python
+from langchain_writer.pdf_parser import PDFParser
+```
+<Warning>
+**Deprecation notice**: The parse PDF tool is deprecated and will be removed on **December 22, 2025**.
+
+**Migration path**: We plan to introduce a prebuilt PDF parsing tool for chat completions that will provide similar functionality. This tool will work similarly to other prebuilt tools. We will provide more details about this alternative when it becomes available.
+</Warning>
+
+See [details](/oss/python/integrations/document_loaders/parsers/writer_pdf_parser).
+
+## Tools calling
+
+### Functions
+
+Support of basic function calls defined via dicts, Pydantic, python functions etc.
+
+### Graphs
+
+```python
+from langchain_writer.tools import GraphTool
+```
+See [details](/oss/python/integrations/tools/writer).
+
+### Web search tool
+
+```python
+from langchain_writer.tools import WebSearchTool
+```
+See [details](/oss/python/integrations/tools/writer).
+
+### Translation tool
+
+```python
+from langchain_writer.tools import TranslationTool
+```
+See [details](/oss/python/integrations/tools/writer).
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\writer.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

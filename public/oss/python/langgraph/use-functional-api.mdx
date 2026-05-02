@@ -1,0 +1,129 @@
+---
+title: 使用函数式 API
+sidebarTitle: 使用函数式 API
+---
+
+
+
+[**函数式 API**](/oss/python/langgraph/functional-api) 允许您以最小的改动将 LangGraph 的关键功能（[持久化](/oss/python/langgraph/persistence)、[内存](/oss/python/langgraph/add-memory)、[人工介入](/oss/python/langgraph/interrupts)和[流式处理](/oss/python/langgraph/streaming)）添加到您的应用程序中。
+
+<Tip>
+有关函数式 API 的概念信息，请参阅[函数式 API](/oss/python/langgraph/functional-api)。
+</Tip>
+
+## 创建简单工作流
+
+在定义 `entrypoint` 时，输入被限制为函数的第一个参数。要传递多个输入，您可以使用字典。
+
+```python
+@entrypoint(checkpointer=checkpointer)
+def my_workflow(inputs: dict) -> int:
+    value = inputs["value"]
+    another_value = inputs["another_value"]
+    ...
+
+my_workflow.invoke({"value": 1, "another_value": 2})
+```
+
+
+
+
+<Accordion title="扩展示例：简单工作流">
+  ```python
+  from langchain_core.utils.uuid import uuid7
+  from langgraph.func import entrypoint, task
+  from langgraph.checkpoint.memory import InMemorySaver
+
+  # Task that checks if a number is even
+  @task
+  def is_even(number: int) -> bool:
+      return number % 2 == 0
+
+  # Task that formats a message
+  @task
+  def format_message(is_even: bool) -> str:
+      return "The number is even." if is_even else "The number is odd."
+
+  # Create a checkpointer for persistence
+  checkpointer = InMemorySaver()
+
+  @entrypoint(checkpointer=checkpointer)
+  def workflow(inputs: dict) -> str:
+      """Simple workflow to classify a number."""
+      even = is_even(inputs["number"]).result()
+      return format_message(even).result()
+
+  # Run the workflow with a unique thread ID
+  config = {"configurable": {"thread_id": str(uuid7())}}
+  result = workflow.invoke({"number": 7}, config=config)
+  print(result)
+  ```
+
+
+
+</Accordion>
+
+<Accordion title="扩展示例：使用大型语言模型创作论文">
+  此示例演示如何使用 `@task` 和 `@entrypoint` 装饰器进行语法组合。由于提供了检查点，工作流结果将保存在检查点中。
+
+  ```python
+  import uuid
+  from langchain.chat_models import init_chat_model
+  from langgraph.func import entrypoint, task
+  from langgraph.checkpoint.memory import InMemorySaver
+
+  model = init_chat_model('gpt-3.5-turbo')
+
+  # Task: generate essay using an LLM
+  @task
+  def compose_essay(topic: str) -> str:
+      """Generate an essay about the given topic."""
+      return model.invoke([
+          {"role": "system", "content": "You are a helpful assistant that writes essays."},
+          {"role": "user", "content": f"Write an essay about {topic}."}
+      ]).content
+
+  # Create a checkpointer for persistence
+  checkpointer = InMemorySaver()
+
+  @entrypoint(checkpointer=checkpointer)
+  def workflow(topic: str) -> str:
+      """Simple workflow that generates an essay with an LLM."""
+      return compose_essay(topic).result()
+
+  # Execute the workflow
+  config = {"configurable": {"thread_id": str(uuid7())}}
+  result = workflow.invoke("the history of flight", config=config)
+  print(result)
+  ```
+
+
+
+</Accordion>
+
+## 并行执行
+
+可以通过同时调用任务并等待结果来并行执行任务。这对于提高 IO 密集型任务（例如，为大型语言模型调用 API）的性能很有用。
+
+```python
+@task
+def add_one(number: int) -> int:
+    return number + 1
+
+@entrypoint(checkpointer=checkpointer)
+def workflow(n: int) -> list[int]:
+    # Execute tasks in parallel
+    results = add_one(n), add_one(n * 2), add_one(n * 3)
+    return [r.result() for r in results]
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langgraph\use-functional-api.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

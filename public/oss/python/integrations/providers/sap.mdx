@@ -1,0 +1,69 @@
+---
+title: "Sap integrations"
+description: "Integrate with Sap using LangChain Python."
+---
+
+SAP SE是一家德国跨国软件公司，开发企业软件来管理业务运营和客户关系。该公司是全球领先的企业资源计划 (ERP) 软件供应商。
+
+## Installation and setup
+
+We need to install the `langchain-hana` python package.
+
+<CodeGroup>
+```bash pip
+pip install langchain-hana
+```
+
+```bash uv
+uv add langchain-hana
+```
+</CodeGroup>
+
+## Vectorstore
+
+>[SAP HANA Cloud Vector Engine](https://help.sap.com/docs/hana-cloud-database/sap-hana-cloud-sap-hana-database-vector-engine-guide/sap-hana-cloud-sap-hana-database-vector-engine-guide) 是一个完全集成到 `SAP HANA Cloud` 数据库中的向量存储。
+
+See a [usage example](/oss/python/integrations/vectorstores/sap_hanavector).
+
+```python
+from langchain_hana import HanaDB
+```
+
+## Self Query Retriever
+SAP HANA Cloud Vector Engine 还提供了使用 `HanaTranslator` 类的 Self Query Retriever 实现。
+
+See a [usage example](/oss/python/integrations/retrievers/self_query/hanavector_self_query).
+
+```python
+from langchain_hana import HanaTranslator
+```
+
+## Graph
+[【SAP HANA Cloud Knowledge Graph Engine】](https://help.sap.com/docs/hana-cloud-database/sap-hana-cloud-sap-hana-database-knowledge-graph-guide/sap-hana-cloud-sap-hana-database-knowledge-graph-engine-guide)
+提供支持，允许通过 `HanaRdfGraph` 类来利用知识图谱。
+
+See a [usage example](/oss/python/integrations/graphs/sap_hana_rdf_graph).
+
+```python
+from langchain_hana import HanaRdfGraph
+```
+
+## Chains
+A `SparqlQAChain` is also provided which can be used with `HanaRdfGraph` for SPARQL-QA tasks.
+
+See a [usage example](/oss/python/integrations/chains/sap_hana_sparql_qa_chain).
+
+```python
+from langchain_hana import HanaSparqlQAChain
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\sap.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

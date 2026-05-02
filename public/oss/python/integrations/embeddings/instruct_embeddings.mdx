@@ -1,0 +1,86 @@
+---
+title: "Instruct embeddings on Hugging Face integration"
+description: "Integrate with the Instruct embeddings on Hugging Face embedding model using LangChain Python."
+---
+
+# Hugging Face Sentence Transformers
+
+You're sharing information about the **Hugging Face sentence-transformers** library. Here's a summary:
+
+## Overview
+
+- **sentence-transformers** is a Python framework for generating state-of-the-art embeddings for:
+  - Sentences
+  - Text
+  - Images
+
+## `HuggingFaceInstructEmbeddings`
+
+The `HuggingFaceInstructEmbeddings` class in LangChain uses **instruct embedding models** from Hugging Face.
+
+### Example Usage:
+
+```python
+from langchain_community.embeddings import HuggingFaceInstructEmbeddings
+
+# Initialize with default model
+embeddings = HuggingFaceInstructEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
+# Or use an instruct model
+embeddings = HuggingFaceInstructEmbeddings(
+    model_name="hkunlp/instructor-large",
+    instruction="Represent the document for retrieval:"
+)
+```
+
+### Key Features:
+
+| Feature | Description |
+|---------|-------------|
+| **Instruction Prefix** | Allows specifying how embeddings should be generated |
+| **Multiple Models** | Supports various sentence-transformer models |
+| **Local Deployment** | Can run models locally without API calls |
+
+---
+
+Is there a specific question about using `HuggingFaceInstructEmbeddings` or embedding models in LangChain that I can help with?
+
+```python
+from langchain_community.embeddings import HuggingFaceInstructEmbeddings
+```
+
+```python
+embeddings = HuggingFaceInstructEmbeddings(
+    query_instruction="Represent the query for retrieval: "
+)
+```
+
+```text
+load INSTRUCTOR_Transformer
+max_seq_length  512
+```
+
+```python
+text = "This is a test document."
+```
+
+```python
+query_result = embeddings.embed_query(text)
+```
+
+```python
+
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\embeddings\instruct_embeddings.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

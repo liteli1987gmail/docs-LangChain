@@ -1,0 +1,60 @@
+---
+title: "Llama.cpp integrations"
+description: "Integrate with Llama.cpp using LangChain Python."
+---
+
+
+> [llama.cpp python](https://github.com/abetlen/llama-cpp-python) 库是对 `@ggerganov` 的 [llama.cpp](https://github.com/ggerganov/llama.cpp) 的简单 Python 绑定。
+>
+> 此包提供：
+>
+> - 通过 ctypes 接口访问底层 C API
+> - 高级 Python API 用于文本补全
+>   - `OpenAI` 风格 API
+>   - `LangChain` 兼容性
+>   - `LlamaIndex` 兼容性
+> - OpenAI 兼容的 Web 服务器
+>   - 本地 Copilot 替代方案
+>   - Function Calling 支持
+>   - Vision API 支持
+>   - 多模型支持
+
+## Installation and setup
+
+- Install the Python package
+  ```bash
+  pip install llama-cpp-python
+  ```
+- Download one of the [supported models](https://github.com/ggerganov/llama.cpp#description) and convert them to the llama.cpp format per the [instructions](https://github.com/ggerganov/llama.cpp)
+
+
+## Chat models
+
+See a [usage example](/oss/python/integrations/chat/llamacpp).
+
+```python
+from langchain_community.chat_models import ChatLlamaCpp
+```
+## LLMs
+
+```pythonc
+from langchain_community.llms import LlamaCpp
+```
+## Embedding models
+
+See a [usage example](/oss/python/integrations/embeddings/llamacpp).
+
+```python
+from langchain_community.embeddings import LlamaCppEmbeddings
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\llamacpp.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,348 @@
+---
+title: 提示词工程快速入门
+sidebarTitle: 快速入门
+---
+
+import WorkspaceSecret from '/snippets/langsmith/set-workspace-secrets.mdx';
+
+提示词引导大型语言模型（LLM）的行为。[_提示词工程_](/langsmith/prompt-engineering-concepts)是精心制作、测试和优化您给予大型语言模型的指令的过程，使其产生可靠且有用的响应。
+
+LangSmith 提供了创建、版本化、测试和协作处理提示词的工具。您还会遇到常见概念，如[_提示词模板_](/langsmith/prompt-engineering-concepts#prompts-vs-prompt-templates)（允许您重用结构化提示词）和[_变量_](/langsmith/prompt-engineering-concepts#f-string-vs-mustache)（允许您动态地将值（如用户的问题）插入提示词）。
+
+在本快速入门中，您将使用 UI 或 SDK 创建、测试和改进提示词。本快速入门将使用 OpenAI 作为示例 LLM 提供商，但相同的工作流程也适用于其他提供商。
+
+## 前置要求
+
+在开始之前，请确保您拥有：
+
+- **LangSmith 账户**：在 [smith.langchain.com](https://smith.langchain.com) 注册或登录。
+- **LangSmith API 密钥**：请遵循[创建 API 密钥](/langsmith/create-account-api-key)指南。
+- **OpenAI API 密钥**：从 [OpenAI 仪表板](https://platform.openai.com/account/api-keys)生成。
+
+选择 UI 或 SDK 工作流程的标签：
+
+<Tabs>
+<Tab title="UI" icon="window">
+
+## 1. 设置工作区密钥
+
+<WorkspaceSecret/>
+
+## 2. 创建提示词
+
+1. 在 [LangSmith UI](https://smith.langchain.com) 中，导航到左侧菜单中的**提示词**部分。
+1. 点击**+ 提示词**创建一个提示词。
+1. 根据需要通过编辑或添加提示词和输入变量来修改提示词。
+
+<div style={{ textAlign: 'center' }}>
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/create-a-prompt-light.png"
+    alt="Playground with the system prompt ready for editing."
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/create-a-prompt-dark.png"
+    alt="Playground with the system prompt ready for editing."
+/>
+</div>
+
+
+## 3. 测试提示词
+
+1. 在**提示词**标题下选择模型名称旁边的齿轮 <Icon icon="settings" iconType="solid" /> 图标，这将在**模型配置**标签上启动**提示词设置**窗口。
+1. 设置您想要使用的[模型配置](/langsmith/managing-model-configurations)。您选择的**提供商**和**模型**将决定在此配置页面上可配置的参数。设置完成后，点击**另存为**。
+
+    <div style={{ textAlign: 'center' }}>
+    <img
+        className="block dark:hidden"
+        src="/langsmith/images/model-config-light.png"
+        alt="Model Configuration window in the LangSmith UI, settings for Provider, Model, Temperature, Max Output Tokens, Top P, Presence Penalty, Frequency Penalty, Reasoning Effort, etc."
+    />
+
+    <img
+        className="hidden dark:block"
+        src="/langsmith/images/model-config-dark.png"
+        alt="Model Configuration window in the LangSmith UI, settings for Provider, Model, Temperature, Max Output Tokens, Top P, Presence Penalty, Frequency Penalty, Reasoning Effort, etc."
+    />
+    </div>
+
+1. 在**输入**框中指定您想要测试的输入变量，然后点击 <Icon icon="player-play" iconType="solid" /> **开始**。
+
+
+    <div style={{ textAlign: 'center' }}>
+    <img
+        className="block dark:hidden"
+        src="/langsmith/images/set-input-start-light.png"
+        alt="The input box with a question entered. The output box contains the response to the prompt."
+    />
+
+    <img
+        className="hidden dark:block"
+        src="/langsmith/images/set-input-start-dark.png"
+        alt="The input box with a question entered. The output box contains the response to the prompt."
+    />
+    </div>
+
+    要了解在 Playground 中配置提示词的更多选项，请参阅[配置提示词设置](/langsmith/managing-model-configurations)。
+
+1. 测试和完善提示词后，点击**保存**以存储供将来使用。
+
+## 4. 迭代提示词
+
+LangSmith 允许基于团队的提示词迭代。工作区[/langsmith/administration-overview#workspaces]成员可以在 Playground 中实验提示词，并在准备好时将更改保存为新的[_提交_](/langsmith/prompt-engineering-concepts#commits)。
+
+要改进您的提示词：
+
+- 参考模型提供商提供的文档以获取提示词创建的最佳实践，例如：
+    - [使用 OpenAI API 进行提示词工程的最佳实践](https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api)
+    - [Gemini 的提示词设计入门](https://ai.google.dev/gemini-api/docs/prompting-intro)
+- 使用 Prompt Canvas（LangSmith 中的交互式工具）构建和完善您的提示词。在 [Prompt Canvas 指南](/langsmith/write-prompt-with-ai)中了解更多信息。
+- 标记特定提交以标记提交历史中的重要时刻。
+    1. 要创建提交，请导航到** Playground **并选择**提交**。选择要提交更改的提示词，然后**提交**。
+    1. 导航到左侧菜单中的**提示词**。选择提示词。在提示词详情页面上，选择右上角的**标签**以添加[提交标签](/langsmith/manage-prompts#commit-tags)。
+
+
+</Tab>
+<Tab title="SDK" icon="code">
+
+## 1. 设置您的环境
+
+1. 在您的终端中，准备您的环境：
+
+    <CodeGroup>
+
+    ```bash Python
+    mkdir ls-prompt-quickstart && cd ls-prompt-quickstart
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -qU langsmith openai langchain_core
+    ```
+
+    ```bash TypeScript
+    mkdir ls-prompt-quickstart-ts && cd ls-prompt-quickstart-ts
+    npm init -y
+    npm install langsmith openai typescript ts-node
+    npx tsc --init
+    ```
+
+    </CodeGroup>
+
+1. 设置您的 API 密钥：
+
+    ```bash
+    export LANGSMITH_API_KEY='<your_api_key>'
+    export OPENAI_API_KEY='<your_api_key>'
+    ```
+
+## 2. 创建提示词
+
+要创建提示词，您需要定义您想要的提示词中的消息列表，然后将其推送到 LangSmith。
+
+使用特定语言的构造函数和推送方法：
+
+- Python: [`ChatPromptTemplate`](https://reference.langchain.com/python/langchain-core/prompts/chat/ChatPromptTemplate) → [`client.push_prompt(...)`](https://docs.smith.langchain.com/reference/python/client/langsmith.client.Client#langsmith.client.Client.push_prompt)
+- TypeScript: [`ChatPromptTemplate.fromMessages(...)`](https://reference.langchain.com/javascript/langchain-core/prompts/ChatPromptTemplate) → [`client.pushPrompt(...)`](https://reference.langchain.com/javascript/langsmith/client/Client/pushPrompt)
+
+1. 将以下代码添加到 `create_prompt` 文件中：
+
+    <CodeGroup>
+
+    ```python Python
+    from langsmith import Client
+    from langchain_core.prompts import ChatPromptTemplate
+
+    client = Client()
+
+    prompt = ChatPromptTemplate([
+        ("system", "You are a helpful chatbot."),
+        ("user", "{question}"),
+    ])
+
+    client.push_prompt("prompt-quickstart", object=prompt)
+    ```
+
+    ```typescript TypeScript
+    import { Client } from "langsmith";
+    import { ChatPromptTemplate } from "@langchain/core/prompts";
+
+    const client = new Client();
+
+    const prompt = ChatPromptTemplate.fromMessages([
+    ["system", "You are a helpful chatbot."],
+    ["user", "{question}"],
+    ]);
+
+    await client.pushPrompt("prompt-quickstart", {
+    object: prompt,
+    });
+    ```
+
+    </CodeGroup>
+
+    这会创建一个有序的消息列表，将它们包装在 `ChatPromptTemplate` 中，然后通过名称将提示词推送到您的工作区[/langsmith/administration-overview#workspaces]进行版本控制和重用。
+
+1. 运行 `create_prompt`：
+
+    <CodeGroup>
+
+    ```python Python
+    python create_prompt.py
+    ```
+
+    ```typescript TypeScript
+    npx tsx create_prompt.ts
+    ```
+
+    </CodeGroup>
+
+按照生成的链接在 LangSmith UI 中查看新创建的 Prompt Hub 提示词。
+
+## 3. 测试提示词
+
+在这一步中，您将通过名称（`"prompt-quickstart"`）拉取您在[步骤 2](#2-create-a-prompt)中创建的提示词，用测试输入格式化它，转换为 OpenAI 的聊天格式，然后调用 OpenAI Chat Completions API。
+
+然后，您将通过创建新版本迭代提示词。您工作区的成员可以打开现有提示词，在 [UI](https://smith.langchain.com) 中实验更改，并将这些更改保存为同一提示词上的新提交，这会为整个团队保留历史记录。
+
+1. 将以下内容添加到 `test_prompt` 文件中：
+
+    <CodeGroup>
+
+    ```python Python
+    from langsmith import Client
+    from openai import OpenAI
+    from langchain_core.messages import convert_to_openai_messages
+
+    client = Client()
+    oai_client = OpenAI()
+
+    prompt = client.pull_prompt("prompt-quickstart")
+
+    # Since the prompt only has one variable you could also pass in the value directly
+    # Equivalent to formatted_prompt = prompt.invoke("What is the color of the sky?")
+    formatted_prompt = prompt.invoke({"question": "What is the color of the sky?"})
+
+    response = oai_client.chat.completions.create(
+        model="gpt-5.4",
+        messages=convert_to_openai_messages(formatted_prompt.messages),
+    )
+    ```
+
+    ```typescript TypeScript
+    import { OpenAI } from "openai";
+    import { pull } from "langchain/hub"
+    import { convertPromptToOpenAI } from "@langchain/openai";
+
+    const oaiClient = new OpenAI();
+
+    const prompt = await pull("prompt-quickstart");
+
+    // Format the prompt with the question
+    const formattedPrompt = await prompt.invoke({ question: "What is the color of the sky?" });
+
+    const response = await oaiClient.chat.completions.create({
+        model: "gpt-5.4",
+        messages: convertPromptToOpenAI(formattedPrompt).messages,
+    });
+    ```
+    </CodeGroup>
+
+    这会使用 `pull` 按名称加载提示词，用于您正在测试的提示词的最新提交版本。您还可以通过传递提交哈希 `"<prompt-name>:<commit-hash>"` 来指定特定提交。
+
+1. 运行 `test_prompt`：
+
+    <CodeGroup>
+
+    ```python Python
+    python test_prompt.py
+    ```
+
+    ```typescript TypeScript
+    npx tsx test_prompt.ts
+    ```
+
+    </CodeGroup>
+
+1. 要创建提示词的新版本，请使用相同的提示词名称和更新的模板调用您最初使用的相同推送方法。LangSmith 会将其记录为新提交并保留以前的版本。
+
+    将以下代码复制到 `iterate_prompt` 文件中：
+
+    <CodeGroup>
+
+    ```python Python
+    from langsmith import Client
+    from langchain_core.prompts import ChatPromptTemplate
+
+    client = Client()
+
+    new_prompt = ChatPromptTemplate([
+        ("system", "You are a helpful chatbot. Respond in Spanish."),
+        ("user", "{question}"),
+    ])
+
+    client.push_prompt("prompt-quickstart", object=new_prompt)
+    ```
+
+    ```typescript TypeScript
+    import { Client } from "langsmith";
+    import { ChatPromptTemplate } from "@langchain/core/prompts";
+
+    const client = new Client();
+
+    const newPrompt = ChatPromptTemplate.fromMessages([
+        ["system", "You are a helpful chatbot. Speak in Spanish."],
+        ["user", "{question}"]
+    ]);
+
+    await client.pushPrompt("prompt-quickstart", {
+    object: newPrompt
+    });
+    ```
+
+    </CodeGroup>
+
+1. 运行 `iterate_prompt`：
+
+    <CodeGroup>
+
+    ```python Python
+    python iterate_prompt.py
+    ```
+
+    ```typescript TypeScript
+    npx tsx iterate_prompt.ts
+    </CodeGroup>
+
+    现在您的提示词将包含两个提交。
+
+要改进您的提示词：
+
+- 参考模型提供商提供的文档以获取提示词创建的最佳实践，例如：
+    - [使用 OpenAI API 进行提示词工程的最佳实践](https://help.openai.com/en/articles/6654000-best-practices-for-prompt-engineering-with-the-openai-api)
+    - [Gemini 的提示词设计入门](https://ai.google.dev/gemini-api/docs/prompting-intro)
+- 使用 Prompt Canvas（LangSmith 中的交互式工具）构建和完善您的提示词。在 [Prompt Canvas 指南](/langsmith/write-prompt-with-ai)中了解更多信息。
+
+</Tab>
+</Tabs>
+
+## 下一步
+
+- 在[创建提示词指南](/langsmith/create-a-prompt)中了解有关使用 Prompt Hub 存储和管理提示词的更多信息。
+- 了解如何设置 Playground 以在本教程中[测试多轮对话](/langsmith/multiple-messages)。
+- 要了解如何对数据集而非单个示例测试提示词的性能，请参阅[从 Playground 运行评估](/langsmith/run-evaluation-from-playground)。
+
+<Callout type="info" icon="feather">
+在 Playground 中使用 **[Polly](/langsmith/polly)** 来帮助优化您的提示词、生成工具和创建输出模式。
+</Callout>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\prompt-engineering-quickstart.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

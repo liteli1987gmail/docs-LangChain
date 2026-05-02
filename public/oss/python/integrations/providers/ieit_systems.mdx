@@ -1,0 +1,49 @@
+---
+title: "Ieit systems integrations"
+description: "Integrate with Ieit systems using LangChain Python."
+---
+
+> [IEIT Systems](https://en.ieisystem.com/) 是一家成立于1999年的中国信息技术公司。它提供IT基础设施产品、解决方案和服务，以及涵盖云计算、大数据和人工智能的创新IT产品和解决方案。
+
+
+## LLMs
+
+See a [usage example](/oss/python/integrations/llms/yuan2).
+
+```python
+from langchain_community.llms.yuan2 import Yuan2
+```
+
+## Chat models
+
+See the [installation instructions](/oss/python/integrations/chat/yuan2/#setting-up-your-api-server).
+
+Yuan2.0 provided an OpenAI compatible API, and ChatYuan2 is integrated into langchain by using `OpenAI client`.
+Therefore, ensure the `openai` package is installed.
+
+<CodeGroup>
+```bash pip
+pip install openai
+```
+
+```bash uv
+uv add openai
+```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/chat/yuan2).
+
+```python
+from langchain_community.chat_models import ChatYuan2
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\ieit_systems.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

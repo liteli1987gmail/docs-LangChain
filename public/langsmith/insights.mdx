@@ -1,0 +1,249 @@
+---
+title: 使用 Insights Agent 发现错误和使用模式
+sidebarTitle: Insights
+---
+
+Insights Agent 自动分析您的追踪以检测使用模式、常见代理行为和失败模式——无需您手动审查数千条追踪。
+
+Insights 使用分层分类来理解您的数据并突出显示可操作的趋势。
+
+<Note>
+    Insights 适用于 LangSmith Plus 和 Enterprise [计划](https://www.langchain.com/pricing)。
+</Note>
+
+## 前置条件
+
+- 在您的工作区中设置了用于 Insights 的[模型配置](/langsmith/model-configurations)。
+- 在 LangSmith 中创建规则的权限（用于生成新 Insights 报告）。
+- 查看 LangSmith 追踪项目的权限（用于查看现有 Insights 报告）。
+
+## 生成您的第一个 Insights 报告
+
+<Tabs>
+  <Tab title="UI" icon="layout-dashboard">
+
+1. 在左侧菜单中导航到 **Tracing Projects** 并选择一个追踪项目。
+2. 点击右上角的 **+New**，然后 **New Insights Report** 以在该项目上生成新的洞察。
+3. 输入您工作的名称。
+4. 如果您还没有，在您的工作区设置中为 Insights [配置模型](/langsmith/model-configurations)。
+5. 回答引导问题以将您的 Insights Report 集中在您想要了解的代理内容上，然后点击 **Run job**。
+
+<Tip>切换到手动模式以[手动配置工作](#configure-a-job)。</Tip>
+
+这将启动后台 Insights Report。报告可能需要最多 30 分钟才能完成。
+
+  </Tab>
+  <Tab title="SDK" icon="code">
+
+您可以使用 Python SDK 对存储在 LangSmith 外部的数据生成 Insights 报告。这允许您分析来自生产系统、日志或其他来源的聊天历史。
+
+当您调用 `generate_insights()` 时，SDK 将：
+1. 将您的聊天历史作为追踪上传到新的 LangSmith 项目
+2. 在这些上传的追踪上生成 Insights Report
+3. 返回 LangSmith UI 中结果的链接
+
+<CodeGroup>
+
+```python Python
+import os
+from langsmith import Client
+
+client = Client()
+
+chat_histories = [
+    [
+        {"role": "user", "content": "how are you"},
+        {"role": "assistant", "content": "good!"},
+    ],
+    [
+        {"role": "user", "content": "do you like art"},
+        {"role": "assistant", "content": "only Tarkovsky"},
+    ],
+]
+
+report = client.generate_insights(
+    chat_histories=chat_histories,
+    name="Customer Support Topics - March 2024",
+    instructions="What are the main topics and questions users are asking about?",
+    openai_api_key=os.environ["OPENAI_API_KEY"],  # optional if already set as workspace secret
+)
+
+# client.poll_insights(report=report)
+```
+</CodeGroup>
+
+  </Tab>
+</Tabs>
+
+<Note>
+    使用 OpenAI 模型对 1,000 个线程生成洞察通常需要 \$1.00-\$2.00，使用当前 Anthropic 模型需要 \$3.00-\$4.00。成本随着采样的线程数量和每个线程的大小而增加。
+</Note>
+
+## 理解结果
+
+工作完成后，您可以导航到 **Insights** 标签，您将看到一个 Insights Report 表格。每个 Report 包含在追踪项目的特定追踪样本上生成的洞察。
+
+<Frame caption="单个追踪项目的 Insights Reports"><img src="/langsmith/images/insights-job-results.png" /> </Frame>
+
+点击您的工作以查看组织成一组自动生成的类别的追踪。
+
+您可以向下钻取类别和子类别以查看底层追踪、反馈和运行统计。
+
+<Frame caption="与 https://chat.langchain.com 聊天机器人的对话的主要主题"><img src="/langsmith/images/insights-nav.gif" /> </Frame>
+
+### 执行摘要
+
+在每个报告的顶部，您会发现一个执行摘要，显示在您的追踪中发现的最重要模式。这包括：
+
+- 关键发现，包含显示每个模式出现频率的百分比。
+- 可点击的引用（例如 #1、#2、#3），指向代理识别为与您的问题特别相关的追踪。
+
+### 顶级类别
+
+您的追踪会自动分组为代表数据中最广泛模式的顶级类别。
+
+分布条显示每个模式出现的频率，使您可以轻松发现比预期更多或更少发生的行为。
+
+每个类别都有一个简短描述，并显示其包含的追踪的聚合指标，包括：
+
+- 典型追踪统计（如错误率、延迟、成本）
+- 来自评估器的反馈分数
+- 作为工作一部分提取的[属性](#attributes)
+
+### 子类别
+
+点击任何类别会显示细分为子类别，这为您提供了对该类别追踪中交互模式的更细粒度理解。
+
+在 [Chat Langchain](https://chat.langchain.com) 示例中，在 **Data & Retrieval** 下有 **Vector Stores** 和 **Data Ingestion** 等子类别。
+
+### 单个追踪
+
+您可以通过点击查看分配给每个类别或子别的追踪的追踪表。从那里，您可以点击任意追踪以查看完整的对话详情。
+
+## 配置工作
+
+您可以使用自动生成流程或手动配置来创建 Insights Report。
+
+### 自动生成配置
+
+1. 打开 **New Insights** 并确保 **Auto** 切换处于活动状态。
+2. 回答关于代理目的、您想学习什么以及追踪如何结构化的自然语言问题。Insights 会将您的答案翻译成草稿配置（工作名称、总结提示词、属性和采样默认值）。
+3. 选择一个提供商，然后点击**生成配置**进行预览，或**运行工作**立即启动。
+
+**提供有用的上下文**
+
+为了获得最佳结果，为每个提示词写一到两句话，给代理它需要了解您尝试学习的内容、哪些信号或字段最重要，以及您已经知道什么没有用的背景。您对代理做什么及其追踪如何结构化越清楚，Insights Agent 将示例分组的方式就越具体、可操作，并且与您对数据的推理方式一致。
+
+**描述您的追踪**
+
+解释您的数据如何组织——这些是单次运行还是多轮对话？哪些输入和输出包含关键信息？这有助于 Insights Agent 生成关注重要内容的总结提示词和属性。如果需要，您也可以直接指定[总结提示词](#summary-prompt)部分中的变量。
+
+### 选择模型
+
+Insights 使用两个模型：
+
+- **思考模型**：执行聚类步骤（能力更强，成本更高）。
+- **总结模型**：生成每个追踪的摘要（更快，成本更低）。
+
+两个模型都从您在工作区中配置的提供商中选择。当特定模型已在您的[模型配置](/langsmith/model-configurations)中为 Insights 启用时，您可以选择它们。如果未配置单个模型，您选择一个提供商（OpenAI 或 Anthropic），Insights 使用该提供商的默认模型。
+
+为了获得最佳结果，对两个角色使用来自同一提供商的模型。
+
+### 手动配置
+
+手动配置给您更多控制——例如，预定义您希望将数据分组到的类别，或针对与特定反馈分数和筛选器匹配的追踪。
+
+#### 选择追踪
+
+- **样本大小**：要分析的最大追踪数量。当前上限为 1,000
+- **时间范围**：从该时间范围采样追踪
+- **筛选器**：额外的追踪筛选器。当您调整筛选器时，您将看到有多少追踪符合您的条件
+
+#### 类别
+
+默认情况下，顶级类别从底层追踪自动自下而上生成。
+
+在某些情况下，您提前知道您感兴趣的特定类别，并希望工作将追踪归入这些预定义类别。
+
+配置的**类别**部分允许您通过枚举您想要使用的顶级类别的名称和描述来实现这一点。
+
+子类别仍然由算法在预定义的顶级类别内自动生成。
+
+当工作完成时，发现的顶级类别会自动保存回配置——但仅当配置之前没有定义类别时。这意味着后续计划的运行将重用这些类别以保持一致性。
+
+#### 总结提示词
+
+工作的第一步是创建每个追踪的简要摘要——然后对这些摘要进行分类正是基于这些摘要。
+
+在摘要中提取正确的信息对于获得有用的类别至关重要。
+
+用于生成这些摘要的提示词可以编辑。
+
+编辑提示词时需要考虑的两个事项：
+
+- 总结说明：不在追踪摘要中的任何信息都不会影响生成的类别，因此请确保提供关于从每个追踪中提取哪些信息重要的清晰说明。
+- 追踪内容：使用 mustache 格式指定每个追踪的哪些部分被传递给总结器。具有大量输入和输出的大型追踪可能成本高且有噪声。将提示减少到仅包含追踪中最相关的部分可以改善您的结果。
+
+您必须使用至少一个这些模板变量指定要发送到总结器的每个追踪的部分：
+
+| 变量 | 描述 | 示例 |
+| --- | --- | --- |
+| `run.inputs` | 最近根运行的输入 | `{{run.inputs}}` |
+| `run.outputs` | 最近根运行的输出 | `{{run.outputs}}` |
+| `run.error` | 错误字符串，如果运行失败 | `{{run.error}}` |
+| `run.feedback` | 所有反馈分数作为 JSON blob | `{{run.feedback}}` |
+| `run.feedback.<key>` | 按键的特定反馈分数 | `{{run.feedback.correctness}}` |
+| `all_thread_messages` | 线程的完整消息历史（仅适用于具有[线程](/langsmith/threads)的项目） | `{{all_thread_messages}}` |
+
+您可以使用点表示法访问嵌套字段。例如，`{{run.inputs.foo.bar}}` 仅包含最后运行输入中 `foo` 内 `bar` 字段。
+
+<Note>
+对于具有[线程](/langsmith/threads)的项目，Insights 分析完整对话。仅对 `run.*` 变量使用来自每个线程的最新根运行。使用 `all_thread_messages` 访问完整对话历史。
+</Note>
+
+#### 属性
+
+除了摘要，您还可以定义要从每个追踪中提取的其他字符串、数字和布尔属性。
+这些属性将影响分类步骤——具有相似属性值的追踪将倾向于被归类在一起。
+您还可以看到每个类别的这些属性的聚合。
+
+例如，您可能希望从每个追踪中提取属性 `user_satisfied: boolean`，以引导算法朝向将正面和负面用户体验分开的类别，并查看每个类别的平均用户满意度。
+
+#### 过滤属性
+
+您可以在布尔属性上使用 `filter_by` 参数在生成洞察之前 pre-filter 追踪。启用后，只有属性评估为 `true` 的追踪才会被包含在分析中。
+
+当您想要将 Insights Report 重点放在追踪的特定子集上时，这很有用——例如，仅分析错误、仅检查英语对话，或仅包含符合某些质量标准的追踪。
+
+**工作原理：**
+- 创建 Insights Agent 的配置时，在任何布尔属性上添加 `"filter_by": true`。
+- 在摘要期间，LLM 根据属性描述评估每个追踪。
+- 属性为 `false` 或缺失的追踪在生成洞察之前被排除。
+
+## 安排 Insights Reports
+
+安排报告以自动按重复基础运行。创建或编辑配置时，使用**安排**部分选择：
+
+- **每日**：每天 UTC 时间 8:00 运行。
+- **每周一**：每周一 UTC 时间 8:00 运行。
+- **自定义**：输入您自己的 cron 表达式（UTC）。
+
+每个计划的运行都使用您保存的配置生成新报告。时间范围是动态计算的——例如，"最近 24 小时"总是在执行时间分析最近的 24 小时窗口。
+
+## 保存您的配置
+
+您可以使用"另存为"按钮选择保存配置以供将来重用。
+如果您想随时间比较 Insights Reports 以识别用户和代理行为的变化，这特别有用。
+
+创建新 Insights Report 时，从左上角窗格中的下拉列表中选择先前保存的配置。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\insights.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,345 @@
+---
+title: Markdown 消息
+description: 将大型语言模型响应渲染为丰富的格式化 markdown，并支持正确的流式传输
+---
+
+大型语言模型自然地产生 markdown 格式的文本，包括标题、列表、代码块、表格和内联格式。将此内容渲染为纯文本会浪费模型提供的内容结构。本模式向您展示如何解析和实时渲染从代理流式传输的 markdown，跨所有主要前端框架。
+
+import { PatternEmbed } from "/snippets/pattern-embed.jsx"
+
+<PatternEmbed pattern="markdown-messages" />
+
+## Markdown 渲染的工作原理
+
+渲染管道有三个步骤：
+
+1. **接收：** `useStream` 将流式文本累积到 `msg.text` 中，在每个 AI 消息上更新，因为新 Token 到达。
+2. **解析：** Markdown 解析器将原始文本转换为 HTML（或 React 元素树）。这在每次更新时运行，但对于聊天长度内容足够快（5 KB 消息 < 5ms）。
+3. **渲染：** 解析后的输出被渲染到 DOM。React 使用虚拟 DOM diffing；Vue 和 Svelte 使用 `v-html` / `{@html}` 配合 sanitized HTML。
+
+## 设置 useStream
+
+Markdown 模式使用一个简单的聊天代理，没有特殊配置。使用您的代理 URL 和助手 ID 连接 `useStream`。
+
+
+
+导入您的代理并传递 `typeof myAgent` 作为类型参数传递给 `useStream`，以获得对状态值的类型安全访问：
+
+```ts
+import type { myAgent } from "./agent";
+```
+
+
+
+<CodeGroup>
+```tsx React
+import { useStream } from "@langchain/react";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
+
+const AGENT_URL = "http://localhost:2024";
+
+export function Chat() {
+  const stream = useStream<typeof myAgent>({
+    apiUrl: AGENT_URL,
+    assistantId: "simple_agent",
+  });
+
+  return (
+    <div>
+      {stream.messages.map((msg) => {
+        if (AIMessage.isInstance(msg)) {
+          return <Markdown key={msg.id}>{msg.text}</Markdown>;
+        }
+        if (HumanMessage.isInstance(msg)) {
+          return <p key={msg.id}>{msg.text}</p>;
+        }
+      })}
+    </div>
+  );
+}
+```
+
+```vue Vue
+<script setup lang="ts">
+import { useStream } from "@langchain/vue";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
+
+const AGENT_URL = "http://localhost:2024";
+
+const stream = useStream<typeof myAgent>({
+  apiUrl: AGENT_URL,
+  assistantId: "simple_agent",
+});
+</script>
+
+<template>
+  <div>
+    <template v-for="msg in stream.messages.value" :key="msg.id">
+      <Markdown v-if="AIMessage.isInstance(msg)">{{ msg.text }}</Markdown>
+      <p v-else-if="HumanMessage.isInstance(msg)">{{ msg.text }}</p>
+    </template>
+  </div>
+</template>
+```
+
+```svelte Svelte
+<script lang="ts">
+  import { useStream } from "@langchain/svelte";
+  import { AIMessage, HumanMessage } from "@langchain/core/messages";
+
+  const AGENT_URL = "http://localhost:2024";
+
+  const { messages, submit } = useStream<typeof myAgent>({
+    apiUrl: AGENT_URL,
+    assistantId: "simple_agent",
+  });
+</script>
+
+<div>
+  {#each $messages as msg (msg.id)}
+    {#if AIMessage.isInstance(msg)}
+      <Markdown content={msg.text} />
+    {:else if HumanMessage.isInstance(msg)}
+      <p>{msg.text}</p>
+    {/if}
+  {/each}
+</div>
+```
+
+```ts Angular
+import { Component } from "@angular/core";
+import { useStream } from "@langchain/angular";
+
+const AGENT_URL = "http://localhost:2024";
+
+@Component({
+  selector: "app-chat",
+  template: `
+    @for (msg of stream.messages(); track msg.id) {
+      <app-markdown [content]="msg.text" />
+    }
+  `,
+})
+export class ChatComponent {
+  stream = useStream<typeof myAgent>({
+    apiUrl: AGENT_URL,
+    assistantId: "simple_agent",
+  });
+}
+```
+</CodeGroup>
+
+## 选择 Markdown 库
+
+每个框架都有自然的 Markdown 渲染选择：
+
+| 框架 | 库 | 输出 | 为什么 |
+| --- | --- | --- | --- |
+| React | `react-markdown` + `remark-gfm` | React 元素 | 基于组件，虚拟 DOM diffing，无需 `dangerouslySetInnerHTML` |
+| Vue | `marked` + `dompurify` | 通过 `v-html`  sanitized HTML | 轻量级，快速，内置 GFM |
+| Svelte | `marked` + `dompurify` | 通过 `{@html}` sanitized HTML | 与 Vue 相同，一致的 API |
+| Angular | `marked` + `dompurify` | 通过 `[innerHTML]` sanitized HTML | 与 Vue/Svelte 相同 |
+
+<Tip>
+React 的 `react-markdown` 直接将 markdown 转换为 React 元素，因此不需要 HTML sanitization。没有涉及 `dangerouslySetInnerHTML`。对于 Vue、Svelte 和 Angular，在渲染前始终使用 `dompurify` 对解析后的 HTML 进行 sanitization。
+</Tip>
+
+## 构建 Markdown 组件
+
+<CodeGroup>
+```tsx React
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+export function Markdown({ children }: { children: string }) {
+  return (
+    <div className="markdown-content">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {children}
+      </ReactMarkdown>
+    </div>
+  );
+}
+```
+
+```vue Vue
+<script setup lang="ts">
+import { computed, useSlots } from "vue";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+
+marked.setOptions({ gfm: true, breaks: true });
+
+const slots = useSlots();
+
+const html = computed(() => {
+  const slot = slots.default?.();
+  const text = slot
+    ?.map((vnode) =>
+      typeof vnode.children === "string" ? vnode.children : ""
+    )
+    .join("") ?? "";
+  if (!text) return "";
+  return DOMPurify.sanitize(marked.parse(text) as string);
+});
+</script>
+
+<template>
+  <div class="markdown-content" v-html="html" />
+</template>
+```
+
+```svelte Svelte
+<script lang="ts">
+  import { marked } from "marked";
+  import DOMPurify from "dompurify";
+
+  let { content }: { content: string } = $props();
+
+  marked.setOptions({ gfm: true, breaks: true });
+
+  let html = $derived.by(() => {
+    if (!content) return "";
+    return DOMPurify.sanitize(marked.parse(content) as string);
+  });
+</script>
+
+<div class="markdown-content">
+  {@html html}
+</div>
+```
+
+```ts Angular
+import { Component, Input, computed, signal } from "@angular/core";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+
+marked.setOptions({ gfm: true, breaks: true });
+
+@Component({
+  selector: "app-markdown",
+  template: `<div class="markdown-content" [innerHTML]="html()"></div>`,
+})
+export class MarkdownComponent {
+  @Input() set content(value: string) {
+    this._content.set(value);
+  }
+
+  private _content = signal("");
+
+  html = computed(() => {
+    const text = this._content();
+    if (!text) return "";
+    return DOMPurify.sanitize(marked.parse(text) as string);
+  });
+}
+```
+</CodeGroup>
+
+## Sanitizing HTML 输出
+
+当将解析后的 markdown 作为原始 HTML 渲染时（`v-html`、`{@html`、`[innerHTML]`），您必须 sanitization 输出以防止跨站脚本（XSS）。大型语言模型响应可能包含任意文本，包括 markdown 解析器可能将其转换为可执行 HTML 的标记。
+
+使用 `dompurify` 剥离危险元素：
+
+```ts
+import DOMPurify from "dompurify";
+
+const safeHtml = DOMPurify.sanitize(rawHtml);
+```
+
+DOMPurify 移除 `<script>` 标签、`onclick` 属性、`javascript:` URL 和其他 XSS 向量，同时保留安全的 markdown 输出，如标题、列表、代码块、表格和链接。
+
+<Note>
+React 的 `react-markdown` 不需要 `dompurify`，因为它直接生成 React 元素，不涉及原始 HTML 注入。
+</Note>
+
+## 流式传输注意事项
+
+`useStream` 在每个 Token 到达时反应性地更新 `msg.text`。Markdown 组件在每次更新时重新解析。对于典型的聊天消息，这很高效：
+
+- `marked` 解析速度约为 1 MB/s。5 KB 消息需要 < 5ms
+- `react-markdown` + remark 管道对于聊天长度内容同样快
+- 浏览器的布局引擎有效地处理 DOM 更新
+
+对于非常长的响应（> 50 KB），考虑这些优化：
+
+- **节流渲染：** 使用 `requestAnimationFrame` 在 60fps 批量更新，而不是在每个 Token 上重新渲染
+- **增量解析：** 仅解析新内容并附加到渲染缓冲区（高级，聊天 UI 通常不需要）
+
+<Info>
+对于大多数聊天应用程序，在每个 Token 上重新解析完整消息的简单方法就足够了。只有在观察到非常长的消息出现滚动卡顿或掉帧时才优化。
+</Info>
+
+## 设置 Markdown 内容样式
+
+将样式应用于 `.markdown-content` 类来控制渲染 markdown 的外观。这些是基本样式：
+
+```css
+.markdown-content p {
+  margin: 0.4em 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+
+.markdown-content pre {
+  overflow-x: auto;
+  border-radius: 0.375rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.markdown-content code {
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 0.125rem 0.25rem;
+  font-size: 0.75rem;
+}
+
+.markdown-content blockquote {
+  margin: 0.4em 0;
+  padding-left: 0.75em;
+  border-left: 3px solid currentColor;
+  opacity: 0.8;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  margin: 0.4em 0;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid #e5e7eb;
+  padding: 0.25em 0.5em;
+}
+```
+
+<Tip>
+为聊天气泡保持 markdown 样式紧凑。聊天消息比博客文章小，所以使用比典型 prose 样式表更紧凑的边距和更小的字体大小。
+</Tip>
+
+## 最佳实践
+
+- **始终 sanitization：** 当使用 `v-html`、`{@html}` 或 `[innerHTML]` 时，始终将解析后的输出通过 `dompurify`。不要信任带有大型语言模型输出的 markdown 解析器的原始 HTML。
+- **启用 GFM：** GitHub Flavored Markdown 添加表格、删除线、任务列表和自动链接。这些功能大型语言模型常用。
+- **处理空内容：** 在解析前检查空字符串以避免渲染空容器。
+- **使用 `breaks: true`：** 启用换行符转换，以便大型语言模型输出中的单个换行符渲染为 `<br>` 而不是被忽略。大型语言模型经常使用单个换行符进行视觉分隔。
+- **为聊天上下文设置样式：** 使用适合聊天气泡的紧凑边距和大小，而不是全宽文章布局。
+- **使用丰富内容测试：** 验证标题、嵌套列表、带长行的代码块、宽表格和块引用的渲染，以捕获溢出或布局问题。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\frontend\markdown-messages.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

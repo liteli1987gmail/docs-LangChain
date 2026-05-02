@@ -1,0 +1,594 @@
+---
+title: 构建内容构建代理
+sidebarTitle: 内容构建器
+description: 构建具有品牌记忆、技能、子代理和图像生成的内容写作代理
+---
+
+import ContentBuilderToolsPy from '/snippets/code-samples/content-builder-tools-py.mdx';
+import ContentBuilderCreateAgentPy from '/snippets/code-samples/content-builder-create-agent-py.mdx';
+import ContentBuilderEntryPointPy from '/snippets/code-samples/content-builder-entry-point-py.mdx';
+import ContentBuilderToolsJs from '/snippets/code-samples/content-builder-tools-js.mdx';
+import ContentBuilderCreateAgentJs from '/snippets/code-samples/content-builder-create-agent-js.mdx';
+import ContentBuilderEntryPointJs from '/snippets/code-samples/content-builder-entry-point-js.mdx';
+
+## 概述
+
+本指南演示如何使用[深度代理](/oss/javascript/deepagents)从头开始构建内容写作代理。
+
+您构建的代理将：
+
+1. 从 `AGENTS.md` 和技能文件夹加载语音和工作流规则
+2. 使用 `web_search` 将网络研究委托给专门的子代理
+3. 按照加载的技能起草博客或社交内容
+4. 使用 Gemini 生成封面或社交图像并将文件保存到项目目录下
+
+本教程中的代码连接了图像生成工具和文件系统后端，以便代理可以读取和写入项目目录下的帖子、研究笔记和图像。有关完整的可运行项目，请参阅 [content-builder-agent](https://github.com/langchain-ai/deepagents/tree/main/examples/content-builder-agent) 示例。
+
+### 关键概念
+
+本教程涵盖：
+
+- 用于 TODO 的[长期记忆](/oss/javascript/deepagents/long-term-memory)
+- 用于 TODO 的[技能](/oss/javascript/deepagents/skills)
+- 用于 TODO 的[子代理](/oss/javascript/deepagents/subagents)
+- 用于文件读写的[文件系统后端](/oss/javascript/deepagents/backends)
+- 用于搜索和图像生成的自定义[工具](/oss/javascript/langchain/tools)
+
+## 先决条件
+
+API 密钥：
+
+- Anthropic (Claude) 或其他提供商 API 密钥
+- 用于使用 `gemini-2.5-flash-image` 进行图像生成的 Google (Gemini)
+- 用于网络搜索的 [Tavily](https://www.tavily.com/)（免费层）
+- 用于追踪的 [LangSmith](https://smith.langchain.com/)（可选）
+
+
+
+Node.js 18 或更高版本。
+
+
+## 设置
+
+
+
+<Steps>
+<Step title="创建项目目录">
+
+```bash
+mkdir content-builder-agent
+cd content-builder-agent
+```
+
+</Step>
+<Step title="安装依赖">
+
+<CodeGroup>
+```bash npm wrap
+npm install deepagents @langchain/core @langchain/anthropic @google/generative-ai tavily zod tsx
+```
+
+```bash yarn wrap
+yarn add deepagents @langchain/core @langchain/anthropic @google/generative-ai tavily zod tsx
+```
+</CodeGroup>
+
+添加 `tsx` 以运行 `content_writer.ts`。`--input-type=module` 标志仅适用于 `--eval`、`--print` 或 stdin，不适用于脚本文件路径。
+
+安装 `@langchain/anthropic` 以便 LangChain 可以加载 `createDeepAgent` 使用的默认 Claude 模型。
+
+
+</Step>
+<Step title="设置 API 密钥">
+
+```bash
+export ANTHROPIC_API_KEY="your_anthropic_api_key"
+export GOOGLE_API_KEY="your_google_api_key"
+export TAVILY_API_KEY="your_tavily_api_key"           # 可选
+export LANGSMITH_API_KEY="your_langsmith_api_key"     # 可选
+```
+
+</Step>
+</Steps>
+
+
+## 添加配置文件
+
+示例将行为保存在三种文件中：记忆、技能和子代理定义。
+
+<Steps>
+<Step title="添加 AGENTS.md">
+
+在项目根目录创建 `AGENTS.md`。
+当您稍后创建代理并将此文件指定为[记忆](/oss/javascript/deepagents/long-term-memory)参数的一部分时，它会被加载到系统提示词中，以便品牌语音和研究期望适用于每次运行。
+
+```markdown expandable wrap
+# 内容写作代理
+
+您是一家科技公司的内容作家。您的任务是创建引人入胜的信息内容，教育读者了解人工智能、软件开发 和新兴技术。
+
+## 品牌语音
+
+- **专业但平易近人**：像一位知识渊博的同事一样写作，而不是教科书
+- **清晰直接**：除非必要，否则避免行话；简单地解释技术概念
+- **自信但不傲慢**：分享专业知识而不显得居高临下
+- **引人入胜**：使用具体的例子、类比和故事来说明观点
+
+## 写作标准
+
+1. **使用主动语态**："代理处理请求"而不是"请求被代理处理"
+2. **以价值为导向**：从对读者重要的事情开始，而不是背景
+3. **每段一个想法**：保持段落集中和可扫描
+4. **具体优于抽象**：使用具体的例子、数字和案例研究
+5. **以行动结束**：每篇文章都应该让读者知道下一步该做什么
+
+## 内容支柱
+
+我们的内容专注于：
+- AI 代理和自动化
+- 开发者工具和生产力
+- 软件架构和最佳实践
+- 新兴技术和趋势
+
+## 格式指南
+
+- 使用标题（H2、H3）来分隔长内容
+- 在相关的地方包含代码示例（带语法高亮）
+- 为 3+ 项列表添加项目符号
+- 尽可能保持句子在 25 字以下
+- 在末尾包含明确的行动号召
+
+## 研究要求
+
+在写任何主题之前：
+1. 使用 `researcher` 子代理进行深入主题研究
+2. 收集至少 3 个可信来源
+3. 识别读者需要理解的关键点
+4. 找到具体的例子或案例研究来说明概念
+```
+
+要使此代理符合您自己的语气、支柱和格式规则，请更新 `AGENTS.md` 中的文本。
+
+</Step>
+
+
+<Step title="添加技能">
+
+创建一个 `skills/` 目录。每个技能是一个包含 `SKILL.md` 文件的文件夹，其中包含 YAML frontmatter（`name`、`description`）和技能的说明。
+
+创建 `skills/blog-post/SKILL.md` 并将以下文本复制到其中，其中包含关于创建长篇文章、优化 SEO 内容和生成封面图像的信息。
+
+````md expandable wrap
+---
+name: blog-post
+description: 编写和构建长篇博客文章、创建教程大纲、优化 SEO 内容并生成封面图像。当用户要求写博客文章、文章、操作指南、教程、技术文章、思想领导文章或长篇内容时使用。
+---
+
+# 博客文章写作技能
+
+## 首先研究（必需）
+
+**在写任何博客文章之前，您必须委托研究：**
+
+1. 使用 `task` 工具和 `subagent_type: "researcher"`
+2. 在描述中指定主题 AND 保存位置：
+
+```
+task(
+    subagent_type="researcher",
+    description="Research [TOPIC]. Save findings to research/[slug].md"
+)
+```
+
+示例：
+```
+task(
+    subagent_type="researcher",
+    description="Research the current state of AI agents in 2025. Save findings to research/ai-agents-2025.md"
+)
+```
+
+3. 研究完成后，在写之前阅读发现文件
+
+## 输出结构（必需）
+
+**每个博客文章必须同时有文章 AND 封面图像：**
+
+```
+blogs/
+└── <slug>/
+    ├── post.md        # 博客文章内容
+    └── hero.png       # 必需：生成的封面图像
+```
+
+示例：关于"2025 年 AI 代理"的文章 → `blogs/ai-agents-2025/`
+
+**您必须完成两个步骤：**
+1. 将文章写入 `blogs/<slug>/post.md`
+2. 使用 `generate_image` 生成封面图像并保存到 `blogs/<slug>/hero.png`
+
+**没有封面图像的博客文章是不完整的。**
+
+## 博客文章结构
+
+每个博客文章应遵循此结构：
+
+### 1. 钩子（开头）
+- 以引人注目的问题、统计数据或声明开始
+- 让读者想要继续
+- 保持 2-3 句话
+
+### 2. 背景（问题）
+- 解释为什么这个主题重要
+- 描述问题或机会
+- 与读者的体验联系起来
+
+### 3. 主要内容（解决方案）
+- 用 H2 标题分成 3-5 个主要部分
+- 每个部分涵盖一个关键点
+- 在有帮助的地方包含代码示例、图表或屏幕截图
+- 为列表使用项目符号
+
+### 4. 实际应用
+- 展示如何应用概念
+- 如果适用，包含分步说明
+- 提供代码片段或模板
+
+### 5. 结论和 CTA
+- 总结关键要点（最多 3 个要点）
+- 以明确的行动号召结束
+- 链接到相关资源
+
+## 封面图像生成
+
+写完文章后，使用 `generate_cover` 工具生成封面图像：
+
+```
+generate_cover(prompt="A detailed description of the image...", slug="your-blog-slug")
+```
+
+该工具将图像保存到 `blogs/<slug>/hero.png`。
+
+### 编写有效的图像提示
+
+使用以下元素构建您的提示：
+
+1. **主题**：主要焦点是什么？要具体和具体。
+2. **风格**：艺术方向（极简主义、等距、平面设计、3D 渲染、水彩等）
+3. **构图**：元素的排列方式（居中、三分法、对称）
+4. **调色板**：特定颜色或情绪（暖土色调、冷蓝和紫色、高对比度）
+5. **灯光/氛围**：柔和漫射光、戏剧性阴影、金色时分、霓虹灯发光
+6. **技术细节**：宽高比考虑、用于文本叠加的负空间
+
+### 示例提示
+
+**技术博客文章：**
+```
+等距 3D 插图，互连的发光立方体代表 AI 代理，每个立方体都有微妙的电路图案。立方体由发光数据流连接。深海军蓝背景 (#0a192f)，电蓝色 (#64ffda) 和柔和紫色 (#c792ea) 强调色。干净极简风格，大量负空间在顶部用于标题。专业科技美学。
+```
+
+**教程/操作指南：**
+```
+扁平插图，手在键盘上打字，抽象代码符号向上浮动，变成灯泡和齿轮。暖色渐变背景从柔和珊瑚色到浅桃色。友好、平易近人的风格。居中构图，有文本叠加的空间。
+```
+
+**思想领导力：**
+```
+人类轮廓侧影与几何神经网络图案融合的抽象可视化。分裂构图——左侧有机水彩纹理过渡到右侧干净矢量线条。柔和的鼠尾草绿色和暖赤陶色调色板。沉思、前瞻的情绪。
+```
+
+## SEO 注意事项
+
+- 在标题和第一段中包含主要关键词
+- 在全文中自然使用关键词 3-5 次
+- 标题保持在 60 字符以下
+- 写元描述（150-160 字符）
+
+## 质量检查清单
+
+完成前：
+- [ ] 文章保存到 `blogs/<slug>/post.md`
+- [ ] 英雄图像生成在 `blogs/<slug>/hero.png`
+- [ ] 钩子在前 2 句话中吸引注意力
+- [ ] 每个部分都有明确目的
+- [ ] 结论总结关键要点
+- [ ] CTA 告诉读者下一步做什么
+````
+
+接下来，创建 `skills/social-media/SKILL.md` 并将以下文本复制到其中，其中包含关于起草社交媒体帖子和生成配套图像的信息：
+
+````md expandable wrap
+---
+name: social-media
+description: 起草引人入胜的社交媒体帖子、编写钩子、建议标签、创建线程结构并生成配套图像。当用户要求写 LinkedIn 帖子、推文、Twitter/X 线程、社交媒体标题、社交帖子或为社交平台重新调整内容时使用。
+---
+
+# 社交媒体内容技能
+
+## 首先研究（必需）
+
+**在写任何社交媒体内容之前，您必须委托研究：**
+
+1. 使用 `task` 工具和 `subagent_type: "researcher"`
+2. 在描述中指定主题 AND 保存位置：
+
+```
+task(
+    subagent_type="researcher",
+    description="Research [TOPIC]. Save findings to research/[slug].md"
+)
+```
+
+示例：
+```
+task(
+    subagent_type="researcher",
+    description="Research renewable energy trends in 2025. Save findings to research/renewable-energy.md"
+)
+```
+
+3. 研究完成后，在写之前阅读发现文件
+
+## 输出结构（必需）
+
+**每个社交媒体帖子必须同时有内容 AND 图像：**
+
+**LinkedIn 帖子：**
+```
+linkedin/
+└── <slug>/
+    ├── post.md        # 帖子内容
+    └── image.png      # 必需：生成的视觉
+```
+
+**Twitter/X 线程：**
+```
+tweets/
+└── <slug>/
+    ├── thread.md      # 线程内容
+    └── image.png      # 必需：生成的视觉
+```
+
+示例：关于"提示工程"的 LinkedIn 帖子 → `linkedin/prompt-engineering/`
+
+**您必须完成两个步骤：**
+1. 将内容写入适当的路径
+2. 使用 `generate_image` 生成图像并与帖子一起保存
+
+**没有图像的社交媒体帖子是不完整的。**
+
+## 平台指南
+
+### LinkedIn
+
+**格式：**
+- 1,300 字符限制（大约 210 个字符后显示更多）
+- 第一行至关重要 - 使其成为钩子
+- 使用换行提高可读性
+- 末尾 3-5 个标签
+
+**语气：**
+- 专业但个人化
+- 分享见解和学习
+- 提出问题以推动参与
+- 使用"我"并分享经验
+
+**结构：**
+```
+[钩子 - 1 行引人注目的话]
+
+[空行]
+
+[背景 - 为什么这很重要]
+
+[空行]
+
+[主要见解 - 2-3 短段落]
+
+[空行]
+
+[行动号召或问题]
+
+#hashtag1 #hashtag2 #hashtag3
+```
+
+### Twitter/X
+
+**格式：**
+- 每条推文 280 字符限制
+- 更长的内容使用线程（使用 1/🧵 格式）
+- 每条推文不超过 2 个标签
+
+**线程结构：**
+```
+1/🧵 [钩子 - 主要见解]
+
+2/ [支持点 1]
+
+3/ [支持点 2]
+
+4/ [示例或证据]
+
+5/ [结论 + CTA]
+```
+
+## 图像生成
+
+每个社交媒体帖子都需要一个醒目的图像。使用 `generate_social_image` 工具：
+
+```
+generate_social_image(prompt="A detailed description...", platform="linkedin", slug="your-post-slug")
+```
+
+该工具将图像保存到 `<platform>/<slug>/image.png`。
+
+### 社交图像最佳实践
+
+社交图像在拥挤的信息流中需要在小尺寸下工作：
+- **大胆、简单的构图** - 一个清晰的焦点，而不是繁忙的场景
+- **高对比度** - 滚动时脱颖而出
+- **图像中无文字** - 太小无法阅读，平台添加自己的
+- **方形或 4:5 比例** - 跨平台工作
+
+### 编写有效的提示
+
+包含这些元素：
+
+1. **单一焦点**：一个清晰的主题，而不是繁忙的场景
+2. **大胆风格**：鲜艳的色彩、强烈的形状、高对比度
+3. **简单背景**：纯色、渐变或微妙的纹理
+4. **情绪/能量**：匹配帖子语气（激励、紧迫、深思）
+
+### 示例提示
+
+**见解/提示帖子：**
+```
+单发光灯泡漂浮在深紫色渐变背景上，灯泡由互连的金色几何线条制成，柔和光线从四面八方散发。最小、醒目、高对比度。方形构图。
+```
+
+**公告/新闻：**
+```
+由彩色几何形状制成的抽象火箭船，向上发射，粒子尾迹。明亮的珊瑚色和青色配色方案，干净白色背景。充满活力、庆祝的情绪。大胆平面插图风格。
+```
+
+**发人深省的内容：**
+```
+两个重叠的半透明圆圈，一个蓝色一个橙色，在中心创造一个发光的交集。表示协作或想法的交集。深炭灰色背景，柔和空灵的光芒。极简和沉思。
+```
+
+## 内容类型
+
+### 公告帖子
+- 以新闻开头
+- 解释影响
+- 包含链接或下一步
+
+### 见解帖子
+- 分享一个具体学习
+- 简要解释背景
+- 使其可操作
+
+### 问题帖子
+- 问一个真诚的问题
+- 首先提供您的看法
+- 保持专注于一个主题
+
+## 质量检查清单
+
+完成前：
+- [ ] 帖子保存到 `linkedin/<slug>/post.md` 或 `tweets/<slug>/thread.md`
+- [ ] 图像与帖子一起生成
+- [ ] 第一行钩住注意力
+- [ ] 内容符合平台限制
+- [ ] 语气符合平台规范
+- [ ] 有明确的 CTA 或问题
+- [ ] 标签相关（不是通用的）
+````
+
+它们指示代理首先调用 `researcher` 子代理，在 `blogs/`、`linkedin/` 或 `tweets/` 下编写 markdown，并调用 `generate_cover` 或 `generate_social_image` 生成图像。
+
+当您稍后创建代理并指定技能文件夹时，这些技能文件夹中的 `SKILLS.md` 文件的 frontmatter 会被加载到系统提示词中，以便代理可以在任务与技能描述匹配时使用该技能。
+
+</Step>
+</Steps>
+
+## 构建脚本
+
+
+
+在项目根目录创建 `content_writer.ts`。以下部分按顺序属于一个文件。
+
+
+<Steps>
+<Step title="添加工具">
+
+
+
+研究员使用 Tavily 搜索。博客和社交工作流使用 Google Generative AI SDK 进行图像生成。
+
+<ContentBuilderToolsJs />
+
+
+</Step>
+<Step title="创建代理">
+
+
+
+使用 [createDeepAgent](https://reference.langchain.com/javascript/deepagents/agent/createDeepAgent) 创建深度代理时，传递记忆路径、技能目录、图像工具、内联子代理定义，以及根目录设置为示例目录的 [FilesystemBackend](/oss/javascript/deepagents/backends)，以便 `./AGENTS.md` 和 `./skills/` 等路径正确解析。
+
+<ContentBuilderCreateAgentJs />
+
+
+</Step>
+<Step title="添加入口点">
+
+
+
+<ContentBuilderEntryPointJs />
+
+
+</Step>
+</Steps>
+
+## 运行代理
+
+<Warning>
+文件系统后端可以读取、写入和删除 `root_dir` 下的文件。仅在专用目录中运行，并在发布前审查生成的内容。
+</Warning>
+
+
+
+从项目目录：
+
+```bash
+npx tsx content_writer.ts
+```
+
+将提示词作为额外参数传递：
+
+```bash
+npx tsx content_writer.ts Write a blog post about prompt engineering
+```
+
+
+设置 `LANGSMITH_API_KEY` 后，您可以在 [LangSmith](/langsmith/home) 中检查运行。
+
+## 输出
+
+成功后，代理在项目根目录下写入产物（例如）：
+
+
+
+
+```text
+blogs/
+└── prompt-engineering/
+    ├── post.md
+    └── hero.png
+research/
+└── prompt-engineering.md
+```
+
+路径遵循 `SKILL.md` 中的技能说明。
+
+## 完整代码
+
+在 GitHub 上浏览完整的 [content-builder-agent 示例](https://github.com/langchain-ai/deepagents/tree/main/examples/content-builder-agent)，包括基于 Rich 的流式传输 UI。
+
+## 下一步
+
+- 编辑 `AGENTS.md` 以更改品牌语音和研究要求
+- 在 `skills/<name>/SKILL.md` 下添加新内容类型的技能
+- 在 `subagents.yaml` 中添加子代理并在 `load_subagents` 中注册工具
+- 阅读[子代理](/oss/javascript/deepagents/subagents)、[技能](/oss/javascript/deepagents/skills)和[自定义](/oss/javascript/deepagents/customization)以获取更深入的配置
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\content-builder.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

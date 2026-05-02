@@ -1,0 +1,74 @@
+---
+title: 使用邮箱和密码的基本身份验证
+sidebarTitle: 设置基本身份验证
+---
+
+LangSmith 支持通过用户名/密码登录，但有一些限制：
+
+* 您不能将现有安装从基本身份验证模式更改为 OAuth 与 PKCE（已弃用）或反之——安装必须是其中一种。**基本身份验证安装需要完全全新的安装，包括单独的 PostgreSQL 数据库/架构，除非从现有的 `None` 类型安装迁移（见下文）。**
+* 用户在被邀请后必须获得其初始自动生成的密码。之后任何组织管理员都可以更改此密码。
+* 您不能同时使用基本身份验证和带有客户端密钥的 OAuth。
+
+## 要求和特性
+
+* 在初始安装期间配置了一个单一的 `Default` 组织，不支持创建其他组织
+* 您的初始密码（如下配置）必须至少 12 个字符，并且至少包含一个小写字母、一个 大写字母和一个符号
+* 用于签署 JWT 的密钥没有严格要求，但我们建议安全地生成至少 32 个字符的字符串。例如：`openssl rand -base64 32`
+
+### 从无身份验证迁移
+
+**仅在 0.7 及以上版本中支持。**
+
+从 [None](/langsmith/authentication-methods#none) 身份验证模式迁移的安装将使用配置的凭证替换单个"默认"用户，并保留所有现有资源。迁移后的单一现有工作区 ID 保持为 `00000000-0000-0000-0000-000000000000`，但迁移安装的其他一切都与基本身份验证安装的标准相同。
+
+要迁移，只需按如下方式更新您的配置，然后像往常一样运行 `helm upgrade`（或 `docker-compose up`）。
+
+### 配置
+
+<Note>
+更改 JWT 密钥将使您的用户退出登录
+</Note>
+
+<CodeGroup>
+
+```yaml Helm
+config:
+  authType: mixed
+  basicAuth:
+    enabled: true
+    initialOrgAdminEmail: <YOUR EMAIL ADDRESS>
+    initialOrgAdminPassword: <PASSWORD> # 必须至少 12 个字符，并且至少包含一个小写字母、一个 大写字母和一个符号
+    jwtSecret: <SECRET>
+```
+
+```bash Docker
+# 在您的 .env 文件中
+AUTH_TYPE=mixed
+BASIC_AUTH_ENABLED=true
+INITIAL_ORG_ADMIN_EMAIL=<YOUR EMAIL ADDRESS>
+INITIAL_ORG_ADMIN_PASSWORD=<PASSWORD> # 必须至少 12 个字符，并且至少包含一个小写字母、一个 大写字母和一个符号
+BASIC_AUTH_JWT_SECRET=<SECRET>
+```
+
+</CodeGroup>
+
+此外，在 docker-compose 中，您需要运行 bootstrap 命令来创建初始组织和用户：
+
+```bash
+docker-compose exec langchain-backend python hooks/auth_bootstrap.pyc
+```
+
+配置完成后，您将看到类似下面的登录屏幕。您应该能够使用 `initialOrgAdminEmail` 和 `initialOrgAdminPassword` 值登录，并且您的用户将自动配置为 `Organization Admin` 角色。有关组织角色的更多详细信息，请参阅[管理员指南](/langsmith/administration-overview#organization-roles)。
+
+![带有基本身份验证的 LangSmith UI](/langsmith/images/langsmith-ui-basic-auth.png)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\self-host-basic-auth.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

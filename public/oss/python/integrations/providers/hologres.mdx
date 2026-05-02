@@ -1,0 +1,66 @@
+---
+title: "Hologres integrations"
+description: "Integrate with Hologres using LangChain Python."
+---
+
+>[Hologres](https://www.alibabacloud.com/help/en/hologres/latest/introduction) 是阿里巴巴云开发的一款统一实时数据仓库服务。您可以使用Hologres实时写入、更新、处理和分析大量数据。
+
+>Hologres支持标准SQL语法，兼容PostgreSQL，并支持大多数PostgreSQL函数。Hologres支持对高达PB级别的数据进行在线分析处理（OLAP）和即席分析，并提供高并发、低延迟的在线数据服务。
+
+`Hologres` 通过采用 [VSAG](https://github.com/antgroup/vsag)（从 r4.0.0 版本开始）或 [Proxima](https://www.alibabacloud.com/help/en/hologres/latest/vector-processing)（适用于 r4.0.0 之前的版本）提供 **vector database** 功能。
+
+[VSAG](https://github.com/antgroup/vsag) 是蚂蚁集团（Ant Group）开发的开源 vector indexing 库，用于相似性搜索。相比 Proxima，VSAG 具有更低的 memory overhead、简化的 configuration、在 concurrent writes 下具有更好的 query stability，并且能够处理 ultra-large-scale vector datasets。
+
+`Proxima` 是由 `Alibaba DAMO Academy` 开发的高性能 software library，用于 Hologres r4.0.0 之前的版本。它允许您以 high throughput 和 low latency 搜索 vectors 的 nearest neighbors。
+
+## Installation and setup
+
+[Deploy a Hologres cloud instance](https://www.alibabacloud.com/zh/product/hologres) on Alibaba Cloud.
+
+<CodeGroup>
+```bash pip
+pip install langchain_community
+```
+
+```bash uv
+uv add langchain_community
+```
+</CodeGroup>
+
+Install the Hologres SDK that matches your instance version:
+
+- If Hologres instance version is lower than r4.0.0, install `hologres-vector`.
+- If Hologres instance version is r4.0.0 or higher, install `holo-search-sdk`.
+
+<CodeGroup>
+```bash pip
+pip install hologres-vector
+# or
+pip install holo-search-sdk
+```
+
+```bash uv
+uv add hologres-vector
+# or
+uv add holo-search-sdk
+```
+</CodeGroup>
+
+## Vector store
+
+See a [usage example](/oss/python/integrations/vectorstores/hologres).
+
+```python
+from langchain_community.vectorstores import Hologres
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\hologres.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

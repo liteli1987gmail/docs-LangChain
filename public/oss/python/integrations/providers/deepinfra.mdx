@@ -1,0 +1,67 @@
+---
+title: "DeepInfra integrations"
+description: "Integrate with DeepInfra using LangChain Python."
+---
+
+>[DeepInfra](https://deepinfra.com/docs) 允许我们轻松运行
+> [最新机器学习模型](https://deepinfra.com/models)。
+> DeepInfra 负责运行、扩展和监控模型的所有繁重工作，
+> 用户可以专注于您的应用程序，并通过简单的 REST API 调用集成模型。
+
+DeepInfra 提供与 LangChain 集成的[示例](https://deepinfra.com/docs/advanced/langchain)。
+
+This page covers how to use the `DeepInfra` ecosystem within `LangChain`.
+It is broken into two parts: installation and setup, and then references to specific DeepInfra wrappers.
+
+## Installation and setup
+
+- Get your DeepInfra API key from the [DeepInfra website](https://deepinfra.com/).
+- Get an DeepInfra api key and set it as an environment variable (`DEEPINFRA_API_TOKEN`)
+
+## Available models
+
+DeepInfra provides a range of Open Source LLMs ready for deployment.
+
+You can see supported models for
+[text-generation](https://deepinfra.com/models?type=text-generation) and
+[embeddings](https://deepinfra.com/models?type=embeddings).
+
+You can view a [list of request and response parameters](https://deepinfra.com/meta-llama/Llama-2-70b-chat-hf/api).
+
+Chat models [follow openai api](https://deepinfra.com/meta-llama/Llama-2-70b-chat-hf/api?example=openai-http)
+
+
+## LLM
+
+See a [usage example](/oss/python/integrations/llms/deepinfra).
+
+```python
+from langchain_community.llms import DeepInfra
+```
+
+## Embeddings
+
+See a [usage example](/oss/python/integrations/embeddings/deepinfra).
+
+```python
+from langchain_community.embeddings import DeepInfraEmbeddings
+```
+
+## Chat models
+
+See a [usage example](/oss/python/integrations/chat/deepinfra).
+
+```python
+from langchain_community.chat_models import ChatDeepInfra
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\deepinfra.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

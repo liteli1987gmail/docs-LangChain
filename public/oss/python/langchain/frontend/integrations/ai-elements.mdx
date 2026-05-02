@@ -1,0 +1,158 @@
+---
+title: AI Elements
+description: 用于 AI 聊天界面的可组合 shadcn/ui 组件库，与 useStream 配合使用
+---
+
+[AI Elements](https://elements.ai-sdk.dev/) 是一个专为 AI 聊天界面构建的可组合的 shadcn/ui 组件库。诸如 `Conversation`、`Message`、`Tool`、`Reasoning` 和 `PromptInput` 等组件被设计为直接放入任何 React 项目，并以最少的粘合代码连接到 `stream.messages`。
+
+import { ExampleEmbed } from "/snippets/example-embed.jsx"
+
+<ExampleEmbed example="ai-elements" minHeight={700} />
+
+<Tip>
+  克隆并运行 [完整的 AI Elements 示例](https://github.com/langchain-ai/langgraphjs/tree/main/examples/ai-elements) 以在运行中的项目中查看工具调用渲染、推理显示、流式消息等。
+</Tip>
+
+## 工作原理
+
+1. **将组件安装为源文件：** AI Elements 通过 CLI 直接将组件添加到您的项目（shadcn/ui registry 风格）
+2. **将消息映射到组件：** 迭代 `stream.messages`，将 `HumanMessage` 实例渲染为用户气泡，将 `AIMessage` 实例渲染为助手响应
+3. **组合更丰富的 UI：** 将工具调用包装在 `<Tool>` 中，将推理包装在 `<Reasoning>` 中，并将其全部包装在 `<Conversation>` 中进行滚动管理
+
+## 安装
+
+通过 CLI 安装 AI Elements 组件。它们作为可编辑源文件添加到您的项目中：
+
+```bash
+npm install @langchain/react @ai-elements/react
+npx ai-elements@latest add conversation message prompt-input tool reasoning suggestion
+```
+
+## 连接 useStream
+
+直接从 `stream.messages` 渲染 AI Elements 组件。每个 LangChain `BaseMessage` 映射到一个组件：
+
+```tsx
+import { useStream } from "@langchain/react";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
+
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
+import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+} from "@/components/ai-elements/tool";
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "@/components/ai-elements/reasoning";
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputSubmit,
+} from "@/components/ai-elements/prompt-input";
+
+export function Chat() {
+  const stream = useStream({
+    apiUrl: "http://localhost:2024",
+    assistantId: "agent",
+  });
+
+  return (
+    <div className="flex flex-col h-dvh">
+      <Conversation className="flex-1">
+        <ConversationContent>
+          {stream.messages.map((msg, i) => {
+            if (HumanMessage.isInstance(msg)) {
+              return (
+                <Message key={i} from="user">
+                  <MessageContent>{msg.content as string}</MessageContent>
+                </Message>
+              );
+            }
+            if (AIMessage.isInstance(msg)) {
+              return (
+                <div key={i}>
+                  {/* Reasoning block (shows when model emits thinking tokens) */}
+                  <Reasoning>
+                    <ReasoningTrigger />
+                    <ReasoningContent>{getReasoningText(msg)}</ReasoningContent>
+                  </Reasoning>
+
+                  {/* Inline tool calls with input/output display */}
+                  {getToolCalls(msg).map((tc) => (
+                    <Tool key={tc.id} defaultOpen>
+                      <ToolHeader type={`tool-${tc.name}`} state={tc.state} />
+                      <ToolContent>
+                        <ToolInput input={tc.args} />
+                        {tc.output && (
+                          <ToolOutput output={tc.output} errorText={undefined} />
+                        )}
+                      </ToolContent>
+                    </Tool>
+                  ))}
+
+                  {/* Streamed text response */}
+                  <Message from="assistant">
+                    <MessageContent>
+                      <MessageResponse>{getTextContent(msg)}</MessageResponse>
+                    </MessageContent>
+                  </Message>
+                </div>
+              );
+            }
+          })}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      <PromptInput
+        onSubmit={({ text }) =>
+          stream.submit({ messages: [{ type: "human", content: text }] })
+        }
+      >
+        <PromptInputBody>
+          <PromptInputTextarea placeholder="Ask me something..." />
+        </PromptInputBody>
+        <PromptInputFooter>
+          <PromptInputSubmit
+            status={stream.isLoading ? "streaming" : "ready"}
+          />
+        </PromptInputFooter>
+      </PromptInput>
+    </div>
+  );
+}
+```
+
+## 最佳实践
+
+- **自由编辑源文件：** 组件作为源文件而不是外部包依赖项运送到您的项目中，因此您可以在不进行 fork 的情况下更改任何内容
+- **使用 `MessageResponse` 进行流式传输：** 它正确处理流式部分 Token；在流式传输期间避免直接渲染原始 `msg.content`
+- **包装在 `Conversation` 中：** `Conversation` 组件管理滚动行为，以便新消息自动滚动到视图中
+- **使用 `isInstance` 进行门控：** 使用 `HumanMessage.isInstance(msg)` 和 `AIMessage.isInstance(msg)` 而不是检查 `msg.getType()` 来获得正确的 TypeScript 类型缩小
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\langchain\frontend\integrations\ai-elements.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

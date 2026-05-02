@@ -1,0 +1,75 @@
+---
+title: "Localai integrations"
+description: "Integrate with Localai using LangChain Python."
+---
+
+# LocalAI 简介
+
+## 关于 LocalAI
+
+[LocalAI](https://localai.io/) 是一个免费的、开源的 OpenAI 替代方案。
+
+## 核心特点
+
+- **REST API 兼容**: LocalAI 作为兼容 OpenAI API 规范的 drop-in 替换 REST API
+- **本地推理**: 支持在本地或 on-prem 环境下运行 LLMs、生成图片、音频等
+- **硬件要求**: 支持消费级硬件
+- **多模型支持**: 支持多种模型家族和架构
+
+## 主要功能
+
+| 功能 | 说明 |
+|------|------|
+| LLM 推理 | 本地运行大型语言模型 |
+| 图片生成 | 本地生成图像 |
+| 音频处理 | 本地进行音频相关处理 |
+
+## 优势
+
+✅ 完全免费和开源  
+✅ 无需云服务依赖，保护隐私  
+✅ 兼容现有 OpenAI API 调用方式  
+✅ 支持消费级硬件运行
+
+---
+
+**官网**: [https://localai.io/](https://localai.io/)
+
+如需了解更多配置和使用方法，可参考官方文档。
+
+<Info>
+`langchain-localai` is a 3rd party integration package for LocalAI. It provides a simple way to use LocalAI services in LangChain.
+The source code is available on [GitHub](https://github.com/mkhludnev/langchain-localai)
+</Info>
+
+## Installation and setup
+
+<CodeGroup>
+```bash pip
+pip install langchain-localai
+```
+
+```bash uv
+uv add langchain-localai
+```
+</CodeGroup>
+
+
+## Embedding models
+
+See a [usage example](/oss/python/integrations/embeddings/localai).
+
+## Reranker
+
+See a [usage example](/oss/python/integrations/document_transformers/localai_rerank).
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\localai.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

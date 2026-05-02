@@ -1,0 +1,102 @@
+---
+title: "Nuclia integrations"
+description: "Integrate with Nuclia using LangChain Python."
+---
+
+
+[Nuclia](https://nuclia.com) 可以自动从任何内部和外部来源索引您的非结构化数据，提供优化的搜索结果和生成式答案。它能够处理视频和音频转录、图像内容提取以及文档解析。
+
+
+
+## Installation and setup
+
+We need to install the `nucliadb-protos` package to use the `Nuclia Understanding API`
+
+<CodeGroup>
+```bash pip
+pip install nucliadb-protos
+```
+
+```bash uv
+uv add nucliadb-protos
+```
+</CodeGroup>
+
+We need to have a `Nuclia account`.
+We can create one for free at [https://nuclia.cloud](https://nuclia.cloud),
+and then [create a NUA key](https://docs.nuclia.dev/docs/docs/using/understanding/intro).
+
+
+## Document transformer
+
+### Nuclia
+
+`Nuclia Understanding API` 文档转换器可以将文本分割成段落和句子，识别实体，提供文本摘要，并为所有句子生成嵌入向量。
+
+To use the Nuclia document transformer, we need to instantiate a `NucliaUnderstandingAPI`
+tool with `enable_ml` set to `True`:
+
+```python
+from langchain_community.tools.nuclia import NucliaUnderstandingAPI
+
+nua = NucliaUnderstandingAPI(enable_ml=True)
+```
+
+See a [usage example](/oss/python/integrations/document_transformers/nuclia_transformer).
+
+```python
+from langchain_community.document_transformers.nuclia_text_transform import NucliaTextTransformer
+```
+
+## Document loaders
+
+### Nuclea loader
+
+See a [usage example](/oss/python/integrations/document_loaders/nuclia).
+
+```python
+from langchain_community.document_loaders.nuclia import NucliaLoader
+```
+
+## Vector store
+
+### NucliaDB
+
+We need to install a python package:
+
+<CodeGroup>
+```bash pip
+pip install nuclia
+```
+
+```bash uv
+uv add nuclia
+```
+</CodeGroup>
+
+See a [usage example](/oss/python/integrations/vectorstores/nucliadb).
+
+```python
+from langchain_community.vectorstores.nucliadb import NucliaDB
+```
+
+## Tools
+
+### Nuclia understanding
+
+See a [usage example](/oss/python/integrations/tools/nuclia).
+
+```python
+from langchain_community.tools.nuclia import NucliaUnderstandingAPI
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\nuclia.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

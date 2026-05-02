@@ -1,0 +1,200 @@
+---
+title: 运行时重建图
+sidebarTitle: 运行时重建图
+description: 使用 ServerRuntime 在每次运行中使用不同配置重建您的图。
+---
+有时您可能需要为新运行使用不同配置重建您的图。例如，您可能希望根据用户凭据加载不同工具。本指南展示如何使用 `ServerRuntime` 执行此操作。
+
+<Note>
+在大多数情况下，在各个节点中根据配置进行条件处理是比动态更改整个图结构更好的自定义方式。这使得测试和管理更容易。
+</Note>
+
+## 前置条件
+
+- 确保首先查看关于为部署设置应用程序的[操作指南](/langsmith/setup-app-requirements-txt)。
+- `ServerRuntime` 需要 `langgraph-api >= 0.7.31` 和 `langgraph-sdk >= 0.3.5`。在此之前，图工厂只接受单个 `config: RunnableConfig` 参数。
+
+## 定义图
+
+假设您有一个包含简单图的应用程序，该图调用 LLM 并将响应返回给用户。应用程序文件目录如下：
+
+```
+my-app/
+|-- langgraph.json
+|-- my_project/
+|   |-- __init__.py
+|   |-- agents.py     # code for your graph
+|-- pyproject.toml
+```
+
+其中图在 `agents.py` 中定义。
+
+### 不重建
+
+部署 Agent Server 最常见的方式是引用在文件顶部定义的编译图实例。示例如下：
+
+```python
+# my_project/agents.py
+from langgraph.graph import StateGraph, MessagesState, START
+
+async def model(state: MessagesState):
+    return {"messages": [{"role": "assistant", "content": "Hi, there!"}]}
+
+graph_workflow = StateGraph(MessagesState)
+graph_workflow.add_node("model", model)
+graph_workflow.add_edge(START, "model")
+agent = graph_workflow.compile()
+```
+
+为了让服务器识别您的图，您需要在 LangGraph API 配置（`langgraph.json`）中指定包含 [`CompiledStateGraph`](https://reference.langchain.com/python/langgraph/graph/state/CompiledStateGraph) 实例的变量的路径，例如：
+
+```json
+{
+    "$schema": "https://langgra.ph/schema.json",
+    "dependencies": ["."],
+    "graphs": {
+        "chat_agent": "my_project.agents:agent",
+    }
+}
+```
+
+### 重建
+
+要为每次新运行重建您的图，请提供一个**工厂函数**，该函数返回（或产生）一个图。工厂可以可选地接受 `ServerRuntime` 参数或 `RunnableConfig`。服务器检查您的函数的类型注解以确定要注入哪些参数，因此请确保包含正确的类型提示。服务器的队列工作程序将在需要处理运行的任何时候调用您的工厂函数。该函数也将被某些其他端点调用以更新状态、读取状态或获取助手架构。`ServerRuntime` 告诉您是什么上下文触发了调用。
+
+<Note>
+`ServerRuntime` 处于测试阶段，未来版本可能会更改。
+</Note>
+
+#### 简单工厂
+
+最简单形式是一个返回编译图的普通 `async def`：
+
+```python
+from langchain_openai import ChatOpenAI
+from langgraph.graph import START, StateGraph
+from langchain_core.runnables import RunnableConfig
+from langgraph_sdk.runtime import ServerRuntime
+
+from my_agent.utils.state import AgentState
+
+model = ChatOpenAI(model="gpt-5.4")
+
+
+def make_graph_for_user(user_id: str):
+    """Build a graph customized per user."""
+    graph_workflow = StateGraph(AgentState)
+
+    async def call_model(state):
+        return {"messages": [await model.ainvoke(state["messages"])]}
+
+    graph_workflow.add_node("agent", call_model)
+    graph_workflow.add_edge(START, "agent")
+    return graph_workflow.compile()
+
+
+async def make_graph(config: RunnableConfig, runtime: ServerRuntime):
+    user = runtime.ensure_user()
+    return make_graph_for_user(user.identity)
+```
+
+#### 上下文管理器工厂
+
+如果您需要设置和拆除资源（数据库连接、加载 MCP 工具等），请使用异步上下文管理器。使用 `runtime.execution_runtime` 检查图是被调用用于实际执行还是仅用于自省（架构、可视化）：
+
+```python
+import contextlib
+
+from langchain_openai import ChatOpenAI
+from langgraph.graph import START, StateGraph
+from langchain_core.runnables import RunnableConfig
+from langgraph_sdk.runtime import ServerRuntime
+
+from my_agent.utils.state import AgentState
+
+model = ChatOpenAI(model="gpt-5.4")
+
+
+def make_agent_graph(tools: list):
+    """Make a simple LLM agent."""
+    graph_workflow = StateGraph(AgentState)
+    bound = model.bind_tools(tools)
+
+    async def call_model(state):
+        return {"messages": [await bound.ainvoke(state["messages"])]}
+
+    graph_workflow.add_node("agent", call_model)
+    graph_workflow.add_edge(START, "agent")
+    return graph_workflow.compile()
+
+
+@contextlib.asynccontextmanager
+async def make_graph(runtime: ServerRuntime):
+    if ert := runtime.execution_runtime:
+        # Only set up expensive resources during actual execution.
+        # Introspection calls (get_schema, get_graph, ...) skip this.
+        mcp_tools = await connect_mcp(ert.ensure_user())  # your setup logic
+        yield make_agent_graph(tools=mcp_tools)
+        await disconnect_mcp()  # your teardown logic
+    else:
+        # For schema/state reads, return a graph with the same
+        # topology but no expensive resource setup.
+        yield make_agent_graph(tools=[])
+```
+
+最后，在 `langgraph.json` 中指定您的工厂路径：
+
+```json
+{
+    "$schema": "https://langgra.ph/schema.json",
+    "dependencies": ["."],
+    "graphs": {
+        "chat_agent": "my_project.agents:make_graph",
+    }
+}
+```
+
+## ServerRuntime 参考
+
+您的工厂函数接收一个具有以下属性的 `ServerRuntime` 实例：
+
+| 属性 | 类型 | 描述 |
+|---|---|---|
+| `access_context` | `str` | 为什么调用工厂：`"threads.create_run"`、`"threads.update"`、`"threads.read"` 或 `"assistants.read"`。 |
+| `user` | `BaseUser \| None` | 已认证的用户，如果未配置[自定义身份验证](/langsmith/custom-auth)，则为 `None`。 |
+| `store` | `BaseStore` | 用于持久化和记忆的存储实例。 |
+
+**方法：**
+
+| 方法 | 描述 |
+|---|---|
+| `ensure_user()` | 返回已认证的用户。如果未提供用户则抛出 `PermissionError`。 |
+| `execution_runtime` | 当 `access_context` 为 `"threads.create_run"` 时返回执行运行时，否则返回 `None`。使用此方法仅在执行期间有条件地设置昂贵资源。 |
+
+### 访问上下文
+
+服务器在除了执行运行之外的多个上下文中调用您的工厂。在所有上下文中，返回的图应该具有**相同的拓扑**（节点、边、状态模式）。写入上下文（`threads.create_run`、`threads.update`）中的不匹配拓扑可能导致不正确的状态更新。在读取上下文（`threads.read`、`assistants.read`）中，不匹配会影响报告的待处理任务、架构和可视化，但不会破坏数据。使用 `execution_runtime` 有条件地设置昂贵资源而不改变图结构。
+
+| 上下文 | 描述 |
+|---|---|
+| `threads.create_run` | 完整图执行。`execution_runtime` 可用。 |
+| `threads.update` | 通过 `aupdate_state` 进行状态更新。不执行节点函数，但可以更改待处理任务。 |
+| `threads.read` | 通过 `aget_state` / `aget_state_history` 进行状态读取。 |
+| `assistants.read` | 用于可视化、MCP、A2A 等的架构和图自省。 |
+
+##  每个图自定义追踪
+
+您可以使用工厂函数为特定图自定义或禁用追踪。请参阅[条件追踪：在部署的代理中自定义追踪](/langsmith/conditional-tracing#customize-tracing-in-deployed-agents)获取示例。
+
+请参阅 [LangGraph API 配置文件](/langsmith/cli#configuration-file)获取更多信息。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\graph-rebuild.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

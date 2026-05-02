@@ -1,0 +1,67 @@
+---
+title: "Anthropic 集成s"
+sidebarTitle: "概述"
+description: "Integrate with Anthropic using LangChain JavaScript."
+---
+
+All functionality related to Anthropic models.
+
+[Anthropic](https://www.anthropic.com/) is an AI safety and research company, and is the creator of Claude.
+This page covers all 集成s between Anthropic models and LangChain.
+
+## Prompting best practices
+
+Anthropic models have several prompting best practices compared to OpenAI models.
+
+**System Messages may only be the first message**
+
+Anthropic models require any system messages to be the first one in your prompts.
+
+## `ChatAnthropic`
+
+`ChatAnthropic` is a subclass of LangChain's `ChatModel`, meaning it works best with `ChatPromptTemplate`.
+You can import this wrapper with the following code:
+
+<Tip>
+请参阅 [this section for general instructions on installing LangChain 包s](/oss/javascript/langchain/install).
+</Tip>
+
+```bash npm
+npm install @langchain/anthropic @langchain/core
+```
+```typescript
+import { ChatAnthropic } from "@langchain/anthropic";
+const model = new ChatAnthropic({});
+```
+
+When working with ChatModels, it is preferred that you design your prompts as `ChatPromptTemplate`s.
+以下是 an 示例 below of doing that:
+
+```typescript
+import { ChatPromptTemplate } from "@langchain/classic/prompts";
+
+const prompt = ChatPromptTemplate.fromMessages([
+  ["system", "You are a helpful chatbot"],
+  ["human", "Tell me a joke about {topic}"],
+]);
+```
+
+You can then use this in a chain as follows:
+
+```typescript
+const chain = prompt.pipe(model);
+await chain.invoke({ topic: "bears" });
+```
+
+请参阅 the [chat model 集成 page](/oss/javascript/集成s/chat/anthropic/) for more 示例s, including multimodal inputs.
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\providers\anthropic.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

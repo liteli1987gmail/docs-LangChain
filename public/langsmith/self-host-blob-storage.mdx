@@ -1,0 +1,477 @@
+---
+title: 启用 blob 存储
+sidebarTitle: 启用 blob 存储
+---
+
+默认情况下，LangSmith 将运行输入、输出、错误、清单、额外信息和事件存储在 ClickHouse 中。如果愿意，您可以将这些信息存储在 blob 存储中，这有几个显著的好处。对于生产部署的最佳效果，我们**强烈**建议使用 blob 存储，它提供以下好处：
+
+1. 在高追踪量环境中，输入、输出、错误、清单、额外信息和事件可能会使您的数据库膨胀。
+2. 如果使用 LangSmith 托管的 ClickHouse，您可能希望将敏感信息放在您环境中的 blob 存储中。为此，LangSmith 支持将运行输入、输出、错误、清单、额外信息、事件和附件存储在外部 blob 存储系统中。
+
+<Tip>
+**对于特定于云的设置**，选择您的平台：
+- [Amazon S3 (AWS)](#amazon-s3)
+- [Google Cloud Storage (GCP)](#google-cloud-storage)
+- [Azure Blob Storage](#azure-blob-storage)
+
+有关完整的云特定设置和架构指南，请参阅 [AWS](/langsmith/aws-self-hosted)、[GCP](/langsmith/gcp-self-hosted) 或 [Azure](/langsmith/azure-self-hosted)。
+</Tip>
+
+## 要求
+
+<Note>
+Azure blob 存储在 Helm chart 版本 0.8.9 及以上可用。从 Helm chart 版本 0.10.43 开始，在 Azure 中支持[删除追踪项目](/langsmith/observability-concepts#data-retention)。
+
+原生 GCS blob 存储引擎支持（使用 `engine: "GCS"`）在 Helm chart 版本 0.13.29 及以上可用。对于更早的版本，GCS 通过设置 `engine: "S3"` 和 HMAC 凭证支持 S3 兼容 API。
+</Note>
+
+* 访问有效的 blob 存储服务
+
+  * [Amazon S3](https://aws.amazon.com/s3/)
+    * [Google Cloud Storage (GCS)](https://cloud.google.com/storage?hl=en)
+  * [Azure Blob Storage](https://azure.microsoft.com/en-us/products/storage/blobs)
+
+* 在 blob 存储中创建一个用于存储数据的桶/目录。我们强烈建议为 LangSmith 数据创建一个单独的桶/目录。
+  * **如果您使用 TTL**，则需要设置生命周期策略来删除旧数据。有关更多信息，请参阅[配置 TTL](/langsmith/self-host-ttl)。这些策略应镜像您在 LangSmith 配置中设置的 TTL，否则您可能会遇到数据丢失。有关如何设置生命周期规则的信息，请参阅 [blob 存储的 TTL 配置](#ttl-configuration)。
+
+* 向 LangSmith 服务提供访问桶/目录所需的凭证
+  * 您需要向 LangSmith 实例提供访问桶/目录所需的必要凭证。请在下面的身份验证[部分](#authentication)中阅读更多信息。
+
+* 如果使用 S3 或 GCS，则需要 blob 存储服务的 API URL
+
+  * 这将是 LangSmith 用于访问 blob 存储系统的 URL
+  * 对于 Amazon S3，这将是 S3 端点的 URL。类似于：`https://s3.amazonaws.com` 或如果您使用区域端点，则为 `https://s3.us-west-1.amazonaws.com`
+  * 对于 Google Cloud Storage，这将是 GCS 端点的 URL。类似于：`https://storage.googleapis.com`
+
+## 身份验证
+
+<Tabs>
+  <Tab title="AWS">
+
+### Amazon S3
+
+要向 [Amazon S3](https://aws.amazon.com/s3/) 进行身份验证，您需要创建一个 IAM 策略，在您的桶上授予以下权限。
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::your-bucket-name",
+        "arn:aws:s3:::your-bucket-name/*"
+      ]
+    }
+  ]
+}
+```
+
+一旦您有了正确的策略，有三种方式与 Amazon S3 进行身份验证：
+
+1. [服务账户的 IAM 角色 (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)（推荐）：您可以为您的 LangSmith 实例创建一个 IAM 角色并将该策略附加到该角色。这是在生产中与 Amazon S3 进行身份验证的推荐方式。
+    1. 您需要创建一个附加了策略的 IAM 角色。
+    1. 您需要允许 LangSmith 服务账户担任该角色。`langsmith-queue`、`langsmith-backend`、`langsmith-platform-backend` 和 `langsmith-ingest-queue` 服务账户将需要能够担任该角色。
+        <Warning>
+        如果您使用自定义发布名称，服务账户名称将有所不同。您可以通过在集群中运行 `kubectl get serviceaccounts` 来找到服务账户名称。
+        </Warning>
+    1. 您需要将角色 ARN 提供给 LangSmith。您可以通过在 Helm Chart 安装中的 `queue`、`backend`、`platform-backend` 和 `ingest-queue` 服务上添加 `eks.amazonaws.com/role-arn: "<role_arn>"` 注解来执行此操作。
+
+2. [访问密钥和密钥](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html)：您可以为 LangSmith 提供访问密钥和密钥。这是最简单的与 Amazon S3 进行身份验证的方式。但是，不建议用于生产使用，因为安全性较低。
+    1. 您需要创建一个附加了策略的用户。然后您可以为该用户配置访问密钥和密钥。
+
+3. [VPC 端点访问](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html)：您可以通过 VPC 端点启用对 S3 桶的访问，这允许流量从您的 VPC 安全地流向您的 S3 桶。
+    1. 您需要配置一个 VPC 端点并对其进行配置以允许访问您的 S3 桶。
+    1. 您可以参考我们的[公共 Terraform 模块](https://github.com/langchain-ai/terraform/blob/main/modules/aws/s3/main.tf#L12)以获取指导并获取配置示例。
+
+### KMS 加密头支持
+
+从 LangSmith Helm chart 版本 **0.11.24** 开始，您可以传递 KMS 加密密钥头，并通过提供其 ARN 来强制执行特定的 KMS 密钥进行写入。要启用此功能，请在 Helm chart 中设置以下值：
+
+```yaml
+config:
+  blobStorage:
+    kmsEncryptionEnabled: true
+    kmsKeyArn: <your_kms_key_arn>
+```
+
+  </Tab>
+  <Tab title="GCP">
+
+### Google Cloud Storage
+
+要使用 [Google Cloud Storage](https://cloud.google.com/storage?hl=en) 进行身份验证，您需要创建一个具有必要权限来访问您的桶的[`服务账户`](https://cloud.google.com/iam/docs/service-account-overview)。
+
+您的服务账户需要 `Storage Admin` 角色或具有等效权限的自定义角色。这可以限定于 LangSmith 将使用的桶。
+
+配置好服务账户后，您需要为该服务账户生成一个[`HMAC 密钥`](https://cloud.google.com/storage/docs/authentication/hmackeys)。此密钥和密钥将用于向 Google Cloud Storage 进行身份验证。
+
+<Note>
+从 Helm chart 版本 **0.13.29** 开始，您可以直接将 blob 存储引擎设置为 `"GCS"`。这支持两种身份验证方法：
+
+1. **GCP 工作负载身份识别（推荐）**：将 `accessKey` 和 `accessKeySecret` 留空。LangSmith 将使用[应用程序默认凭证](https://cloud.google.com/docs/authentication/application-default-credentials)。您需要将工作负载身份注解添加到 `backend`、`platform-backend`、`queue` 和 `ingest-queue` 服务账户。
+2. **HMAC 密钥**：将 `accessKey` 和 `accessKeySecret` 设置为您的 GCS [HMAC 凭证](https://cloud.google.com/storage/docs/authentication/hmackeys)。
+
+对于这两种方法，将 `apiURL` 设置为 `https://storage.googleapis.com`，将 `bucketName` 设置为您的 GCS 桶名称。
+
+对于 Helm chart 版本早于 0.13.29 的版本，GCS 通过使用 HMAC 凭证设置 `engine: "S3"` 来支持 S3 兼容 API。
+</Note>
+
+  </Tab>
+  <Tab title="Azure">
+
+### Azure Blob Storage
+
+要使用 [Azure Blob Storage](https://azure.microsoft.com/en-us/products/storage/blobs) 进行身份验证，您需要使用以下方法之一授予 LangSmith 工作负载访问您的[容器](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blobs-introduction#containers)的权限（按优先级顺序）：
+
+1. [存储账户和访问密钥](https://learn.microsoft.com/en-us/azure/storage/common/storage-account-keys-manage)
+2. [连接字符串](https://learn.microsoft.com/en-us/azure/storage/common/storage-configure-connection-string)
+3. [工作负载身份](https://azure.github.io/azure-workload-identity/docs/introduction.html)（推荐）、托管标识或 [`DefaultAzureCredential`](https://learn.microsoft.com/en-us/azure/developer/go/azure-sdk-authentication?tabs=bash#2-authenticate-with-azure) 支持的环境变量。当上述任一选项的配置不存在时，这是默认的身份验证方法。
+   1. 要使用工作负载身份，请将标签 `azure.workload.identity/use: true` 添加到 `queue`、`backend`、`platform-backend` 和 `ingest-queue` 部署。此外，将 `azure.workload.identity/client-id` 注解添加到相应的服务账户，这应该是现有 Azure AD 应用程序的客户端 ID 或用户分配的托管标识的客户端 ID。请参阅 [Azure 的文档](https://azure.github.io/azure-workload-identity/docs/topics/service-account-labels-and-annotations.html)了解更多详细信息。
+
+<Note>
+某些部署可能需要使用服务 URL 覆盖而不是默认服务 URL (`https://<storage_account_name>.blob.core.windows.net/`) 进一步自定义连接配置。例如，需要此覆盖才能使用不同的 blob 存储域（例如政府或中国）。
+</Note>
+
+  </Tab>
+</Tabs>
+
+## CH 搜索
+
+默认情况下，LangSmith 仍会在 ClickHouse 中存储搜索令牌。如果您使用 LangSmith 托管的 ClickHouse，您可能希望禁用此功能以避免将潜在敏感信息发送到 ClickHouse。您可以在 blob 存储配置中执行此操作。
+
+## 配置
+
+创建桶并获取必要凭证后，您可以将 LangSmith 配置为使用您的 blob 存储系统。
+
+<CodeGroup>
+
+```yaml Helm
+config:
+  blobStorage:
+    enabled: true
+    engine: "S3" # 或 "GCS" 或 "Azure"。这是区分大小写的。
+    chSearchEnabled: true # 如果您想禁用 CH 搜索，请设置为 false（推荐用于 LangSmith 托管的 Clickhouse）
+    bucketName: "your-bucket-name"
+    apiURL: "Your connection url"
+    accessKey: "Your access key" # 可选。仅在使用 S3 访问密钥和密钥时才需要
+    accessKeySecret: "Your access key secret" # 可选。仅在使用访问密钥和密钥时才需要
+    # 以下 blob 存储配置值适用于 Azure，需要 blobStorage.engine = "Azure"。否则请省略。
+    azureStorageAccountName: "Your storage account name" # 可选。仅在使用存储账户和访问密钥时才需要
+    azureStorageAccountKey: "Your storage account access key" # 可选。仅在使用存储账户和访问密钥时才需要
+    azureStorageContainerName: "your-container-name" # 必需
+    azureStorageConnectionString: "" # 可选
+    azureStorageServiceUrlOverride: "" # 可选
+  backend: # 可选，仅在使用 AWS 服务账户的 IAM 角色、GKE 的工作负载身份或 AKS 的工作负载身份时才需要
+    deployment: # 仅 Azure
+      labels:
+        azure.workload.identity/use: true
+    serviceAccount:
+      annotations:
+        azure.workload.identity/client-id: "<client_id>" # 仅 Azure
+        eks.amazonaws.com/role-arn: "<role_arn>" # 仅 AWS
+        iam.gke.io/gcp-service-account: "<gsa_name>@<project_id>.iam.gserviceaccount.com" # 仅 GCP
+  platformBackend: # 可选，仅在使用 AWS 服务账户的 IAM 角色、GKE 的工作负载身份或 AKS 的工作负载身份时才需要
+    deployment: # 仅 Azure
+      labels:
+        azure.workload.identity/use: true
+    serviceAccount:
+      annotations:
+        azure.workload.identity/client-id: "<client_id>" # 仅 Azure
+        eks.amazonaws.com/role-arn: "<role_arn>" # 仅 AWS
+        iam.gke.io/gcp-service-account: "<gsa_name>@<project_id>.iam.gserviceaccount.com" # 仅 GCP
+  queue: # 可选，仅在使用 AWS 服务账户的 IAM 角色、GKE 的工作负载身份或 AKS 的工作负载身份时才需要
+    deployment: # 仅 Azure
+      labels:
+        azure.workload.identity/use: true
+    serviceAccount:
+      annotations:
+        azure.workload.identity/client-id: "<client_id>" # 仅 Azure
+        eks.amazonaws.com/role-arn: "<role_arn>" # 仅 AWS
+        iam.gke.io/gcp-service-account: "<gsa_name>@<project_id>.iam.gserviceaccount.com" # 仅 GCP
+  ingestQueue: # 可选，仅在使用 AWS 服务账户的 IAM 角色、GKE 的工作负载身份或 AKS 的工作负载身份时才需要
+    deployment: # 仅 Azure
+      labels:
+        azure.workload.identity/use: true
+    serviceAccount:
+      annotations:
+        azure.workload.identity/client-id: "<client_id>" # 仅 Azure
+        eks.amazonaws.com/role-arn: "<role_arn>" # 仅 AWS
+        iam.gke.io/gcp-service-account: "<gsa_name>@<project_id>.iam.gserviceaccount.com" # 仅 GCP
+```
+
+```bash Docker
+# 在您的 .env 文件中
+FF_BLOB_STORAGE_ENABLED=false # 如果您想启用 blob 存储，请设置为 true
+BLOB_STORAGE_ENGINE=S3 # 或 GCS 或 Azure
+BLOB_STORAGE_BUCKET_NAME=langsmith-blob-storage # 使用 S3 时需要。更改为您想要的 blob 存储桶名称
+BLOB_STORAGE_API_URL=https://s3.us-west-2.amazonaws.com # 更改为您想要的 blob 存储 API URL
+BLOB_STORAGE_ACCESS_KEY=your-access-key # 更改为您想要的 blob 存储访问密钥
+BLOB_STORAGE_ACCESS_KEY_SECRET=your-access-key-secret # 更改为您想要的 blob 存储访问密钥密钥
+AZURE_STORAGE_ACCOUNT_NAME=your-storage-account-name # 可选。仅在使用存储账户和访问密钥时才需要
+AZURE_STORAGE_ACCOUNT_KEY=your-storage-account-key # 可选。仅在使用存储账户和访问密钥时才需要
+AZURE_STORAGE_CONTAINER_NAME=your-container-name # 使用 Azure blob 存储时需要。更改为您想要的容器名称
+AZURE_STORAGE_CONNECTION_STRING=BlobEndpoint=https://storagesample.blob.core.windows.net;SharedAccessSignature=signature; # 可选。
+AZURE_STORAGE_SERVICE_URL_OVERRIDE=https://your.override.domain.net # 可选
+```
+
+</CodeGroup>
+
+<Note>
+如果使用访问密钥和密钥，您还可以提供包含身份验证信息的现有 Kubernetes 密钥。这比直接在配置中提供访问密钥和密钥更可取。请参阅[生成的密钥模板](https://github.com/langchain-ai/helm/blob/main/charts/langsmith/templates/secrets.yaml)以了解预期的密钥密钥。
+</Note>
+
+## TTL 配置
+
+如果您将 TTL 功能与 LangSmith 一起使用，您还需要为 blob 存储配置 TTL 规则。存储在 blob 存储上的追踪信息存储在特定前缀路径上，这决定了数据的 TTL。当追踪的保留期被延长时，其相应的 blob 存储路径会发生变化以确保它与新的延长保留期匹配。
+
+使用以下 TTL 前缀：
+
+* `ttl_s/`：短期（基础）TTL，配置为 14 天。
+* `ttl_l/`：长期（延长）TTL，默认为 400 天。
+
+### 自定义工作区级保留前缀
+
+如果您使用[工作区级延长保留期](/langsmith/data-purging-compliance#customize-extended-retention-policy)，LangSmith 会将 blob 数据写入形式为 `ttl_XXd/` 的前缀，其中 `XX` 是为该工作区配置的天数。例如，如果工作区配置了 90 天的延长保留期，则该工作区的 blob 数据将写入 `ttl_90d/` 前缀。
+
+您必须为跨工作区配置的**每个**自定义保留期创建生命周期规则。常见示例：
+
+* `ttl_90d/` — 90 天保留期
+* `ttl_180d/` — 180 天保留期
+* `ttl_365d/` — 365 天保留期
+
+<Warning>
+如果缺少配置保留期的生命周期规则，则该前缀下的 blob 数据将永远不会自动删除。每当配置新的工作区保留期时，请确保添加匹配的生命周期规则。
+</Warning>
+
+例如，如果您有配置了 90 天和 180 天延长保留期的工作区，您将添加以下生命周期规则，以及[默认的 `ttl_s` 和 `ttl_l` 规则](#ttl-configuration)：
+
+<Tabs>
+  <Tab title="AWS">
+
+```hcl
+rule {
+  id      = "ttl-90d"
+  prefix  = "ttl_90d/"
+  enabled = true
+  expiration {
+    days = 90
+  }
+}
+rule {
+  id      = "ttl-180d"
+  prefix  = "ttl_180d/"
+  enabled = true
+  expiration {
+    days = 180
+  }
+}
+```
+
+  </Tab>
+  <Tab title="GCP">
+
+```hcl
+lifecycle_rule {
+  condition {
+    age            = 90
+    matches_prefix = ["ttl_90d"]
+  }
+  action {
+    type = "Delete"
+  }
+}
+lifecycle_rule {
+  condition {
+    age            = 180
+    matches_prefix = ["ttl_180d"]
+  }
+  action {
+    type = "Delete"
+  }
+}
+```
+
+  </Tab>
+  <Tab title="Azure">
+
+```hcl
+rule {
+  name    = "ttl-90d"
+  enabled = true
+  type    = "Lifecycle"
+  filters {
+    prefix_match = ["my-container/ttl_90d"]
+    blob_types   = ["blockBlob"]
+  }
+  actions {
+    base_blob {
+      delete_after_days_since_creation_greater_than = 90
+    }
+    snapshot {
+      delete_after_days_since_creation_greater_than = 90
+    }
+    version {
+      delete_after_days_since_creation_greater_than = 90
+    }
+  }
+}
+rule {
+  name    = "ttl-180d"
+  enabled = true
+  type    = "Lifecycle"
+  filters {
+    prefix_match = ["my-container/ttl_180d"]
+    blob_types   = ["blockBlob"]
+  }
+  actions {
+    base_blob {
+      delete_after_days_since_creation_greater_than = 180
+    }
+    snapshot {
+      delete_after_days_since_creation_greater_than = 180
+    }
+    version {
+      delete_after_days_since_creation_greater_than = 180
+    }
+  }
+}
+```
+
+  </Tab>
+</Tabs>
+
+如果您在 LangSmith 配置中自定义了 TTL，则需要调整 blob 存储配置中的 TTL 以匹配。
+
+<Tabs>
+  <Tab title="AWS">
+
+### Amazon S3 生命周期规则
+
+如果将 S3 用于 blob 存储，您需要设置一个过滤器生命周期配置来匹配上述前缀。您可以在 [Amazon 文档](https://docs.aws.amazon.com/AmazonS3/latest/userguide/intro-lifecycle-rules.html#intro-lifecycle-rules-filter)中找到相关信息。
+
+例如，如果您使用 Terraform 管理 S3 桶，您需要设置如下内容：
+
+```hcl
+rule {
+  id      = "short-term-ttl"
+  prefix  = "ttl_s/"
+  enabled = true
+  expiration {
+    days = 14
+  }
+}
+rule {
+  id      = "long-term-ttl"
+  prefix  = "ttl_l/"
+  enabled = true
+  expiration {
+    days = 400
+  }
+}
+```
+
+  </Tab>
+  <Tab title="GCP">
+
+### Google Cloud Storage 生命周期规则
+
+您需要为您使用的 GCS 桶设置生命周期条件。您可以在 [Google 文档](https://cloud.google.com/storage/docs/lifecycle#conditions)中找到相关信息，具体是使用 matchesPrefix。
+
+例如，如果您使用 Terraform 管理 GCS 桶，您需要设置如下内容：
+
+```hcl
+lifecycle_rule {
+  condition {
+    age            = 14
+    matches_prefix = ["ttl_s"]
+  }
+  action {
+    type = "Delete"
+  }
+}
+lifecycle_rule {
+  condition {
+    age            = 400
+    matches_prefix = ["ttl_l"]
+  }
+  action {
+    type = "Delete"
+  }
+}
+```
+
+  </Tab>
+  <Tab title="Azure">
+
+### Azure blob 存储生命周期管理
+
+您需要在容器上配置[生命周期管理策略](https://learn.microsoft.com/en-us/azure/storage/blobs/lifecycle-management-policy-configure)，以使与上述前缀匹配的对象过期。
+
+例如，如果您使用 Terraform 管理 blob 存储容器，您需要设置如下内容：
+
+```hcl
+resource "azurerm_storage_management_policy" "example" {
+  storage_account_id = "my-storage-account-id"
+  rule {
+    name = "base"
+    enabled = true
+    type = "Lifecycle"
+    filters {
+      prefix_match = ["my-container/ttl_s"]
+      blob_types = ["blockBlob"]
+    }
+    actions {
+      base_blob {
+        delete_after_days_since_creation_greater_than = 14
+      }
+      snapshot {
+        delete_after_days_since_creation_greater_than = 14
+      }
+      version {
+        delete_after_days_since_creation_greater_than = 14
+      }
+    }
+  }
+  rule {
+    name = "extended"
+    enabled = true
+    type = "Lifecycle"
+    filters {
+      prefix_match = ["my-container/ttl_l"]
+      blob_types = ["blockBlob"]
+    }
+    actions {
+      base_blob {
+        delete_after_days_since_creation_greater_than = 400
+      }
+      snapshot {
+        delete_after_days_since_creation_greater_than = 400
+      }
+      version {
+        delete_after_days_since_creation_greater_than = 400
+      }
+    }
+  }
+}
+```
+
+  </Tab>
+</Tabs>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\self-host-blob-storage.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

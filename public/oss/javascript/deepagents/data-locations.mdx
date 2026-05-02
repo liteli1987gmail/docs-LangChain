@@ -1,0 +1,132 @@
+---
+title: 数据存储位置
+sidebarTitle: 应用数据
+description: Deep Agents CLI 存储配置、会话和自定义文件的目录位置
+---
+
+Deep Agents CLI 在两个目录层级中存储数据：
+
+- **`~/.deepagents/`** — Deep Agents 专用数据（代理记忆、技能、会话）
+- **`~/.agents/`** — 工具无关数据（跨 AI CLI 工具共享的技能）
+
+## 目录结构
+
+```text
+~/.deepagents/
+├── sessions.db              # SQLite 数据库，用于对话检查点
+├── history.jsonl            # 命令输入历史
+└── {agent}/                 # 每个代理的目录（默认："agent"）
+    ├── AGENTS.md            # 用户对代理指令的自定义
+    ├── skills/              # 用户级技能
+    │   └── {skill-name}/
+    │       └── SKILL.md
+    └── agents/              # 自定义子代理定义
+        └── {subagent-name}/
+            └── AGENTS.md
+
+~/.agents/                   # 工具无关别名（跨 AI CLI 共享）
+└── skills/                  # 可供任何兼容工具使用的技能
+    └── {skill-name}/
+        └── SKILL.md
+
+{project}/                   # 项目级（在 git 仓库根目录）
+├── AGENTS.md                # 项目指令（根目录）
+└── .deepagents/
+│   ├── AGENTS.md            # 项目指令（首选位置）
+│   ├── skills/              # 项目专用技能
+│   │   └── {skill-name}/
+│   │       └── SKILL.md
+│   └── agents/              # 项目专用子代理
+│       └── {subagent-name}/
+│           └── AGENTS.md
+└── .agents/                 # 工具无关项目技能
+    └── skills/
+        └── {skill-name}/
+            └── SKILL.md
+```
+
+## 数据存放位置
+
+| 数据 | 位置 | 读/写 | 说明 |
+|------|----------|------------|-------|
+| **会话** | `~/.deepagents/sessions.db` | R/W | SQLite 检查点数据库 |
+| **输入历史** | `~/.deepagents/history.jsonl` | R/W | JSON 行格式，支持上下箭头回忆 |
+| **基础指令** | 包内的 `default_agent_prompt.md` | R | 不可变，随 CLI 升级更新 |
+| **用户自定义** | `~/.deepagents/{agent}/AGENTS.md` | R/W | 追加到基础指令 |
+| **项目指令** | `.deepagents/AGENTS.md` 或 `AGENTS.md` | R | 如果两者都存在，则都加载 |
+| **用户技能** | `~/.deepagents/{agent}/skills/` | R/W | 代理专用技能 |
+| **共享技能** | `~/.agents/skills/` | R | 工具无关，跨 CLI |
+| **项目技能** | `.deepagents/skills/` 或 `.agents/skills/` | R | 项目范围 |
+| **自定义子代理** | `~/.deepagents/{agent}/agents/` | R/W | 用户定义的子代理 |
+| **项目子代理** | `.deepagents/agents/` | R | 项目定义的子代理 |
+
+## 优先级规则
+
+当同一项目存在于多个位置时，**较高优先级完全覆盖**（不合并）。
+
+### 技能
+
+优先级顺序（从低到高）：
+
+1. `~/.deepagents/{agent}/skills/` — 用户 deepagents
+2. `~/.agents/skills/` — 用户工具无关
+3. `.deepagents/skills/` — 项目 deepagents
+4. `.agents/skills/` — 项目工具无关 *（最高）*
+
+加载技能时，CLI 会验证解析后的文件路径是否在技能根目录之一内。解析到所有技能根目录之外的符号链接会被拒绝。若要允许其他目录中的符号链接目标，请参见 [`[skills].extra_allowed_dirs`](/oss/javascript/deepagents/cli/configuration#skills-extra-allowed-directories)。
+
+### 子代理
+
+优先级顺序（从低到高）：
+
+1. `~/.deepagents/{agent}/agents/` — 用户级
+2. `.deepagents/agents/` — 项目级 *（最高）*
+
+每个子代理是一个带有 YAML frontmatter（`name`、`description`、可选的 `model`）和一个 markdown 正文的 `AGENTS.md` 文件，用于系统提示词。参见[自定义子代理](/oss/javascript/deepagents/cli/overview#subagents)获取完整的格式参考。
+
+### 指令
+
+所有指令源都是**合并**的（不是覆盖）：
+
+1. 包基础提示词 *（始终加载）*
+2. `~/.deepagents/{agent}/AGENTS.md` *（追加）*
+3. `.deepagents/AGENTS.md` *（追加）*
+4. 项目根目录的 `AGENTS.md` *（追加）*
+
+## `.deepagents` 与 `.agents` 的对比
+
+| 目录 | 用途 | 使用场景 |
+|-----------|---------|-------------|
+| `.deepagents/` | Deep Agents CLI 专用 | 使用 CLI 专用功能的技能和配置 |
+| `.agents/` | 工具无关 | 你希望在不同 AI CLI 工具之间共享的技能 |
+
+<Tip>
+使用 `.agents/skills/` 获取可与任何 AI 编程助手配合使用的技能。
+使用 `.deepagents/skills/` 获取依赖 Deep Agents 专用工具或约定的技能。
+</Tip>
+
+## 清理
+
+| 需要 | 操作 |
+|------|--------|
+| 重置所有数据 | `rm -rf ~/.deepagents` |
+| 仅清除会话 | `rm ~/.deepagents/sessions.db` |
+| 清除输入历史 | `rm ~/.deepagents/history.jsonl` |
+| 重置代理指令 | `deepagents agents reset --agent {name}` |
+| 移除技能 | `rm -rf ~/.deepagents/{agent}/skills/{skill-name}` |
+
+<Warning>
+删除 `~/.deepagents/sessions.db` 将删除所有对话历史和检查点。
+此操作无法撤销。
+</Warning>
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\deepagents\data-locations.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

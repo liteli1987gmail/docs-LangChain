@@ -1,0 +1,40 @@
+---
+title: "Gooseai integrations"
+description: "Integrate with Gooseai using LangChain Python."
+---
+
+> [GooseAI](https://goose.ai) 使部署NLP服务变得更加简单和易于访问。
+> `GooseAI` 是一个通过API提供的完全托管推理服务。
+> 凭借与其他知名API的功能相当，`GooseAI` 提供了一个即插即用的解决方案，
+> 用于以行业最优的经济效益部署开源语言模型，只需更改代码中的2行即可。
+
+## Installation and setup
+
+- Install the Python SDK with `pip install openai`
+- Get your GooseAI API key from the [GooseAI website](https://goose.ai/).
+- Set the environment variable (`GOOSEAI_API_KEY`).
+
+```python
+import os
+os.environ["GOOSEAI_API_KEY"] = "YOUR_API_KEY"
+```
+
+
+## LLMs
+
+See a [usage example](/oss/python/integrations/llms/gooseai).
+
+```python
+from langchain_community.llms import GooseAI
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\providers\gooseai.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,391 @@
+---
+title: 筛选追踪
+sidebarTitle: 筛选追踪
+---
+
+<Tip>**推荐阅读**：有关本页提到的概念的更多详细信息，请参阅[追踪概念指南](/langsmith/observability-concepts)。</Tip>
+
+追踪项目可能包含大量数据。您可以使用筛选器来导航和分析这些数据，这允许您：
+
+- 快速缩小到特定运行进行临时分析。
+- 识别和检查错误、失败运行和性能瓶颈。
+
+本页描述如何在追踪项目中筛选运行。如果您是通过 [API](https://api.smith.langchain.com/redoc#tag/run/operation/query_runs_api_v1_runs_query_post) 或 [SDK](https://docs.smith.langchain.com/reference/python/client/langsmith.client.Client#langsmith.client.Client.list_runs) 以编程方式导出运行进行分析，请参阅[导出追踪指南](/langsmith/export-traces)获取更多信息。
+
+## 创建和应用筛选器
+
+### 按运行属性筛选
+
+在追踪项目页面中筛选运行有两种方法：
+
+1. **筛选器**：位于**追踪**项目页面的左上角。这是您构建和管理筛选条件的地方。
+    - 第一个下拉菜单按默认和[保存的视图](#save-a-filter)筛选。
+    - 按**追踪**或**运行**快速筛选。
+    - **+ 添加筛选器**以根据属性或全文搜索[配置筛选器](#specific-filtering-techniques)。
+
+    <img
+        className="block dark:hidden"
+        src="/langsmith/images/filter-bar-light.png"
+        alt="LangSmith filter bar showing view dropdown, time range selector, traces/runs toggle, and add filter button"
+    />
+
+    <img
+        className="hidden dark:block"
+        src="/langsmith/images/filter-bar-dark.png"
+        alt="LangSmith filter bar showing view dropdown, time range selector, traces/runs toggle, and add filter button"
+    />
+
+1. **筛选器快捷方式**：位于**追踪**项目页面的右侧边栏。筛选器快捷方式栏提供基于项目运行中最频繁出现的属性的快速访问筛选。
+
+    <img
+        className="block dark:hidden"
+        src="/langsmith/images/filter-shortcuts-light.png"
+        alt="LangSmith filter shortcuts sidebar showing quick access filters for common run attributes"
+    />
+
+    <img
+        className="hidden dark:block"
+        src="/langsmith/images/filter-shortcuts-dark.png"
+        alt="LangSmith filter shortcuts sidebar showing quick access filters for common run attributes"
+    />
+
+<Info>
+默认情况下，应用了**追踪**筛选器，它只显示顶级根运行。您可以切换到**运行**以显示所有运行。
+</Info>
+
+### 筛选运算符
+
+可用的筛选运算符取决于您筛选的属性数据类型。以下是常见运算符的概述：
+
+- **是**：精确匹配筛选值
+- **不是**：筛选值的负匹配
+- **包含**：筛选值的部分匹配
+- **不包含**：负部分匹配
+- **是其中之一**：匹配列表中任何值
+- `>` / `<`：可用于数字字段
+
+## 特定筛选技术
+
+### 筛选运行（span）
+
+要筛选运行（span），将默认从**追踪**更改为**运行**。例如，如果您想按**运行名称**筛选运行或按**运行类型**筛选，您会这样做。
+
+运行元数据和标签也可用作筛选依据。这些依赖于管道所有部分的良好标记。要了解更多信息，请参阅[向追踪添加元数据和标签](/langsmith/add-metadata-tags)。
+
+当您指定更多筛选器时，您可以单独点击每个筛选器以更新您正在搜索的属性。
+
+### 基于输入和输出进行筛选
+
+您可以基于运行的输入和输出中的内容筛选运行。
+
+要筛选输入或输出，您可以使用 **<Icon icon="zoom"/> 全文搜索**筛选器，它将匹配任一字段中的关键字。要进行更有针对性的搜索，您可以使用 **{<Icon icon="arrow-down-right"/>} 输入**或 **<Icon icon="arrow-up-left"/> 输出**筛选器，它们将仅基于相应字段匹配内容。
+
+<Note>
+为提高性能，我们为全文搜索索引最多 250 个字符的数据。如果您超过此搜索查询限制，我们建议改用[输入/输出键值搜索](/langsmith/filter-traces-in-application#filter-based-on-input-%2F-output-key-value-pairs)。
+</Note>
+
+您还可以指定多个以匹配所有提供的术语，方法是：
+
+- 在**全文搜索**中包含以空格分隔的多个术语。
+- 在添加第一个筛选器后，通过 <Icon icon="plus"/> 按钮添加多个筛选器。
+
+LangSmith 通过拆分文本并查找搜索关键字的任何部分匹配来完成关键字搜索，因此不是按特定顺序完成的。LangSmith 从搜索中排除常见停用词（来自 nltk 停用词列表以及一些其他常见 JSON 关键字）。
+
+<Note>
+Token 必须至少 2 个字符才能被索引。单字符 Token（例如 `a`、`x`）被排除在搜索之外。
+</Note>
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/filter-bar-search-light.png"
+    alt="LangSmith filter bar showing full-text search and input/output filters with example search terms for python, tensorflow, embedding, fine, and tune"
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/filter-bar-search-dark.png"
+    alt="LangSmith filter bar showing full-text search and input/output filters with example search terms for python, tensorflow, embedding, fine, and tune"
+/>
+
+根据图像中的筛选器，系统将在输入或输出中搜索 `python` 和 `tensorflow`，在输入中搜索 `embedding`，在输出中搜索 `fine` 和 `tune`。
+
+您可以根据需要从筛选路径中移除筛选器，这将扩大搜索范围到剩余的筛选器。
+
+### 基于输入/输出键值对进行筛选
+
+除了全文搜索外，您还可以基于输入和输出中的特定键值对筛选运行。这允许更精确的筛选，特别是在处理结构化数据时。
+
+<Note>
+LangSmith 为每个运行索引最多 100 个唯一键，以保持数据有序和可搜索。每个键的值也有 250 个字符的限制。如果您的数据超过这些限制中的任何一个，文本将不会被索引。这有助于确保快速、可靠的性能。
+</Note>
+
+要基于键值对进行筛选，例如，要匹配以下输入：
+
+```json
+{
+  "input": "What is the capital of France?"
+}
+```
+
+1. 选择 **+ 添加筛选器**。
+1. 从第一个下拉菜单中选择**输入**，将第二个下拉菜单保留为**键**，并选择 **input** 作为键。
+1. 点击 **+ 值**并输入值：`What is the capital of France?` 作为值。
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/input-key-value-light.png"
+    alt="LangSmith filter showing input key-value search for 'input' key with value 'What is the capital of France?'"
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/input-key-value-dark.png"
+    alt="LangSmith filter showing input key-value search for 'input' key with value 'What is the capital of France?'"
+/>
+
+您还可以使用点表示法匹配嵌套键以选择嵌套键名称。例如，要匹配输出中的嵌套键：
+
+```json
+{
+  "documents": [
+    {
+      "page_content": "The capital of France is Paris",
+      "metadata": {},
+      "type": "Document"
+    }
+  ]
+}
+```
+
+选择`输出键`，输入 `documents.page_content` 作为键，输入 `The capital of France is Paris` 作为值。这将匹配具有指定值的嵌套键 `documents.page_content`。
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/filter-dot-notation-light.png"
+    alt="LangSmith filter showing output key-value search using dot notation for 'documents.page_content' key"
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/filter-dot-notation-dark.png"
+    alt="LangSmith filter showing output key-value search using dot notation for 'documents.page_content' key"
+/>
+
+您可以添加多个键值筛选器以创建更复杂的查询。您还可以使用右侧的**筛选器快捷方式**基于常见键值对快速筛选：
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/filter-shortcut-pane-light.png"
+    alt="LangSmith filter shortcuts panel showing quick access to common key-value pair filters"
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/filter-shortcut-pane-dark.png"
+    alt="LangSmith filter shortcuts panel showing quick access to common key-value pair filters"
+/>
+
+### 示例：筛选工具调用
+
+搜索包含特定工具调用的追踪是很常见的。工具调用通常在 LLM 运行的输出中指示。要筛选工具调用，您可以使用**输出键**筛选器。
+
+虽然此示例将向您展示如何筛选工具调用，但相同的逻辑可以应用于筛选输出中的任何键值对。
+
+在这种情况下，让我们假设这是您想要筛选的输出：
+
+```json
+{
+  "generations": [
+    [
+      {
+        "text": "",
+        "type": "ChatGeneration",
+        "message": {
+          "lc": 1,
+          "type": "constructor",
+          "id": [],
+          "kwargs": {
+            "type": "ai",
+            "id": "run-ca7f7531-f4de-4790-9c3e-960be7f8b109",
+            "tool_calls": [
+              {
+                "name": "Plan",
+                "args": {
+                  "steps": [
+                    "Research LangGraph's node configuration capabilities",
+                    "Investigate how to add a Python code execution node",
+                    "Find an example or create a sample implementation of a code execution node"
+                  ]
+                },
+                "id": "toolu_01XexPzAVknT3gRmUB5PK5BP",
+                "type": "tool_call"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  ],
+  "llm_output": null,
+  "run": null,
+  "type": "LLMResult"
+}
+```
+
+通过示例，KV 搜索会将每个嵌套 JSON 路径映射为可用于搜索和筛选的键值对。
+
+LangSmith 会将其分解为以下一组可搜索的键值对：
+
+| 键 | 值 |
+| -------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `generations.type` | `ChatGeneration` |
+| `generations.message.type` | `constructor` |
+| `generations.message.kwargs.type` | `ai` |
+| `generations.message.kwargs.id` | `run-ca7f7531-f4de-4790-9c3e-960be7f8b109` |
+| `generations.message.kwargs.tool_calls.name` | `Plan` |
+| `generations.message.kwargs.tool_calls.args.steps` | `Research LangGraph's node configuration capabilities` |
+| `generations.message.kwargs.tool_calls.args.steps` | `Investigate how to add a Python code execution node` |
+| `generations.message.kwargs.tool_calls.args.steps` | `Find an example or create a sample implementation of a code execution node` |
+| `generations.message.kwargs.tool_calls.id` | `toolu_01XexPzAVknT3gRmUB5PK5BP` |
+| `generations.message.kwargs.tool_calls.type` | `tool_call` |
+| `type` | `LLMResult` |
+
+要搜索特定工具调用，您可以使用以下**输出键**搜索，同时移除根运行筛选：
+
+`generations.message.kwargs.tool_calls.name` = `Plan`
+
+这将匹配 `tool_calls` 名称为 `Plan` 的根运行和非根运行。
+
+### 基于键值对的负筛选
+
+可以对 **<Icon icon="xmark"/> 元数据**、**<Icon icon="arrow-down-right"/> 输入**和 **<Icon icon="arrow-up-left"/> 输出**字段应用不同类型的负筛选，以从结果中排除特定运行。
+
+例如，要找到元数据键 `phone` 不等于 `1234567890` 的所有运行：
+
+1. 将**元数据键**运算符设置为 `is`，将**键**字段设置为 `phone`。
+1. 将**值**运算符设置为 `is not`，将**值**字段设置为 `1234567890`。
+
+这将匹配其元数据具有 `phone` 键且值不等于 `1234567890` 的所有运行。
+
+要找到没有特定元数据键的运行：将**键**运算符设置为 `is not`。例如，将**键**运算符设置为 `is not`，并将 `phone` 作为键，将匹配所有在其元数据中没有 `phone` 字段的运行。
+
+您还可以筛选既没有特定键也没有特定值的运行。要找到元数据既没有 `phone` 键也没有任何值为 `1234567890` 的字段的运行，将**键**运算符设置为 `is not` 且键为 `phone`，并将**值**运算符设置为 `is not` 且值为 `1234567890`。
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/is-not-key-value-light.png"
+    alt="LangSmith filter showing negative filtering with 'is not' operator for both key and value"
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/is-not-key-value-dark.png"
+    alt="LangSmith filter showing negative filtering with 'is not' operator for both key and value"
+/>
+
+最后，您还可以筛选具有特定值但没有特定键的运行。要找到没有 `phone` 键但某个其他键有值为 `1234567890` 的运行，将**键**运算符设置为 `is not` 且键为 `phone`，并将**值**运算符设置为 `is` 且值为 `1234567890`。
+
+<Tip>
+您可以使用 `does not contain` 运算符而不是 `is not` 来执行子字符串匹配。
+</Tip>
+
+## 保存筛选器
+
+保存筛选器允许您存储和重用常用筛选配置。保存的筛选器特定于追踪项目。
+
+构建筛选器后，点击**另存为**按钮保存它。这将弹出一个对话框以指定筛选器的名称和描述。
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/save-filter-light.png"
+    alt="LangSmith save filter dialog showing fields for filter name and description"
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/save-filter-dark.png"
+    alt="LangSmith save filter dialog showing fields for filter name and description"
+/>
+
+保存筛选器后，它会在视图下拉菜单中作为快速筛选器供您使用。
+
+### 更新保存的筛选器
+
+在下拉菜单中选择筛选器后，您可以更改筛选器参数。然后，点击**保存**以更新筛选器。
+
+### 删除保存的筛选器
+
+点击下拉菜单中保存筛选器旁边的 <Icon icon="ellipsis-vertical"/> 图标，并使用垃圾箱 <Icon icon="trash"/> 图标删除筛选器。
+
+## 复制筛选器
+
+您可以复制已构建的筛选器以与同事共享、稍后重用或在 [API](https://api.smith.langchain.com/redoc#tag/run/operation/query_runs_api_v1_runs_query_post) 或 [SDK](https://docs.smith.langchain.com/reference/python/client/langsmith.client.Client#langsmith.client.Client.list_runs) 中以编程方式查询运行。
+
+复制筛选器：
+
+1. 在 UI 中创建它。
+1. 点击筛选器栏中的 <Icon icon="copy"/> 图标。如果您已构建树或追踪筛选器，您也可以复制它们。
+1. 这将为您提供一个字符串，表示 LangSmith 查询语言中的筛选器。例如：`and(eq(is_root, true), and(eq(feedback_key, "user_score"), eq(feedback_score, 1)))`。
+
+有关查询语言语法的更多信息，请参阅[追踪查询语法](/langsmith/trace-query-syntax#filter-query-language)。
+
+## 在追踪视图内筛选运行
+
+您也可以直接在追踪视图内应用筛选器，这对于筛选具有大量运行的追踪很有用。主要运行表视图中可用的相同筛选器可以在这里应用。
+
+默认情况下，只显示匹配筛选器的运行。要在追踪树的更广泛上下文中查看匹配的运行，请将视图选项从"仅筛选"切换到"显示全部"或"最相关"。
+
+<img
+    className="block dark:hidden"
+    src="/langsmith/images/trace-view-filter-light.png"
+    alt="LangSmith trace view showing filter options with 'Filtered Only', 'Show All', and 'Most relevant' view modes"
+/>
+
+<img
+    className="hidden dark:block"
+    src="/langsmith/images/trace-view-filter-dark.png"
+    alt="LangSmith trace view showing filter options with 'Filtered Only', 'Show All', and 'Most relevant' view modes"
+/>
+
+## 手动指定 LangSmith 查询语言中的原始查询
+
+如果您[复制了先前构建的筛选器](#copy-a-filter)，您可能希望在以后的会话中手动应用此原始查询。
+
+为此，您可以点击追踪视图底部筛选器弹出窗口中的**切换到原始查询**。从那里您可以将原始查询粘贴到文本框中。
+
+<Note>
+这会将该查询添加到现有查询，而不是覆盖它。
+</Note>
+
+## 高级筛选器
+
+### 筛选其根运行具有某些属性的运行（span）
+
+一个常见概念是筛选其根运行具有某些属性的追踪中的运行。一个例子是筛选具有积极（或消极）反馈关联的特定类型运行。要做到这一点：
+
+1. 在追踪/运行切换中点击**运行**。
+1. 添加另一个筛选规则。然后您可以点击筛选器下拉菜单底部的**高级**筛选器链接。
+1. 将打开一个模式窗口，您可以在这里添加**追踪**筛选器。这些筛选器将应用于您已筛选的各个运行的父运行的追踪。
+
+### 筛选其子运行具有某些属性（span）的运行（span）
+
+您可能想要搜索具有特定类型子运行的运行。一个例子是搜索所有具有名为 `Foo` 的子运行的追踪。当 `Foo` 不是总是被调用时，这很有用，但您想分析它被调用的情况。
+
+1. 在追踪/运行切换中点击**运行**。
+1. 添加另一个筛选规则。然后您可以点击筛选器下拉菜单底部的**高级**筛选器链接。
+1. 将打开一个模式窗口，您可以在这里添加**树**筛选器。这将使您指定的规则应用于您已筛选的各个运行的所有子运行。
+
+### 示例：筛选其树包含工具调用筛选器的所有运行
+
+扩展[工具调用筛选示例](#example-filtering-for-tool-calls)，如果您想筛选其树包含工具筛选器的所有运行_，您可以在**高级**筛选器设置中使用树筛选器。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\filter-traces-in-application.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

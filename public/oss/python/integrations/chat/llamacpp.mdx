@@ -1,0 +1,253 @@
+---
+title: "Llama.cpp integration"
+description: "Integrate with the Llama.cpp chat model using LangChain Python."
+---
+
+[llama-cpp-python](https://github.com/abetlen/llama-cpp-python) 库是一个简单的 Python 绑定，用于 @ggerganov 的 [llama.cpp](https://github.com/ggerganov/llama.cpp)。
+
+此包提供：
+
+- 通过 ctypes 接口访问 C API 的低级接口
+- 用于文本补全的高级 Python API
+  - 类似 OpenAI 的 API
+  - LangChain 兼容性
+  - LlamaIndex 兼容性
+- OpenAI 兼容的 Web 服务器
+  - 本地 Copilot 替代方案
+  - Function Calling 支持
+  - Vision API 支持
+  - 多模型支持
+
+## Overview
+
+### Integration details
+
+| Class | Package | Serializable | JS support |
+| :--- | :--- | :---: |  :---: |
+| `ChatLlamaCpp` | [`langchain-community`](https://reference.langchain.com/python/langchain-community) | ❌ | ❌ |
+
+### Model features
+
+| [Tool calling](/oss/python/langchain/tools) | [Structured output](/oss/python/langchain/structured-output) | Image input | Audio input | Video input | [Token-level streaming](/oss/python/langchain/streaming/) | Native async | [Token usage](/oss/python/langchain/models#token-usage) | [Logprobs](/oss/python/langchain/models#log-probabilities) |
+| :---: | :---: | :---: |  :---: | :---: | :---: | :---: | :---: | :---: |
+| ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+
+## Setup
+
+To get started and use **all** the features shown below, we recommend using a model that has been fine-tuned for tool-calling.
+
+We will use [
+Hermes-2-Pro-Llama-3-8B-GGUF](https://huggingface.co/NousResearch/Hermes-2-Pro-Llama-3-8B-GGUF) from NousResearch.
+
+Hermes 2 Pro 是 Nous Hermes 2 的升级版本，由更新和清洗后的 OpenHermes 2.5 数据集以及内部新开发的 Function Calling（函数调用）和 JSON Mode 数据集组成。这个新版本的 Hermes 保持了其出色的通用任务和对话能力——同时也擅长 Function Calling（函数调用）。
+
+See our guides on local models to go deeper:
+
+- [Run LLMs locally](https://python.langchain.com/v0.1/docs/guides/development/local_llms/)
+- [Using local models with RAG](https://python.langchain.com/v0.1/docs/use_cases/question_answering/local_retrieval_qa/)
+
+### Installation
+
+The LangChain LlamaCpp integration lives in the `langchain-community` and `llama-cpp-python` packages:
+
+```python
+pip install -qU langchain-community llama-cpp-python
+```
+
+## Instantiation
+
+Now we can instantiate our model object and generate chat completions:
+
+```python
+# Path to your model weights
+local_model = "local/path/to/Hermes-2-Pro-Llama-3-8B-Q8_0.gguf"
+```
+
+```python
+import multiprocessing
+
+from langchain_community.chat_models import ChatLlamaCpp
+
+llm = ChatLlamaCpp(
+    temperature=0.5,
+    model_path=local_model,
+    n_ctx=10000,
+    n_gpu_layers=8,
+    n_batch=300,  # Should be between 1 and n_ctx, consider the amount of VRAM in your GPU.
+    max_tokens=512,
+    n_threads=multiprocessing.cpu_count() - 1,
+    repeat_penalty=1.5,
+    top_p=0.5,
+    verbose=True,
+)
+```
+
+## Invocation
+
+```python
+messages = [
+    (
+        "system",
+        "You are a helpful assistant that translates English to French. Translate the user sentence.",
+    ),
+    ("human", "I love programming."),
+]
+
+ai_msg = llm.invoke(messages)
+ai_msg
+```
+
+```python
+print(ai_msg.content)
+```
+
+```text
+J'aime programmer. (In France, "programming" is often used in its original sense of scheduling or organizing events.)
+
+If you meant computer-programming:
+Je suis amoureux de la programmation informatique.
+
+(You might also say simply 'programmation', which would be understood as both meanings - depending on context).
+```
+
+## Tool calling
+
+Firstly, it works mostly the same as OpenAI Function Calling
+
+OpenAI has a [tool calling](https://platform.openai.com/docs/guides/function-calling) (we use "tool calling" and "function calling" interchangeably here) API that lets you describe tools and their arguments, and have the model return a JSON object with a tool to invoke and the inputs to that tool. tool-calling is extremely useful for building tool-using chains and agents, and for getting structured outputs from models more generally.
+
+With `ChatLlamaCpp.bind_tools`, we can easily pass in Pydantic classes, dict schemas, LangChain tools, or even functions as tools to the model. Under the hood, these are converted to an OpenAI tool schema, which looks like:
+
+```
+{
+    "name": "...",
+    "description": "...",
+    "parameters": {...}  # JSONSchema
+}
+```
+
+and passed in every model invocation.
+
+However, it cannot automatically trigger a function/tool, we need to force it by specifying the 'tool choice' parameter. This parameter is typically formatted as described below.
+
+`{"type": "function", "function": {"name": <<tool_name>>}}.`
+
+```python
+from langchain.tools import tool
+from pydantic import BaseModel, Field
+
+
+class WeatherInput(BaseModel):
+        location: str = Field(description="The city and state, e.g. San Francisco, CA")
+        unit: str = Field(enum=["celsius", "fahrenheit"])
+
+
+@tool("get_current_weather", args_schema=WeatherInput)
+def get_weather(location: str, unit: str):
+    """Get the current weather in a given location"""
+    return f"Now the weather in {location} is 22 {unit}"
+
+
+llm_with_tools = llm.bind_tools(
+        tools=[get_weather],
+        tool_choice={"type": "function", "function": {"name": "get_current_weather"}},
+)
+```
+
+```python
+ai_msg = llm_with_tools.invoke(
+    "what is the weather like in HCMC in celsius",
+)
+```
+
+```python
+ai_msg.tool_calls
+```
+
+```text
+[{'name': 'get_current_weather',
+  'args': {'location': 'Ho Chi Minh City', 'unit': 'celsius'},
+  'id': 'call__0_get_current_weather_cmpl-394d9943-0a1f-425b-8139-d2826c1431f2'}]
+```
+
+```python
+class MagicFunctionInput(BaseModel):
+        magic_function_input: int = Field(description="The input value for magic function")
+
+
+@tool("get_magic_function", args_schema=MagicFunctionInput)
+def magic_function(magic_function_input: int):
+    """Get the value of magic function for an input."""
+    return magic_function_input + 2
+
+
+llm_with_tools = llm.bind_tools(
+        tools=[magic_function],
+        tool_choice={"type": "function", "function": {"name": "get_magic_function"}},
+)
+
+ai_msg = llm_with_tools.invoke(
+    "What is magic function of 3?",
+)
+
+ai_msg
+```
+
+```python
+ai_msg.tool_calls
+```
+
+```text
+[{'name': 'get_magic_function',
+  'args': {'magic_function_input': 3},
+  'id': 'call__0_get_magic_function_cmpl-cd83a994-b820-4428-957c-48076c68335a'}]
+```
+
+# Structured output
+
+```python
+from langchain_core.utils.function_calling import convert_to_openai_tool
+from pydantic import BaseModel
+
+
+class Joke(BaseModel):
+    """A setup to a joke and the punchline."""
+
+    setup: str
+    punchline: str
+
+
+dict_schema = convert_to_openai_tool(Joke)
+structured_llm = llm.with_structured_output(dict_schema)
+result = structured_llm.invoke("Tell me a joke about birds")
+result
+```
+
+```python
+result
+```
+
+```text
+{'setup': '- Why did the chicken cross the playground?',
+ 'punchline': '\n\n- To get to its gilded cage on the other side!'}
+```
+
+# Streaming
+
+```python
+for chunk in llm.stream("what is 25x5"):
+        print(chunk.content, end="\n", flush=True)
+```
+
+---
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\python\integrations\chat\llamacpp.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

@@ -1,0 +1,48 @@
+---
+title: "Voyage AI 集成"
+description: "Integrate with the Voyage AI embedding model using LangChain JavaScript."
+---
+
+该 `Voyage嵌入` 类使用 Voyage AI REST API 为给定文本生成嵌入.
+
+该 `inputType` parameter allows you to specify the type of input text for better embedding results. You can set it to `query`, `document`, or leave it undefined (which is equivalent to `否ne`).
+
+- `query`: 使用 this for search or retrieval queries. Voyage AI will prepend a prompt to optimize the embeddings for query use cases.
+- `document`: 使用 this for documents or content that you want to be retrievable. Voyage AI will prepend a prompt to optimize the embeddings for document use cases.
+- `否ne` (default): 该 input text will be directly encoded without any additional prompt.
+
+Additionally, the class supports new parameters for further customization of the embedding process:
+
+- **truncation**: Whether to truncate the input texts to the maximum length allowed by the model.
+- **outputDimension**: 该 desired dimension of the output embeddings.
+- **outputDtype**: 该 data type of the output embeddings. Can be `"float"` or `"int8"`.
+- **encodingFormat**: 该 format of the output embeddings. Can be `"float"`, `"base64"`, or `"ubinary"`.
+
+```typescript
+import { VoyageEmbeddings } from "@langchain/community/embeddings/voyage";
+
+const embeddings = new VoyageEmbeddings({
+  apiKey: "YOUR-API-KEY", // In Node.js defaults to process.env.VOYAGEAI_API_KEY
+  inputType: "document", // Optional: specify input type as 'query', 'document', or omit for None / Undefined / Null
+  truncation: true, // Optional: enable truncation of input texts
+  outputDimension: 768, // Optional: set desired output embedding dimension
+  outputDtype: "float", // Optional: set output data type ("float" or "int8")
+  encodingFormat: "float", // Optional: set output encoding format ("float", "base64", or "ubinary")
+});
+```
+
+## 相关内容
+
+- 嵌入模型 [概念指南](/oss/javascript/集成s/embeddings)
+- 嵌入模型 [操作指南](/oss/javascript/集成s/embeddings)
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\embeddings\voyageai.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

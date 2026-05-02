@@ -1,0 +1,146 @@
+---
+title: "GitHub 集成"
+description: "使用 LangChain JavaScript 与 GitHub 文档加载器集成。"
+---
+
+本示例介绍如何从 GitHub 仓库加载数据。
+您可以将 `GITHUB_ACCESS_TOKEN` 环境变量设置为 GitHub 访问令牌，以提高速率限制并访问私有仓库。
+
+## 设置
+
+GitHub 加载器需要 [ignore npm 包](https://www.npmjs.com/package/ignore) 作为 peer 依赖。按如下方式安装：
+
+```bash npm
+npm install @langchain/community @langchain/core ignore
+```
+
+## 使用方法
+
+```typescript
+import { GithubRepoLoader } from "@langchain/community/document_loaders/web/github";
+
+export const run = async () => {
+  const loader = new GithubRepoLoader(
+    "https://github.com/langchain-ai/langchainjs",
+    {
+      branch: "main",
+      recursive: false,
+      unknown: "warn",
+      maxConcurrency: 5, // 默认为 2
+    }
+  );
+  const docs = await loader.load();
+  console.log({ docs });
+};
+```
+
+加载器将忽略图像等二进制文件。
+
+### 使用 .gitignore 语法
+
+要忽略特定文件，您可以将 `ignorePaths` 数组传入构造函数：
+
+```typescript
+import { GithubRepoLoader } from "@langchain/community/document_loaders/web/github";
+
+export const run = async () => {
+  const loader = new GithubRepoLoader(
+    "https://github.com/langchain-ai/langchainjs",
+    { branch: "main", recursive: false, unknown: "warn", ignorePaths: ["*.md"] }
+  );
+  const docs = await loader.load();
+  console.log({ docs });
+  // 不会包含任何 .md 文件
+};
+```
+
+### 使用不同的 GitHub 实例
+
+您可能希望将目标锁定在与 `github.com` 不同的 GitHub 实例上，例如如果您为公司设置了 GitHub Enterprise 实例。
+为此，您需要两个额外的参数：
+
+- `baseUrl` - 您的 GitHub 实例的基本 URL，这样 githubUrl 匹配 `<baseUrl>/<owner>/<repo>/...`
+- `apiUrl` - 您的 GitHub 实例的 API 端点 URL
+
+```typescript
+import { GithubRepoLoader } from "@langchain/community/document_loaders/web/github";
+
+export const run = async () => {
+  const loader = new GithubRepoLoader(
+    "https://github.your.company/org/repo-name",
+    {
+      baseUrl: "https://github.your.company",
+      apiUrl: "https://github.your.company/api/v3",
+      accessToken: "ghp_A1B2C3D4E5F6a7b8c9d0",
+      branch: "main",
+      recursive: true,
+      unknown: "warn",
+    }
+  );
+  const docs = await loader.load();
+  console.log({ docs });
+};
+```
+
+### 处理子模块
+
+如果您的仓库包含子模块，您需要决定加载器是否应该跟随它们。您可以使用布尔 `processSubmodules` 参数来控制此行为。默认情况下，不处理子模块。
+请注意，处理子模块只能与将 `recursive` 参数设置为 true 结合使用。
+
+```typescript
+import { GithubRepoLoader } from "@langchain/community/document_loaders/web/github";
+
+export const run = async () => {
+  const loader = new GithubRepoLoader(
+    "https://github.com/langchain-ai/langchainjs",
+    {
+      branch: "main",
+      recursive: true,
+      processSubmodules: true,
+      unknown: "warn",
+    }
+  );
+  const docs = await loader.load();
+  console.log({ docs });
+};
+```
+
+请注意，加载器不会跟随位于与当前仓库不同的 GitHub 实例上的子模块。
+
+### 流式处理大型仓库
+
+对于需要以内存高效的方式处理大型仓库的情况。您可以使用 `loadAsStream` 方法异步流式传输整个 GitHub 仓库的文档。
+
+```typescript
+import { GithubRepoLoader } from "@langchain/community/document_loaders/web/github";
+
+export const run = async () => {
+  const loader = new GithubRepoLoader(
+    "https://github.com/langchain-ai/langchainjs",
+    {
+      branch: "main",
+      recursive: false,
+      unknown: "warn",
+      maxConcurrency: 3, // 默认为 2
+    }
+  );
+
+  const docs = [];
+  for await (const doc of loader.loadAsStream()) {
+    docs.push(doc);
+  }
+
+  console.log({ docs });
+};
+```
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/oss\javascript\integrations\document_loaders\web_loaders\github.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>

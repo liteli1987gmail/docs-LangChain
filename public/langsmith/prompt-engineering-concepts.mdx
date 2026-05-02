@@ -1,0 +1,185 @@
+---
+title: 提示词工程概念
+sidebarTitle: 概念
+---
+
+
+与传统软件应用程序通过编写代码构建不同，AI 应用程序通常从提示词中获取其逻辑。
+
+本指南将引导您了解 LangSmith 中提示词工程的关键概念。
+
+## 为什么提示词工程很重要？
+
+提示词在不改变模型底层能力的情况下指导模型的行为。通过提供指令、示例和上下文，提示词塑造模型如何响应输入。
+
+提示词工程很重要，因为它允许您修改模型行为。虽然存在其他方法（如微调），但提示词工程通常提供最低的入门门槛并通常提供最高的投资回报。
+
+提示词工程通常是一项多学科工作。最有效的提示词工程师可能是产品经理领域专家或其他非技术团队成员，而不是构建应用程序的软件工程师。适当的工具和基础设施对于支持这种跨职能协作至关重要。
+
+## 提示词类型
+
+有两种不同类型的提示词格式：`chat` 风格提示词和 `completion` 风格提示词。
+
+**聊天提示词**是消息列表，每个消息都有一个角色（如 `system`、`user` 或 `assistant`）。这是大多数当前模型 API 支持的提示风格，是推荐的格式。
+
+**补全提示词**是单个字符串。这是一种较旧的提示风格，主要为保持向后兼容性而维护。
+
+<Note>
+除非您有特定原因使用补全提示词，否则对于新项目请使用聊天提示词。聊天提示词为多轮对话提供了更好的结构，并得到现代大型语言模型的更好支持。
+</Note>
+
+## 提示词 vs 提示词模板
+
+虽然_提示词_和_提示词模板_通常可以互换使用，但了解它们的区别有助于澄清 LangSmith 如何管理和评估您的 AI 应用程序。
+
+- **提示词**指的是传入语言模型的 messages。
+- **提示词模板**允许您创建具有在运行时填充的动态占位符的可重用提示词。您定义变量，而不是硬编码值，LangSmith 每次运行提示词时都会用不同的输入替换这些变量。这使得提示词灵活、可测试且易于迭代。
+
+以下是模板在实际中的工作方式：
+
+1. **定义模板**：创建一个带有变量（用大括号标记）的提示词，将在运行时替换：
+
+    ```
+    You are a customer support agent. This is the refund policy:
+
+    {refund_policy}
+
+    Please respond to the user's question:
+
+    {question}
+    ```
+
+1. **提供输入值**：为每个变量提供实际值：
+
+    ```json
+    {
+    "refund_policy": "no refunds under any circumstances",
+    "question": "can I get a refund for this hat?"
+    }
+    ```
+
+1. **获取最终提示词**：LangSmith 用您的输入替换变量以创建发送到模型的提示词：
+
+    ```
+    You are a customer support agent. This is the refund policy:
+
+    no refunds under any circumstances
+
+    Please respond to the user's question:
+
+    Can I get a refund for this hat?
+    ```
+
+<Tip>
+在[提示词模板格式](/langsmith/create-a-prompt#template-format)指南中了解有关模板变量语法和格式化选项的更多信息。
+</Tip>
+
+## LangSmith 中的提示词
+
+您可以在 LangSmith 中存储和版本化提示词模板。这些模板可以在 Playground 中进行测试，使用提交和标签进行版本控制，并拉入您的应用程序代码中。
+
+<Callout type="info" color="#4F46E5" icon="player-play" iconType="regular">
+打开 [Playground](https://smith.langchain.com/playground) 创建和测试您的第一个提示词模板。有关分步说明，请参阅[创建提示词](/langsmith/create-a-prompt)。
+</Callout>
+
+以下部分描述了提示词模板的关键方面。
+
+### F-string vs mustache
+
+您可以使用 [f-string](https://realpython.com/python-f-strings/) 或 [mustache](https://mustache.github.io/mustache.5.html) 格式格式化带有输入变量的提示词模板。
+
+有关如何在 Playground 中使用这些格式的详细信息，请参阅[模板格式](/langsmith/create-a-prompt#template-format)。
+
+<Check>
+[Playground](https://smith.langchain.com/playground) 使用 `f-string` 作为默认模板格式，但您可以在提示词设置/模板格式部分切换到 `mustache` 格式。`mustache` 在条件变量、循环和嵌套键方面为您提供更大的灵活性。对于条件变量，您需要手动在'输入'部分添加 json 变量。阅读[文档](https://mustache.github.io/mustache.5.html)
+</Check>
+
+### 工具
+
+[工具](/langsmith/use-tools)是大型语言模型可用于与外部世界交互的接口。工具由名称、描述和用于调用工具的参数 JSON 模式组成。
+
+### 结构化输出
+
+结构化输出是大多数最先进的大型语言模型的功能，其中它们不是将原始文本作为输出，而是遵守指定的模式。这可能或可能不会在内部使用[工具](#tools)。
+
+<Check>
+结构化输出与工具类似，但在几个关键方面有所不同。使用工具时，大型语言模型选择调用哪个工具（或者可能选择不调用任何工具）；使用结构化输出时，大型语言模型**始终**以此格式响应。使用工具时，大型语言模型可以选择**多个**工具；使用结构化输出时，只生成一个响应。
+</Check>
+
+### 模型
+
+您可以选择在提示词模板旁边存储模型配置。这包括模型名称和任何其他参数（温度等）。
+
+## 提示词版本控制
+
+版本控制是迭代和协作提示词的关键组成部分。
+
+### 提交
+
+对提示词的每次保存更新都会创建一个带有唯一提交哈希的新提交。这允许您：
+
+- 查看提示词更改的完整历史记录。
+- 审查早期版本。
+- 根据需要恢复到以前的状态。
+- 使用提交哈希在代码中引用特定版本（例如 `client.pull_prompt("prompt_name:commit_hash")`）。
+
+在 UI 中，您可以通过在[提示词详情页面](/langsmith/manage-prompts#prompt-detail-page)右上角切换**差异**来将提交与其先前版本进行比较。
+
+### 标签
+
+提交标签是人性化的标签，指向提示词历史中的特定提交。与提交哈希不同，标签可以移动以指向不同的提交，允许您更新代码引用的版本而无需更改代码本身。
+
+提交标签的用例包括：
+
+- **环境**：`staging` 和 `production` 标签保留用于[环境](/langsmith/manage-prompts#environments)功能，该功能允许您在命名部署目标之间提升提交并切换版本而无需更改代码。
+- **版本控制**：标记提示词的稳定版本，例如 `v1`、`v2`，允许您在代码中引用特定版本并跟踪随时间的更改。
+- **协作**：标记供审查就绪的版本，这使您可以与协作者共享特定版本并获取反馈。
+
+<Note>
+**不要与资源标签混淆**：提交标签引用特定提示词版本。[资源标签](/langsmith/set-up-resource-tags)是用作组织工作区资源的键值对。
+</Note>
+
+有关创建和管理提交标签的详细信息，请参阅[管理提示词](/langsmith/manage-prompts#commit-tags)。
+
+## Playground
+
+Playground 提供了一个用于迭代和测试提示词的界面。您可以从侧边栏或直接从保存的提示词访问 Playground。
+
+在 Playground 中，您可以：
+
+* 更改正在使用的模型
+* 更改正在使用的提示词模板
+* 更改输出模式
+* 更改可用的工具
+* 输入要通过提示词模板运行的输入变量
+* 通过模型运行提示词
+* 观察输出
+
+<Callout type="info" icon="feather">
+在 Playground 中使用 **[Polly](/langsmith/polly)** 来优化提示词、生成工具并使用 AI 辅助创建输出模式。
+</Callout>
+
+## 测试多个提示词
+
+您可以将多个提示词添加到 Playground 以比较输出和评估性能：
+
+![将提示词添加到 Playground](/langsmith/images/add-prompt-to-playground.gif)
+
+## 在数据集上测试
+
+要在数据集上测试，请从右上方选择数据集并点击开始。您可以配置是否流式传输结果以及测试的重复次数。
+
+![在 Playground 中的数据集上测试](/langsmith/images/test-over-dataset-in-playground.gif)
+
+点击"查看实验"按钮查看详细的测试结果。
+
+---
+
+<div className="source-links">
+<Callout icon="terminal-2">
+    [Connect these docs](/use-these-docs) to Claude, VSCode, and more via MCP for real-time answers.
+</Callout>
+<Callout icon="edit">
+    [Edit this page on GitHub](https://github.com/langchain-ai/docs/edit/main/src/langsmith\prompt-engineering-concepts.mdx) or [file an issue](https://github.com/langchain-ai/docs/issues/new/choose).
+</Callout>
+</div>
